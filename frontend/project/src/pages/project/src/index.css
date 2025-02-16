@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: "SF Pro Text", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+.glass-card {
+  @apply bg-white/80 backdrop-blur-xl;
+}
+
+.input-field {
+  @apply w-full px-4 py-3 bg-gray-50/50 border border-gray-200/50 rounded-xl 
+         focus:ring-2 focus:ring-blue-500 focus:border-transparent
+         transition-colors duration-200;
+}
+
+.primary-button {
+  @apply w-full px-4 py-3 bg-blue-600 text-white rounded-xl font-medium
+         hover:brightness-105 transition-all duration-200
+         focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+}
+
+.secondary-button {
+  @apply w-full px-4 py-3 bg-white/80 backdrop-blur-sm text-gray-900 rounded-xl font-medium
+         border border-gray-200/50 hover:bg-white/90 transition-all duration-200
+         focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+}

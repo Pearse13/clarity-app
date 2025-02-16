@@ -1,0 +1,13 @@
+{
+  "name": "clarity-app",
+  "version": "1.0.0",
+  "description": "Clarity Web Application",
+  "scripts": {
+    "dev:backend": "cd backend && python -m uvicorn main:app --reload",
+    "dev:frontend": "cd frontend/project && npm run dev",
+    "dev:all": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+} 
