@@ -1,23 +1,11 @@
 import openai
 import logging
 import os
-from dotenv import load_dotenv
 from app.models import TransformationType
-
-# Load environment variables
-load_dotenv()
 
 # Configure logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
-
-# Initialize OpenAI client
-client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-# Debug print to confirm environment variable loading
-print(f"Loaded API Key: {'Yes' if os.getenv('OPENAI_API_KEY') else 'No'}")
-if os.getenv("OPENAI_API_KEY"):
-    print(f"API Key starts with: {os.getenv('OPENAI_API_KEY')[:8]}*******")
 
 def create_prompt(text: str, transform_type: TransformationType, level: int) -> str:
     if transform_type == TransformationType.SIMPLIFY:
@@ -42,8 +30,10 @@ Original text: {text}"""
 Use more advanced vocabulary, complex sentence structures, and elegant phrasing.
 Original text: {text}"""
 
-def transform_text_with_gpt(text: str, transform_type: TransformationType, level: int) -> tuple[str, dict]:
+async def transform_text_with_gpt(text: str, transform_type: TransformationType, level: int) -> tuple[str, dict]:
     try:
+        from main import client  # Import the client from main.py
+        
         logger.debug("Creating prompt...")
         prompt = create_prompt(text, transform_type, level)
         logger.debug(f"Created prompt: {prompt}")
@@ -51,7 +41,7 @@ def transform_text_with_gpt(text: str, transform_type: TransformationType, level
         logger.debug("Sending request to OpenAI...")
         logger.debug("Using model: gpt-3.5-turbo")
         
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=150,

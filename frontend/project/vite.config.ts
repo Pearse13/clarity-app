@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => {
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'Content-Security-Policy': isProd 
       ? `default-src 'self' https://${env.VITE_AUTH0_DOMAIN}; script-src 'self' https://${env.VITE_AUTH0_DOMAIN} https://cdn.auth0.com; connect-src 'self' https://${env.VITE_AUTH0_DOMAIN} ${env.VITE_API_URL}; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.auth0.com https://s.gravatar.com; font-src 'self' data:; frame-src 'self' https://${env.VITE_AUTH0_DOMAIN}; upgrade-insecure-requests;`
-      : "default-src 'self' https://*.auth0.com http://localhost:* https://cdn.auth0.com https://s.gravatar.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.auth0.com https://cdn.auth0.com http://localhost:*; connect-src 'self' https://*.auth0.com ws://localhost:* wss://localhost:* http://localhost:*; style-src 'self' 'unsafe-inline' https://*.auth0.com; img-src 'self' data: https://*.auth0.com https://s.gravatar.com; font-src 'self' data: https://*.auth0.com; frame-src 'self' https://*.auth0.com;"
+      : `default-src 'self' https://*.auth0.com https://${env.VITE_AUTH0_DOMAIN} http://localhost:* https://cdn.auth0.com https://s.gravatar.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.auth0.com https://cdn.auth0.com http://localhost:*; connect-src 'self' https://*.auth0.com https://${env.VITE_AUTH0_DOMAIN} ws://localhost:* wss://localhost:* http://localhost:*; style-src 'self' 'unsafe-inline' https://*.auth0.com; img-src 'self' data: https://*.auth0.com https://s.gravatar.com; font-src 'self' data: https://*.auth0.com; frame-src 'self' https://*.auth0.com https://${env.VITE_AUTH0_DOMAIN};`
   };
 
   return {
@@ -57,9 +57,7 @@ export default defineConfig(({ mode }) => {
     define: {
       global: 'globalThis',
       'process.env': {
-        NODE_ENV: '"development"',
-        VITE_AUTH0_DOMAIN: '"dev-8utndajax3l877vt.us.auth0.com"',
-        VITE_AUTH0_CLIENT_ID: '"eLvP3nx8vXQoopKdQESozCJmJAqZiPLg"'
+        NODE_ENV: '"development"'
       }
     },
     css: {
@@ -78,7 +76,8 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             vendor: ['react', 'react-dom', 'react-router-dom'],
             auth: ['@auth0/auth0-react']
-          }
+          },
+          input: 'src/main.tsx'
         }
       }
     },

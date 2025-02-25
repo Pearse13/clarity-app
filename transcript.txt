@@ -1,0 +1,41 @@
+Key Progress & Issues:
+
+Initial Problem:
+- Back button after login led to Auth0 Universal Login page
+- Navigation history wasn't clean after authentication
+
+Solutions Attempted:
+- Modified Auth0 login parameters to prevent multiple dialogs
+- Tried various history manipulation approaches
+- Implemented history replacement strategies
+- Added Auth0 callback handling improvements
+
+Current State:
+- We have an oscillation between states
+- This suggests our history manipulation is creating a cycle between states
+
+Next Steps:
+- Need to resolve the oscillation issue
+- Focus on preventing Auth0 from adding entries to history
+- Ensure clean navigation state after authentication
+
+Server Start Issues:
+- Attempted to start frontend and backend servers
+- PowerShell '&&' operator not supported
+- Need to run commands separately in Windows PowerShell
+
+Project Structure:
+Frontend (React + Vite):
+- Located at: frontend/project
+- Start command: npm run dev
+- Access at: http://localhost:5174
+
+Backend (FastAPI):
+- Located at: backend
+- Start command: uvicorn main:app --reload
+- Access at: http://localhost:8000
+
+Environment:
+- OS: Windows 10.0.26100
+- Shell: PowerShell
+- Workspace: C:/Users/Pmccr/clarity-app 

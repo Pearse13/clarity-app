@@ -1,4 +1,5 @@
-import React, { useRef } from 'react';
+// import React, { useRef } from 'react';
+import { useRef } from 'react';
 import { Wand2, Download } from 'lucide-react';
 
 interface LogoProps {

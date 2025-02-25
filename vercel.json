@@ -42,7 +42,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' https://*.auth0.com https://cdn.auth0.com; connect-src 'self' https://*.auth0.com https://api.openai.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.auth0.com https://s.gravatar.com; font-src 'self' data:; frame-src 'self' https://*.auth0.com; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+          "value": "default-src 'self'; script-src 'self' https://*.auth0.com https://cdn.auth0.com; connect-src 'self' https://*.auth0.com https://api.openai.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.auth0.com https://s.gravatar.com; font-src 'self' data: https://*.auth0.com https://rsms.me; frame-src 'self' https://*.auth0.com; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
         }
       ]
     },

@@ -25,6 +25,7 @@ import time
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from datetime import datetime
+from typing import Literal
 
 # Load environment variables based on environment
 def load_environment_variables():
@@ -62,7 +63,23 @@ def load_environment_variables():
             raise
     else:
         # Load from .env file in development
-        load_dotenv()
+        load_dotenv(override=True)  # Add override=True to ensure values are reloaded
+        
+        # Debug print environment variables
+        api_key = os.getenv('OPENAI_API_KEY', '')
+        print("Environment loading debug:")
+        print(f"API key type: {type(api_key)}")
+        print(f"API key length: {len(api_key)}")
+        print(f"API key first 10 chars: {api_key[:10]}")
+        print(f"API key repr: {repr(api_key)}")
+        
+        # Clean the API key
+        if api_key:
+            api_key = api_key.strip()  # Remove any whitespace
+            api_key = api_key.replace('\n', '').replace('\r', '')  # Remove any newlines
+            os.environ['OPENAI_API_KEY'] = api_key  # Set the cleaned key
+            print(f"Cleaned API key first 10 chars: {api_key[:10]}")
+            print(f"Cleaned API key repr: {repr(api_key)}")
 
 # Load environment variables before anything else
 load_environment_variables()
@@ -79,7 +96,7 @@ def create_app():
         release=os.getenv("SENTRY_RELEASE"),
         send_default_pii=True,
         server_name=os.getenv("VERCEL_URL", "localhost"),
-        debug=True,  # Enable debug mode temporarily
+        debug=True,
         integrations=[
             FastApiIntegration(transaction_style="endpoint")
         ],
@@ -118,12 +135,97 @@ def create_app():
 # Create the app instance for direct usage
 app = create_app()
 
+# Add this for ASGI factory pattern
+def get_application():
+    return app
+
 class TransformRequest(BaseModel):
     text: str
-    transformationType: str
+    transformationType: Literal["simplify", "sophisticate", "casualise", "formalise"]
     level: int
 
-client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Verify OpenAI API key is set
+if not os.getenv("OPENAI_API_KEY"):
+    raise ValueError("OPENAI_API_KEY environment variable is not set")
+
+# Enhanced OpenAI client initialization with debug logging
+print(f"Initializing OpenAI client with key preview: {os.getenv('OPENAI_API_KEY')[:8]}...")
+try:
+    client = AsyncOpenAI(
+        api_key=os.getenv("OPENAI_API_KEY"),
+        timeout=30.0,  # Increase timeout
+        max_retries=2  # Add retries
+    )
+    print("OpenAI client initialized successfully")
+except Exception as e:
+    print(f"Error initializing OpenAI client: {str(e)}")
+    raise
+
+def get_transformation_prompt(text: str, transformation_type: str, level: int) -> dict:
+    """Get the appropriate prompt for the transformation type and level."""
+    prompts = {
+        "simplify": {
+            "system_role": "You are an expert at simplifying complex text while preserving its core meaning. You adapt content for different comprehension levels with precise vocabulary control.",
+            "prompt": f"""Simplify this text to exactly match level {level}/5:
+
+Level Guidelines:
+1: Elementary (Age 7-8) - Use only basic words, very short sentences (5-7 words), and explain everything like you're talking to a young child. Break complex ideas into tiny steps.
+2: Middle School (Age 11-12) - Use simple words but allow some field-specific terms with explanations. Keep sentences short but can use compound sentences occasionally.
+3: High School (Age 14-15) - Use moderate vocabulary, allow field-specific terms, and use a mix of simple and compound sentences. Include brief explanations for complex concepts.
+4: College Freshman - Use standard vocabulary with some technical terms. Maintain clarity but don't oversimplify. Use natural sentence structures.
+5: General Adult - Keep the language straightforward but don't simplify technical terms. Focus on clarity while maintaining sophistication.
+
+Original text: {text}
+
+Transform this text to exactly match Level {level}, following the guidelines precisely."""
+        },
+        "sophisticate": {
+            "system_role": "You are an expert at elevating text to higher levels of sophistication while maintaining accuracy and enhancing meaning.",
+            "prompt": f"""Sophisticate this text to exactly match level {level}/5:
+
+Level Guidelines:
+1: Professional - Enhance vocabulary moderately, use proper business language, maintain clarity with slight formality.
+2: Academic Undergraduate - Use discipline-specific terminology, complex sentence structures, and scholarly tone. Include theoretical frameworks where relevant.
+3: Academic Graduate - Employ advanced theoretical concepts, sophisticated analysis, and field-specific jargon with precise usage.
+4: Expert/Specialist - Utilize highly technical language, complex theoretical frameworks, and demonstrate deep domain expertise.
+5: Advanced Academic - Use the most sophisticated academic language, complex philosophical concepts, and intricate theoretical analysis. Similar to published papers in top academic journals.
+
+Original text: {text}
+
+Transform this text to exactly match Level {level}, following the guidelines precisely."""
+        },
+        "casualise": {
+            "system_role": "You are an expert at making text more casual and relatable while maintaining its core message and engagement.",
+            "prompt": f"""Make this text more casual to exactly match level {level}/5:
+
+Level Guidelines:
+1: Polite Casual - Friendly and approachable but still professional. Like talking to a colleague you know well.
+2: Relaxed - More informal, using contractions and common expressions. Like talking to a friend.
+3: Very Casual - Use everyday language, slang (but keep it clean), and a conversational tone. Like texting a close friend.
+4: Super Casual - Heavy use of informal language, modern expressions, and internet-friendly language. Like posting on social media.
+5: Ultra Casual - Maximum informality, trending slang, emojis, and extremely conversational tone. Like chatting with your closest friends.
+
+Original text: {text}
+
+Transform this text to exactly match Level {level}, following the guidelines precisely."""
+        },
+        "formalise": {
+            "system_role": "You are an expert at elevating text to appropriate levels of formality while maintaining clarity and professionalism.",
+            "prompt": f"""Formalize this text to exactly match level {level}/5:
+
+Level Guidelines:
+1: Basic Professional - Clean up casual language, use proper grammar, and maintain a light professional tone. Suitable for general business email.
+2: Business Formal - Use proper business language, formal tone, and professional vocabulary. Suitable for business reports and formal communications.
+3: Executive Level - Employ sophisticated business language, industry-specific terms, and polished phrasing. Suitable for executive communications.
+4: Legal/Corporate - Use precise legal/corporate terminology, complex formal structures, and highly professional tone. Suitable for legal or official documents.
+5: Diplomatic/Governmental - Utilize the highest level of formal language, diplomatic phrasing, and institutional terminology. Suitable for diplomatic or high-level government communications.
+
+Original text: {text}
+
+Transform this text to exactly match Level {level}, following the guidelines precisely."""
+        }
+    }
+    return prompts[transformation_type]
 
 # JWT validation
 security = HTTPBearer()
@@ -134,16 +236,48 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
         # Get JWKS from Auth0
         jwks_url = f"https://{os.getenv('AUTH0_DOMAIN')}/.well-known/jwks.json"
         print(f"Fetching JWKS from: {jwks_url}")  # Debug log
+        
+        if not os.getenv('AUTH0_DOMAIN'):
+            print("AUTH0_DOMAIN not set")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Auth0 configuration missing"
+            )
+            
         async with httpx.AsyncClient() as client:
-            jwks = await client.get(jwks_url)
-            jwks = jwks.json()
+            try:
+                jwks_response = await client.get(jwks_url)
+                jwks_response.raise_for_status()  # Raise exception for non-200 responses
+                jwks = jwks_response.json()
+            except Exception as e:
+                print(f"Error fetching JWKS: {str(e)}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Error fetching JWKS: {str(e)}"
+                )
         
         # Verify token
-        unverified_header = jwt.get_unverified_header(token)
+        try:
+            unverified_header = jwt.get_unverified_header(token)
+        except Exception as e:
+            print(f"Error parsing token header: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Invalid token header: {str(e)}"
+            )
+            
         print(f"Token header: {unverified_header}")  # Debug log
-        rsa_key = {}
-        for key in jwks["keys"]:
-            if key["kid"] == unverified_header["kid"]:
+        
+        if 'kid' not in unverified_header:
+            print("No 'kid' in token header")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token header: no key ID"
+            )
+            
+        rsa_key = None
+        for key in jwks.get("keys", []):
+            if key.get("kid") == unverified_header["kid"]:
                 rsa_key = {
                     "kty": key["kty"],
                     "kid": key["kid"],
@@ -151,33 +285,39 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
                     "n": key["n"],
                     "e": key["e"]
                 }
-        if rsa_key:
-            try:
-                payload = jwt.decode(
-                    token,
-                    rsa_key,
-                    algorithms=["RS256"],
-                    audience=os.getenv("AUTH0_AUDIENCE"),
-                    issuer=f"https://{os.getenv('AUTH0_DOMAIN')}/"
-                )
-                return payload
-            except JWTError as e:
-                print(f"JWT decode error: {str(e)}")  # Debug log
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail=f"Invalid authentication credentials: {str(e)}",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unable to find appropriate key",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+                break
+                
+        if not rsa_key:
+            print(f"No matching key found for kid: {unverified_header['kid']}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Unable to find appropriate key"
+            )
+
+        try:
+            payload = jwt.decode(
+                token,
+                rsa_key,
+                algorithms=["RS256"],
+                audience=os.getenv("AUTH0_AUDIENCE"),
+                issuer=f"https://{os.getenv('AUTH0_DOMAIN')}/"
+            )
+            print(f"Token successfully verified for sub: {payload.get('sub')}")
+            return payload
+        except JWTError as e:
+            print(f"JWT decode error: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Invalid token: {str(e)}",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Auth error: {str(e)}")  # Debug log
+        print(f"Unexpected auth error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e),
+            detail=f"Authentication error: {str(e)}",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -186,83 +326,182 @@ AUTH0_CLIENT_ID = os.getenv("AUTH0_CLIENT_ID")
 AUTH0_CLIENT_SECRET = os.getenv("AUTH0_CLIENT_SECRET")
 AUTH0_CALLBACK_URL = os.getenv("AUTH0_CALLBACK_URL")
 
-def get_transformation_prompt(text: str, transformation_type: str, level: int) -> dict:
-    prompts = {
-        "simplify": {
-            "system_role": "You are an expert at simplifying text while preserving its core meaning.",
-            "prompt": f"Simplify this text to level {level}/5 (1 being most simple): {text}"
-        },
-        "sophisticate": {
-            "system_role": "You are an expert at making text more sophisticated while preserving its core meaning.",
-            "prompt": f"Make this text more sophisticated to level {level}/5 (5 being most sophisticated): {text}"
-        },
-        "casualise": {
-            "system_role": "You are an expert at making text more casual and conversational.",
-            "prompt": f"Make this text more casual to level {level}/5 (5 being most casual): {text}"
-        },
-        "formalise": {
-            "system_role": "You are an expert at making text more formal and professional.",
-            "prompt": f"Make this text more formal to level {level}/5 (5 being most formal): {text}"
-        }
-    }
-    return prompts[transformation_type]
-
 @app.post("/transformText")
 async def transform_text(request: TransformRequest, token_payload: dict = Depends(verify_token)):
-    with sentry_sdk.start_span(op="transform_text") as span:
+    try:
+        # Debug logging
+        print(f"Received request: {request}")
+        
+        # Input sanitization
+        text = request.text.strip()
+        
+        if not text:
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "Text cannot be empty"}
+            )
+            
+        # Check for potential XSS/injection
+        if any(char in text for char in "<>{}()[]'\""): 
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "Text contains invalid characters"}
+            )
+
+        if len(text) > 250:
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "Text exceeds 250 characters"}
+            )
+        
+        if request.level < 1 or request.level > 5:
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "Level must be between 1 and 5"}
+            )
+
         try:
-            # Input sanitization
-            text = request.text.strip()
-            span.set_data("text_length", len(text))
-            span.set_data("transformation_type", request.transformationType)
+            # Get transformation prompt
+            prompt_data = get_transformation_prompt(text, request.transformationType, request.level)
             
-            if not text:
-                raise HTTPException(status_code=400, detail="Text cannot be empty")
-                
-            # Check for potential XSS/injection
-            if any(char in text for char in "<>{}()[]'\""): 
-                raise HTTPException(status_code=400, detail="Text contains invalid characters")
-
-            if len(text) > 250:
-                raise HTTPException(status_code=400, detail="Text exceeds 250 characters")
+            # Debug logging
+            print(f"Sending to OpenAI: {prompt_data}")
             
-            if request.level < 1 or request.level > 5:
-                raise HTTPException(status_code=400, detail="Level must be between 1 and 5")
-                
-            if request.transformationType not in ["simplify", "sophisticate", "casualise", "formalise"]:
-                raise HTTPException(status_code=400, detail="Invalid transformation type")
-
-            # Rate limit per user (using token sub)
-            user_id = token_payload.get('sub', 'anonymous')
-            current_minute = int(time.time() / 60)
-            rate_key = f"rate_limit:{user_id}:{current_minute}"
+            # Make OpenAI request
+            response = await client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": prompt_data["system_role"]},
+                    {"role": "user", "content": prompt_data["prompt"]}
+                ],
+                temperature=0.7,
+                max_tokens=150
+            )
             
-            with sentry_sdk.start_span(op="openai_request") as openai_span:
-                prompt_data = get_transformation_prompt(text, request.transformationType, request.level)
-                openai_span.set_data("model", "gpt-3.5-turbo")
-                
-                response = await client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": prompt_data["system_role"]},
-                        {"role": "user", "content": prompt_data["prompt"]}
-                    ],
-                    temperature=0.7,
-                    max_tokens=150
-                )
-                
-                transformed_text = response.choices[0].message.content.strip()
-                openai_span.set_data("response_length", len(transformed_text))
-                
-                return {"transformedText": transformed_text}
+            transformed_text = response.choices[0].message.content.strip()
             
-        except Exception as e:
-            sentry_sdk.capture_exception(e)
-            raise HTTPException(status_code=500, detail=str(e))
+            # Debug logging
+            print(f"OpenAI Response: {transformed_text}")
+            
+            result = {"transformedText": transformed_text}
+            print(f"Sending response: {result}")
+            
+            return JSONResponse(
+                status_code=200,
+                content=result
+            )
+        except Exception as openai_error:
+            print(f"OpenAI API error: {str(openai_error)}")
+            return JSONResponse(
+                status_code=500,
+                content={"detail": f"OpenAI API error: {str(openai_error)}"}
+            )
+            
+    except Exception as e:
+        error_msg = f"Error in transform_text: {str(e)}"
+        print(error_msg)
+        return JSONResponse(
+            status_code=500,
+            content={"detail": error_msg}
+        )
 
 @app.get("/")
 async def root():
     return {"message": "Clarity API is running"}
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for API monitoring"""
+    return {
+        "status": "ok",
+        "timestamp": datetime.utcnow().isoformat(),
+        "service": "clarity-api",
+        "version": os.getenv("VERSION", "development")
+    }
+
+@app.get("/test-openai")
+async def test_openai_connection():
+    """Test the connection to OpenAI API"""
+    try:
+        print("\nTesting OpenAI connection...")
+        api_key = os.getenv('OPENAI_API_KEY', '')
+        
+        # Debug logging
+        print("\nAPI Key Debug Info:")
+        print(f"Raw key type: {type(api_key)}")
+        print(f"Raw key length: {len(api_key) if api_key else 'None'}")
+        print(f"Raw key first 10 chars: {api_key[:10] if api_key else 'None'}")
+        print(f"Raw key repr: {repr(api_key)}")
+        
+        # Clean the key
+        if api_key:
+            api_key = api_key.strip().replace('\n', '').replace('\r', '')
+            print("\nCleaned Key Debug Info:")
+            print(f"Cleaned key length: {len(api_key)}")
+            print(f"Cleaned key first 10 chars: {api_key[:10]}")
+            print(f"Cleaned key repr: {repr(api_key)}")
+        
+        if not api_key:
+            return {
+                "status": "error",
+                "message": "OpenAI API key is not set"
+            }
+        
+        # Test API key format with detailed error
+        if not (api_key.startswith('sk-') or api_key.startswith('sk-proj-')):
+            return {
+                "status": "error",
+                "message": f"Invalid API key format. Key should start with 'sk-' or 'sk-proj-'. Found: {api_key[:8]}...",
+                "api_key_preview": f"{api_key[:8]}...",
+                "debug_info": {
+                    "key_length": len(api_key),
+                    "first_10_chars": api_key[:10],
+                    "key_repr": repr(api_key[:10])
+                }
+            }
+            
+        # Make a simple request to OpenAI API
+        try:
+            response = await client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": "Say hello!"}
+                ],
+                max_tokens=10
+            )
+            return {
+                "status": "success",
+                "message": "Successfully connected to OpenAI API",
+                "response": response.choices[0].message.content.strip(),
+                "model": "gpt-3.5-turbo",
+                "api_key_preview": f"{api_key[:8]}..."
+            }
+        except Exception as api_error:
+            error_str = str(api_error)
+            print(f"OpenAI API error details: {error_str}")
+            
+            # Check for common error types
+            if "Incorrect API key provided" in error_str:
+                message = "Invalid API key. Please check your OpenAI API key."
+            elif "Connection error" in error_str:
+                message = "Cannot connect to OpenAI API. Please check your internet connection and firewall settings."
+            else:
+                message = f"OpenAI API error: {error_str}"
+                
+            return {
+                "status": "error",
+                "message": message,
+                "error_details": error_str,
+                "api_key_preview": f"{api_key[:8]}..."
+            }
+    except Exception as e:
+        print(f"Unexpected error in test_openai: {str(e)}")
+        return {
+            "status": "error",
+            "message": f"Unexpected error: {str(e)}",
+            "api_key_preview": f"{os.getenv('OPENAI_API_KEY')[:8]}..."
+        }
 
 @app.get("/sentry-debug")
 async def trigger_error():

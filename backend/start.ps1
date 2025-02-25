@@ -10,4 +10,4 @@ if (-not (Test-Path .env)) {
 }
 
 # Start uvicorn with proper configuration
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000 --reload-dir . --factory 
+python -m uvicorn main:get_application --reload --host 0.0.0.0 --port 8000 --reload-dir . 

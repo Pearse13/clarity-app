@@ -1,4 +1,4 @@
-import React from 'react';
+// import React from 'react';
 import { SIMPLIFY_LEVELS, SOPHISTICATE_LEVELS } from '../utils/constants';
 
 interface ComplexitySelectorProps {
