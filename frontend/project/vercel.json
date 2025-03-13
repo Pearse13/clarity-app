@@ -1,0 +1,13 @@
+{
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; connect-src 'self' https://*.auth0.com https://dev-8utndajax3l877vt.us.auth0.com http://localhost:8000 blob: data: https://cdn.jsdelivr.net https://*.jsdelivr.net; font-src 'self' data: https://*.auth0.com https://rsms.me https://*.rsms.me; style-src 'self' 'unsafe-inline' https://*.auth0.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.auth0.com https://cdn.auth0.com https://cdn.jsdelivr.net blob: 'wasm-unsafe-eval'; worker-src 'self' blob: https://cdn.jsdelivr.net; img-src 'self' data: https://*.auth0.com https://s.gravatar.com blob:; frame-src 'self' blob: https://*.auth0.com https://dev-8utndajax3l877vt.us.auth0.com; object-src 'self' blob:; media-src 'self' blob:; child-src 'self' blob:"
+        }
+      ]
+    }
+  ]
+} 

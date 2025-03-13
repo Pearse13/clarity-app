@@ -12,6 +12,13 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         # Regex for basic XSS pattern detection
         self.xss_pattern = re.compile(r"<script|javascript:|data:|vbscript:", re.IGNORECASE)
         
+    @staticmethod
+    def get_client_host(request: Request) -> str:
+        """Safely get client host with fallback to unknown."""
+        if request and hasattr(request, 'client') and request.client and hasattr(request.client, 'host'):
+            return str(request.client.host)
+        return "unknown"
+
     async def set_security_headers(self, response: Response, request: Request):
         """Set security headers for all responses"""
         origin = request.headers.get("Origin")
@@ -43,53 +50,70 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         return None
         
     async def dispatch(self, request: Request, call_next):
-        # Handle preflight requests
-        if request.method == "OPTIONS":
-            response = Response()
-            await self.set_security_headers(response, request)
-            return response
+        try:
+            # Log request details
+            request_data = {
+                "method": request.method,
+                "path": str(request.url.path),
+                "client_host": self.get_client_host(request),
+                "headers": dict(request.headers)
+            }
+            # Handle preflight requests
+            if request.method == "OPTIONS":
+                response = Response()
+                await self.set_security_headers(response, request)
+                return response
             
-        # Check content length for non-OPTIONS requests
-        if request.method != "OPTIONS":
-            content_length = request.headers.get("content-length", 0)
-            if int(content_length or 0) > self.max_content_length:
-                security_logger.log_security_event("content_length_exceeded", {
-                    "content_length": content_length,
-                    "max_allowed": self.max_content_length
-                })
-                return Response(
-                    content="Request too large",
-                    status_code=413
-                )
-            
-            # Validate request body for POST/PUT/PATCH
-            if request.method in ["POST", "PUT", "PATCH"]:
-                try:
-                    body = await request.json()
-                    error = self.sanitize_input(body)
-                    if error:
-                        security_logger.log_security_event("input_validation_failed", {
-                            "error": error,
-                            "client_host": request.client.host
-                        })
-                        return Response(
-                            content=error,
-                            status_code=400
-                        )
-                except Exception as e:
-                    security_logger.log_security_event("request_parsing_failed", {
-                        "error": str(e),
-                        "client_host": request.client.host
+            # Check content length for non-OPTIONS requests
+            if request.method != "OPTIONS":
+                content_length = request.headers.get("content-length", 0)
+                if int(content_length or 0) > self.max_content_length:
+                    security_logger.log_security_event("content_length_exceeded", {
+                        "content_length": content_length,
+                        "max_allowed": self.max_content_length
                     })
                     return Response(
-                        content="Invalid request body",
-                        status_code=400
+                        content="Request too large",
+                        status_code=413
                     )
+                
+                # Validate request body for POST/PUT/PATCH
+                if request.method in ["POST", "PUT", "PATCH"]:
+                    try:
+                        body = await request.json()
+                        error = self.sanitize_input(body)
+                        if error:
+                            security_logger.log_security_event("input_validation_failed", {
+                                "error": error,
+                                "client_host": self.get_client_host(request)
+                            })
+                            return Response(
+                                content=error,
+                                status_code=400
+                            )
+                    except Exception as e:
+                        security_logger.log_security_event("request_parsing_failed", {
+                            "error": str(e),
+                            "client_host": self.get_client_host(request)
+                        })
+                        return Response(
+                            content="Invalid request body",
+                            status_code=400
+                        )
         
-        # Process the request
-        response = await call_next(request)
+            # Process the request
+            response = await call_next(request)
         
-        # Add security headers
-        await self.set_security_headers(response, request)
+            # Add security headers
+            await self.set_security_headers(response, request)
         
-        return response 
+            return response 
+        except Exception as e:
+            security_logger.log_security_event("dispatch_failed", {
+                "error": str(e),
+                "client_host": self.get_client_host(request)
+            })
+            return Response(
+                content="An error occurred",
+                status_code=500
+            ) 

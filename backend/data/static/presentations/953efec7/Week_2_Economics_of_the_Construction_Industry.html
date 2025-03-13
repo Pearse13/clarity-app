@@ -1,0 +1,1011 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+     "http://www.w3.org/TR/html4/transitional.dtd">
+<html>
+<head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' http://localhost:* data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; frame-ancestors http://localhost:5174 http://localhost:8000">
+                <base target="_blank">
+            
+
+  <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
+  <title></title>
+  <meta name="generator" content="LibreOffice 25.2.1.2 (Windows)"/>
+  <meta name="created" content="00:00:00"/>
+  <meta name="changed" content="00:00:00"/>
+
+                <script>
+                document.addEventListener('mouseup', function() {
+                    const selection = window.getSelection();
+                    if (selection && selection.toString().trim()) {
+                        window.parent.postMessage({
+                            type: 'textSelection',
+                            text: selection.toString()
+                        }, 'http://localhost:5174');
+                    }
+                });
+                </script>
+            
+            <style>
+                :root {
+                    --slide-ratio: 0.5625; /* 16:9 aspect ratio */
+                    --slide-padding: 20px;
+                }
+                
+                html, body {
+                    margin: 0;
+                    padding: 0;
+                    width: 100%;
+                    height: 100%;
+                    overflow-x: hidden;
+                    overflow-y: auto;
+                    background: #f5f5f5;
+                }
+                
+                body {
+                    padding: var(--slide-padding);
+                    box-sizing: border-box;
+                    font-family: Arial, sans-serif;
+                    font-size: 16px;
+                    line-height: 1.5;
+                }
+                
+                /* Slide container */
+                .page-break, div[style*="page-break-before"] {
+                    display: block;
+                    position: relative;
+                    width: calc(100% - 2 * var(--slide-padding));
+                    max-width: 960px; /* Maximum width for slides */
+                    margin: 20px auto;
+                    padding: 0;
+                    background: white;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    border-radius: 4px;
+                    overflow: hidden;
+                }
+                
+                /* Maintain aspect ratio */
+                .page-break::before, div[style*="page-break-before"]::before {
+                    content: "";
+                    display: block;
+                    padding-top: calc(var(--slide-ratio) * 100%);
+                }
+                
+                /* Slide content wrapper */
+                .page-break > *, div[style*="page-break-before"] > * {
+                    position: relative;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    padding: 40px;
+                    box-sizing: border-box;
+                    overflow: hidden;
+                }
+                
+                /* Text content */
+                p, span {
+                    position: relative !important;
+                    margin: 0 0 0.5em 0 !important;
+                    font-size: 1em !important;
+                    line-height: 1.5 !important;
+                }
+                
+                /* Images */
+                img {
+                    max-width: 100%;
+                    height: auto;
+                    object-fit: contain;
+                }
+                
+                /* Headings */
+                h1 { font-size: 2em !important; }
+                h2 { font-size: 1.5em !important; }
+                h3 { font-size: 1.17em !important; }
+                h4 { font-size: 1em !important; }
+                h5 { font-size: 0.83em !important; }
+                h6 { font-size: 0.67em !important; }
+                
+                h1, h2, h3, h4, h5, h6 {
+                    margin: 0.5em 0 !important;
+                    line-height: 1.2 !important;
+                    font-weight: bold !important;
+                }
+                
+                /* Lists */
+                ul, ol {
+                    margin: 0.5em 0 0.5em 1.5em !important;
+                    padding: 0 !important;
+                }
+                
+                li {
+                    margin: 0.25em 0 !important;
+                    line-height: 1.5 !important;
+                }
+                
+                /* Tables */
+                table {
+                    border-collapse: collapse;
+                    margin: 1em 0 !important;
+                    width: auto !important;
+                }
+                
+                td, th {
+                    padding: 8px !important;
+                    border: 1px solid #ddd !important;
+                    font-size: 0.9em !important;
+                }
+                
+                /* Fix positioning */
+                [style*="position:"] {
+                    position: relative !important;
+                }
+                
+                [style*="left:"], [style*="top:"] {
+                    left: auto !important;
+                    top: auto !important;
+                }
+                
+                /* Ensure text is readable */
+                * {
+                    font-family: Arial, sans-serif !important;
+                    color: #333 !important;
+                    background: transparent !important;
+                }
+                
+                /* Responsive adjustments */
+                @media (max-width: 768px) {
+                    body {
+                        padding: 10px;
+                    }
+                    
+                    .page-break > *, div[style*="page-break-before"] > * {
+                        padding: 20px;
+                    }
+                    
+                    :root {
+                        --slide-padding: 10px;
+                    }
+                }
+            </style>
+            </head>
+<body>
+<h1></h1>
+<p><b>ulster.ac.uk</b></p>
+<p><b>BEN130</b></p>
+<p><b>Built Environment Economics</b></p>
+<p><b>Week 2 – Economics of the </b></p>
+<p><b>Construction Industry</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Lecture Content</b></p>
+<p>•</p>
+<p>Nature of the UK construction industry.</p>
+<p>•</p>
+<p>Demand and supply conditions within the industry.</p>
+<p>•</p>
+<p>Pricing in the construction industry.</p>
+<p>•</p>
+<p>Structure of the industry.</p>
+<p>•</p>
+<p>Labour and productivity in the industry.</p>
+<p>•</p>
+<p>Innovation and standardisation.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Lecture Key Learning Points</b></p>
+<p>•</p>
+<p>The importance of the industry to the economy and real </p>
+<p>property.</p>
+<p>•</p>
+<p>To recognise special features of demand and supply which </p>
+<p>result in a large number of small firms.</p>
+<p>•</p>
+<p>The meaning and issues associated with collusive tendering.</p>
+<p>•</p>
+<p>The functions and roles of builders merchants – suppliers to </p>
+<p>larger constructors.</p>
+<p>•</p>
+<p>How labour and productivity in the industry can be improved.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Nature of the UK </b></p>
+<p><b>Construction Industry</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Nature of the Construction Industry</b></p>
+<p>•</p>
+<p>Standard Industry Classification – <b>Construction</b></p>
+<p>•</p>
+<p>Separate operations of:</p>
+<p>•</p>
+<p>Design</p>
+<p>•</p>
+<p>Production, and</p>
+<p>•</p>
+<p>Assembly</p>
+<p>•</p>
+<p>The contribution to GNP is the value added to the inputs </p>
+<p>of materials and services from other industries.</p>
+<p>•</p>
+<p>In 2008, 7.57% of GDP, in 2009 6.95%, in 2022 6.90%.</p>
+<p>•</p>
+<p>Sometimes contribution expressed as Gross Fixed </p>
+<p>Capital Formation (GFCF) ‘expenditure on fixed assets’ </p>
+<p>(buildings and dwellings) in 2008 was 53%.</p>
+<p>•</p>
+<p>Construction efficiency is vital to real property.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Construction Efficiency Principles</b></p>
+<p>1.</p>
+<p>An increase in efficiency will tend to accelerate </p>
+<p>redevelopment – makes sense, in that it will be relatively </p>
+<p>cheaper to provide a replacement building.</p>
+<p>2.</p>
+<p>Greater efficiency will lead to a higher proportion of </p>
+<p>capital being combined with land, as capital, in the form </p>
+<p>of buildings, is made cheaper relative to land – </p>
+<p>development is more intensive.</p>
+<p>3.</p>
+<p>Given no change in the overall demand for </p>
+<p>accommodation, greater intensity will tend to produce </p>
+<p>increased land values in the centre of the urban region </p>
+<p>compared with the periphery.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Is the Construction Industry Inefficient?</b></p>
+<p>1.</p>
+<p>Cumbersome pricing procedures – supply chain pricing  </p>
+<p>processes and tender time periods?</p>
+<p>2.</p>
+<p>High preponderance of small firms?</p>
+<p>3.</p>
+<p>Distribution of materials through ‘builders merchants’?</p>
+<p>4.</p>
+<p>Large proportion of casual labour (labour only sub-</p>
+<p>contractors) resulting in a high level of unemployment?</p>
+<p>5.</p>
+<p>Comparatively small increase in output / worker over time?</p>
+<p>6.</p>
+<p>A low level of mechanization?</p>
+<p>7.</p>
+<p>Failure to adopt modern techniques of mass production?</p>
+<p>Confusion of technical efficiency with economic efficiency?</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Demand &amp; Supply Conditions </b></p>
+<p><b>in the Construction Industry</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Special Aspects of Construction Demand</b></p>
+<p>•</p>
+<p>Clients individual specification for buildings requires a bespoke </p>
+<p>or tailor-made product from supply side.</p>
+<p>•</p>
+<p>Building durability ensures circa 50% of industry output is in </p>
+<p>repair and maintenance sector – products last but have needs.</p>
+<p>•</p>
+<p>Products used are mainly capital goods, expensive relative to </p>
+<p>income, purchased through borrowed funds. Demand is </p>
+<p>dependent upon the cost of credit. High interest rates therefore </p>
+<p>hurt the industry.</p>
+<p>•</p>
+<p>Subject to seasonal and cyclical fluctuations – vulnerable to </p>
+<p>private sector fluctuations in demand, expectations, rise in cost </p>
+<p>of borrowing or changes related to level of income.</p>
+<p>•</p>
+<p>Government policy, taxation and subsidies – circa 25% of the </p>
+<p>industry product is for public sector – note impact of austerity on </p>
+<p>expenditure on capital projects nationally and locally.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Distinctive features of Supply</b></p>
+<p>•</p>
+<p>As an assembly industry, its operations are consecutive </p>
+<p>whereas in manufacturing industries operations are </p>
+<p>concurrent.</p>
+<p>•</p>
+<p>Work is carried out on site – impact of weather, material </p>
+<p>storage, moving labour &amp; equipment and work supervision.</p>
+<p>•</p>
+<p>Minimal technical unit is small – so vertical disintegration.</p>
+<p>•</p>
+<p>Labour costs form a high proportion – 33-50%* of total </p>
+<p>project costs.</p>
+<p>•</p>
+<p>Time lag between response of supply to a change in </p>
+<p>demand regarded as a built-in mechanism to produce short </p>
+<p>term fluctuations in activity.</p>
+<p>•</p>
+<p>Payments to suppliers are in stages, subject to specific </p>
+<p>contract provisions – interim, monthly, on completion.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Pricing in the </b></p>
+<p><b>Construction Industry</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Pricing in the Industry</b></p>
+<p>1.</p>
+<p>Contractors</p>
+<p>•</p>
+<p>Tenders</p>
+<p>•</p>
+<p>Negotiated contracts</p>
+<p>•</p>
+<p>Package deals</p>
+<p>•</p>
+<p>Fee construction: management contracting</p>
+<p>Efficient pricing ensures that client requirements are met at the </p>
+<p>lowest possible price.</p>
+<p>The building is usually constructed by the most efficient firm at a </p>
+<p>price that just covers total costs – assumes competition amongst </p>
+<p>firms!</p>
+<p>2.</p>
+<p>Speculative Builders</p>
+<p>(Jowsey, p.283-287)</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Contractors</b></p>
+<p><b>Tenders</b></p>
+<p>1.</p>
+<p>Competition assumes many firms will tender – not always the </p>
+<p>case in ‘boom periods’.</p>
+<p>2.</p>
+<p>Lowest price is not always from the most efficient contractor. </p>
+<p>Why?</p>
+<p>3.</p>
+<p>Pricing risk lies with the supplier – fixed price, no opportunity to </p>
+<p>adjust selling price before or during production.</p>
+<p>4.</p>
+<p>On longer term contracts ‘rise and fall’ or fluctuation clauses </p>
+<p>may reduce risk – however may also be a disincentive to </p>
+<p>contractor to procure lowest price materials.</p>
+<p>5.</p>
+<p>Process – open tender or select (restricted) lists of tenderers.</p>
+<p>6.</p>
+<p>Award criteria – price is not the only criteria for contractor </p>
+<p>selection by Clients? Some Clients assess quality at tender </p>
+<p>stage.</p>
+<h1 style="page-break-before:always; "></h1>
+<p>Project Manager</p>
+<p>BCC Client</p>
+<p>Architect</p>
+<p>QS</p>
+<p>C&amp;S</p>
+<p>M&amp;E</p>
+<p>PS</p>
+<p>Others</p>
+<p>Contractor</p>
+<p>Specialist </p>
+<p>subcontractors &amp; </p>
+<p>suppliers</p>
+<p>Suppliers</p>
+<p>Subcontractors</p>
+<p>Project Delivery Relationship</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>The Open Procedure … (anyone can tender)</b></p>
+<p><b>ITT</b></p>
+<p><b>Tenders</b></p>
+<p><b>Preferred</b></p>
+<p><b>Tenderer</b></p>
+<p><b>Award</b></p>
+<p><b>OJEU</b></p>
+<p><b>Clarification</b></p>
+<p><b>Tender </b></p>
+<p><b>Evaluation </b></p>
+<p><b>Clarification</b></p>
+<p><b>www.ulster.ac.uk/ceni                        </b></p>
+<p><b>   Best Practice | Innovation | Best Value </b></p>
+<p><i>DIAGRAM: ARTHUR COX</i></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>The Restricted Procedure … (a Select List)</b></p>
+<p><b>Pre-qual</b></p>
+<p><b>Tenders</b></p>
+<p><b>Preferred</b></p>
+<p><b>Tenderer</b></p>
+<p><b>Award</b></p>
+<p><b>OJEU</b></p>
+<p><b>Clarification</b></p>
+<p><b>Tender </b></p>
+<p><b>Evaluation </b></p>
+<p><b>Clarification</b></p>
+<p><b>ITT</b></p>
+<p><b>Pre-qual </b></p>
+<p><b>evaluation</b></p>
+<p><b>www.ulster.ac.uk/ceni                        </b></p>
+<p><b>   Best Practice | Innovation | Best Value </b></p>
+<p><i>DIAGRAM: ARTHUR COX</i></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Awarding a Contract on …</b></p>
+<p>•</p>
+<p>Price – lowest price?</p>
+<p>•</p>
+<p>Price and Quality – by setting a </p>
+<p>Price / Quality Ratio?</p>
+<p>•</p>
+<p>Quality – by setting a Price and </p>
+<p>assessing tenders on Quality?</p>
+<h1 style="page-break-before:always; "></h1>
+<p>Falls Leisure Centre, Belfast</p>
+<p>Gilbert Ash Ltd</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Contractors</b></p>
+<p><b>Negotiated contract</b></p>
+<p>•</p>
+<p>Tendering usually relies on separation of design &amp; </p>
+<p>construction functions (Jowsey, p.255) but not always.</p>
+<p>•</p>
+<p>Asset delivery (construction) could be just as acceptable </p>
+<p>(functionally, aesthetically) and at a lower price if </p>
+<p>delivered by a contractor through a Design &amp; Build (D&amp;B) </p>
+<p>or a negotiated contract.</p>
+<p>•</p>
+<p>Usually for specialised project where tendering would not </p>
+<p>be appropriate &amp; tenders would result in a higher price.</p>
+<p>•</p>
+<p>Negotiation could then lead to serial contracting (multiple </p>
+<p>contracts with one contractor) - large-scale economies </p>
+<p>may occur, should result in keener prices for the client.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Ulster Hospital</b></p>
+<p><b>Graham BAM</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Contractors</b></p>
+<p><b>The Package Deal</b></p>
+<p>•</p>
+<p>Contractor offers an ‘all-in’ comprehensive service from </p>
+<p>the design to the complete building at an inclusive figure.</p>
+<p>•</p>
+<p>Usually used where a limited choice of design is </p>
+<p>acceptable (factories, farm buildings, etc) – may be </p>
+<p>extended to offices (e.g Invest NI, McAleer &amp; Rushe).</p>
+<p>•</p>
+<p>Client is aware of initial capital cost, greater speed of </p>
+<p>erection and lower costs.</p>
+<p>•</p>
+<p>Client will usually have independent specialist </p>
+<p>construction advisors to advise and manage processes.</p>
+<p>•</p>
+<p>Similar to current NI procurement of public buildings </p>
+<p>using D&amp;B (since 2007).</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Invest NI HQ</b></p>
+<p><b>McAleer &amp; Rushe</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Contractors</b></p>
+<p><b>Fee Construction: Management Contracting</b></p>
+<p>•</p>
+<p>‘Fee construction’ arrangements.</p>
+<p>•</p>
+<p>Client &amp; Contractor negotiate a fee for Management </p>
+<p>Services, the Client covering all construction costs.</p>
+<p>•</p>
+<p>May be designed by Client’s designers (or some design by </p>
+<p>Contractor employed designers).</p>
+<p>•</p>
+<p>Collaborative working relationship, however reduces </p>
+<p>Contractor’s financial risk.</p>
+<p>•</p>
+<p>Work progressed by Work Packages (substructure, </p>
+<p>steelwork, roof, finishes, etc).</p>
+<p>•</p>
+<p>Cost control on site depends on Contractor’s professional  </p>
+<p>integrity &amp; expectation of repeat business (Jowsey, p.286).</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Europa Hotel Extension</b></p>
+<p><b>Laing Northern Ireland</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Speculative Builders</b></p>
+<p>Resemble manufacturers – produce buildings (houses) in anticipation of </p>
+<p>demand &amp; when demand is rising.</p>
+<p>Selling price of houses (units) determines the bid price for the land. </p>
+<p>Development process takes time.</p>
+<p>This price paid for the land is important - expensive at time of boom – relatively </p>
+<p>cheap in recession!</p>
+<p>However rising house prices, with other fixed costs, will increase economic rent </p>
+<p>on the land and thus super-normal profit – hence speculative nature of sector.</p>
+<p>House prices can be volatile! Supply time lag makes it a risky business – </p>
+<p>builders usually undertake this in conjunction with normal main contract work.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Collusive Tendering?</b></p>
+<p><b>Evidence of Collusion between Contractors?</b></p>
+<p>•</p>
+<p>Office of Fair Trading (OFT) report 2009. </p>
+<p>•</p>
+<p>103 UK companies fined £130m for illegally colluding in </p>
+<p>bids to secure schools a hospital building contracts.</p>
+<p>•</p>
+<p>Some big names Kier Group, Balfour Beatty</p>
+<p>•</p>
+<p>4000 tenders were effected by – </p>
+<p>•</p>
+<p>Anti-competitive activities (‘Cartels’)</p>
+<p>•</p>
+<p>Cover pricing – submission of artificially high prices</p>
+<p>•</p>
+<p>Successful bidders compensating losing bidders for the </p>
+<p>cost of tendering</p>
+<p>•</p>
+<p>Clients may have paid more than 10% above ‘real price’!!</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Structure of the </b></p>
+<p><b>Construction Industry</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Structure of UK Construction Industry</b></p>
+<p>•</p>
+<p>Contractors – large &amp; small (see EU definition of SME’s).</p>
+<p>•</p>
+<p>Small firms pre-dominate: &lt;25 employees cover 96.8% of all </p>
+<p>firms (Jowsey, p.287) but account in value for only 29% of </p>
+<p>total work.</p>
+<p>•</p>
+<p>Demand is characterised by relatively small contracts, </p>
+<p>individual in nature, demand fluctuates, disproportionately </p>
+<p>high overheads, underutilised specialist equipment.</p>
+<p>•</p>
+<p>Supply also favours small firms, supervision &amp; management </p>
+<p>control difficulties, vertical dis-integration through sub-</p>
+<p>contractor use and consecutive nature of work.</p>
+<p>•</p>
+<p>Small business owners accept lower returns; rate of </p>
+<p>bankruptcies in construction twice that of other industries.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Structure of UK Construction Industry</b></p>
+<p><b>Builders Merchants</b></p>
+<p>•</p>
+<p>The ‘middlemen’ – between manufacturer &amp; builder.</p>
+<p>•</p>
+<p>Specialisations</p>
+<p>•</p>
+<p>Stockists of heavy materials e.g. bricks, aggregates, etc.</p>
+<p>•</p>
+<p>Merchants e.g. Wickes, B&amp;Q, Beggs &amp; Partners, MacBlair.</p>
+<p>•</p>
+<p>Specialist shops, e.g. ironmongery, glass, electrical.</p>
+<p>•</p>
+<p>Local shops e.g. paint, tiles, fittings,.</p>
+<p>•</p>
+<p>Variation in size of specialisation e.g. Jewson</p>
+<p>•</p>
+<p>18% mark up in some cases required to cover stock costs</p>
+<p>•</p>
+<p>Cash discounts and normal profit also applied and mark-up </p>
+<p>on manufacturers prices varies between 30 – 50%.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Structure of UK Construction Industry</b></p>
+<p><b>Functions of the Builders Merchants</b></p>
+<p>•</p>
+<p>Economising in distribution</p>
+<p>•</p>
+<p>Holding stocks</p>
+<p>•</p>
+<p>Transporting goods</p>
+<p>•</p>
+<p>Granting credit</p>
+<p>•</p>
+<p>Giving technical advice</p>
+<p>•</p>
+<p>Promoting new products</p>
+<p>Recent trends has seen amalgamations to achieve </p>
+<p>rationalisation of activities, merchant chains stocking only </p>
+<p>standardise products with short life.</p>
+<h1 style="page-break-before:always; "></h1>
+<p>Construction Skills Network </p>
+<p>Forecast 2018-2022 </p>
+<p>(CITB &amp; Experian)</p>
+<h1 style="page-break-before:always; "></h1>
+<p>Construction Skills Network </p>
+<p>Forecast 2018-2022 </p>
+<p>(CITB &amp; Experian)</p>
+<h1 style="page-break-before:always; "></h1>
+<p>Construction Skills Network </p>
+<p>Forecast 2018-2022 </p>
+<p>(CITB &amp; Experian)</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>NI Construction Industry</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>NI Construction Policy</b></p>
+<p><b>Construction &amp; Procurement Delivery (CPD)</b></p>
+<p>Construction &amp; Procurement Delivery (CPD) helps clients across the NI public </p>
+<p>sector deliver successful projects. </p>
+<p><b>https://www.finance-ni.gov.uk/construction-procurement-delivery </b></p>
+<h1 style="page-break-before:always; "></h1>
+<p>www.ulster.ac.uk/ceni</p>
+<p>                      Best Practice | Innovation | Best Value </p>
+<h1 style="page-break-before:always; "></h1>
+<p>Construction Skills Network </p>
+<p>Forecast 2018-2022 </p>
+<p>(CITB &amp; Experian)</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>NI Construction Industry Outlook 2023</b></p>
+<p><b>CEF Survey June – December 2022</b></p>
+<p>•</p>
+<p>Looking at 2022, 50% said their profit margins had worsened or </p>
+<p>significantly worsened in comparison to 2021. Over the same </p>
+<p>period, 20% had seen an improvement in profit margins</p>
+<p>•</p>
+<p>62% of respondents do not expect their annual turnover to </p>
+<p>increase in 2023. Indeed, some 43% are looking to consolidate </p>
+<p>their business over the coming 12 months – with 27% looking </p>
+<p>to increase profitability </p>
+<p>•</p>
+<p>67% of firms said they were either at full or almost full capacity. </p>
+<p>Only 7% currently had capacity for significant levels of new </p>
+<p>work</p>
+<p>•</p>
+<p>Materials availability challenges have receded – 80% saying </p>
+<p>any issues are now manageable </p>
+<p>•</p>
+<p>Inflationary issues remain – 63% of respondents said these </p>
+<p>were continuing to pose serious financial concerns and 85% </p>
+<p>said they expect material costs to continue to rise</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>NI Construction Industry Outlook 2023</b></p>
+<p><b>CEF Survey June – December 2022</b></p>
+<p>•</p>
+<p>On existing public sector supports – since the introduction </p>
+<p>of PAN 01/21 in August 2021, at least £21.5 million has </p>
+<p>been paid out to firms on existing public sector contracts </p>
+<p>to help with inflationary pressures and materials delays</p>
+<p>•</p>
+<p>On future public sector projects - 81% wanted to see </p>
+<p>alternative forms of contract, specifically two-stage </p>
+<p>tendering, brought in for public sector works such as new </p>
+<p>schools and healthcare facilities</p>
+<p>•</p>
+<p>Only 13% of respondents see increased public and private </p>
+<p>sector opportunities in Northern Ireland in 2023. Some </p>
+<p>60% see the local market declining further in activity</p>
+<p>•</p>
+<p>Four main challenges, in order, into 2023: Increased cost </p>
+<p>of materials; Inflation; Access to skilled labour and; </p>
+<p>Political uncertainty/no functioning NI Executive</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Labour in the </b></p>
+<p><b>Construction Industry</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Labour in the UK Construction Industry</b></p>
+<p><b>People &amp; Employment</b></p>
+<p>•</p>
+<p>Total labour &gt;2m; 67% skilled craftsmen; 88.5% male.</p>
+<p>•</p>
+<p>Features – one-man band, labour-only subcontractors, </p>
+<p>high rate of unemployment &amp; low productivity per worker.</p>
+<p>•</p>
+<p>Labour only sub-contracting predominates with problems </p>
+<p>– tax evasion, lack of apprentices, lack of coordination &amp; </p>
+<p>collaboration with other sub-contractors.</p>
+<p>•</p>
+<p>Rates of redundancy in autumn &amp; winter!!</p>
+<p>•</p>
+<p>High labour turnover; only key workers retained.</p>
+<p>•</p>
+<p>Frictional unemployment occurs, region by region.</p>
+<p>•</p>
+<p>Structured unemployment exists – due to long term </p>
+<p>changes in demand or introduction of supply side </p>
+<p>innovation / techniques.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Labour in the UK Construction Industry</b></p>
+<p><b>Characterised by:</b></p>
+<p>•</p>
+<p>Fragmentation of trade unions.</p>
+<p>•</p>
+<p>Poor site performance.</p>
+<p>•</p>
+<p>Poor welfare and hygiene arrangements.</p>
+<p>•</p>
+<p>Lack of supervision leading to poor productivity.</p>
+<p>•</p>
+<p>Material shortages &amp; delivery problems and associated </p>
+<p>non-productive time.</p>
+<p>•</p>
+<p>Lack of team spirit?</p>
+<p>•</p>
+<p>Health and safety issues.</p>
+<p>•</p>
+<p>Disconnect between management and labour resource.</p>
+<p>•</p>
+<p>Recent initiatives – Target bonus schemes, Buildsafe NI.</p>
+<h1 style="page-break-before:always; "></h1>
+<p>Construction Skills Network </p>
+<p>Forecast 2018-2022 </p>
+<p>(CITB &amp; Experian)</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Factors Limiting Construction Activity</b></p>
+<p>RICS, 2019</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Productivity in the </b></p>
+<p><b>Construction Industry</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Productivity in UK Construction Industry</b></p>
+<p>•</p>
+<p>Increased productivity  = given output achieved at lower cost – </p>
+<p>supply curve shifts to right (improved machines, training of </p>
+<p>workers) = rise in the Marginal Revenue Product (MRP) = in </p>
+<p>theory, wage increases for employees.</p>
+<p>•</p>
+<p>Increases in labour productivity in the industry lag behind those </p>
+<p>in the economy – reason is low level of mechanisation.</p>
+<p>•</p>
+<p>Slower growth in industry’s productivity as the real cost of </p>
+<p>building tends to increase relatively to costs in general.</p>
+<p>•</p>
+<p>Capital is also not a good substitute for general labour or skilled </p>
+<p>workers.</p>
+<p>•</p>
+<p>Tendency towards self-employment since 1970 has hindered </p>
+<p>productivity increases (Winch, 1998).</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Skill Shortages</b></p>
+<p>RICS, </p>
+<p>2019</p>
+<h1 style="page-break-before:always; "></h1>
+<p>Construction Skills Network </p>
+<p>Forecast 2018-2022 </p>
+<p>(CITB &amp; Experian)</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Innovation &amp; Standardisation</b></p>
+<p><b>in the </b></p>
+<p><b>Construction Industry</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Standardisation</b></p>
+<p>•</p>
+<p>No real opportunity to create ‘mass demand’ through </p>
+<p>advertising - as in manufacturing or retail sector.</p>
+<p>•</p>
+<p>Mass demand for many buildings in some sectors not there</p>
+<p>•</p>
+<p>Recent trends towards ‘system building’ – use of off-site </p>
+<p>construction, modern methods – design, fabrication, </p>
+<p>construction in the factory then delivered to site.</p>
+<p>•</p>
+<p>‘Industrialised building’ has failed to gain an advantage over </p>
+<p>traditional methods (Jowsey, p303).</p>
+<p>•</p>
+<p>Open systems – ‘off-the-peg’ components to achieve </p>
+<p>design to meet client requirements.</p>
+<p>•</p>
+<p>Closed systems – one manufacturer who provides all </p>
+<p>components in factory and also erects on site.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Standardisation</b></p>
+<p><b>Reasons for lack of standardisation</b></p>
+<p>•</p>
+<p>Materials account for 50% of the cost of a building, labour </p>
+<p>33% - therefore a 25% increase in material cost requires a </p>
+<p>37.5% saving in labour cost to break even!! (Jowsey, p304)</p>
+<p>•</p>
+<p>Off-site construction increases transport costs.</p>
+<p>•</p>
+<p>Higher capital outlay for cranes for lifting.</p>
+<p>•</p>
+<p>Product inflexibility – no modifications possible for change </p>
+<p>of client requirements – can be achieved but is expensive.</p>
+<p>•</p>
+<p>Elimination of competition – only a few suppliers for </p>
+<p>particular products/solutions – monopolies, both buyers and </p>
+<p>sellers – deal done on relative buying strengths.</p>
+<p>•</p>
+<p>Traditional construction now makes use of factory </p>
+<p>components through ‘dimensional coordination’.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Innovation</b></p>
+<p>•</p>
+<p>Characteristics and nature of construction present </p>
+<p>formidable obstacles to innovation.</p>
+<p>•</p>
+<p>Individual organisation labour-incentive schemes.</p>
+<p>•</p>
+<p>Improvements in project &amp; company organisation.</p>
+<p>•</p>
+<p>Lean construction processes &amp; techniques.</p>
+<p>•</p>
+<p>Use of standardised components.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Achieving Excellence Initiative in NI</b></p>
+<p><b>Initiative into </b></p>
+<p><b>action</b></p>
+<p><b>Project organisation</b></p>
+<p><b>Project </b></p>
+<p><b>procurement </b></p>
+<p><b>lifecycle</b></p>
+<p><b>Procurement and </b></p>
+<p><b>contract strategies</b></p>
+<p><b>Integrated </b></p>
+<p><b>project team</b></p>
+<p><b>Whole life </b></p>
+<p><b>costing</b></p>
+<p><b>Sustainability</b></p>
+<p><b>Risk and value </b></p>
+<p><b>management</b></p>
+<p><b>Design quality</b></p>
+<p><b>Health &amp; safety</b></p>
+<p><b>Improving </b></p>
+<p><b>performance</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Integrated Design &amp; Construction Process in NI</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>The Quality Driven Agenda in NI – IST Response</b></p>
+<p><b>www.ulster.ac.uk/ceni                         Best Practice | Innovation | Best Value </b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Technologies Contribution</b></p>
+<p><b>Tackling Shortages – Hadrian X</b></p>
+<p>•</p>
+<p>Robotic bricklaying system invented by Australian company FastBrick.</p>
+<p>•</p>
+<p>FastBrick have been continually developing Hadrian X since 2006. Currently the robot </p>
+<p>has a laying output of 1000 bricks per day. The human average is 300/400. </p>
+<p>•</p>
+<p>In 2018 Hadrian X completed unassisted construction of a 180m2 three-bedroom, two-</p>
+<p>bathroom house in two days using a variety of brick sizes and laying techniques. </p>
+<p>•</p>
+<p>Hadrian X completed its first outdoor structure in February 2019, operating through high </p>
+<p>winds and low light scenarios whilst achieving accuracy.</p>
+<p>•</p>
+<p> </p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Technologies Contribution </b></p>
+<p><b>Tackling Shortages – Artificial Intelligence</b></p>
+<p>•</p>
+<p>Komatsu are currently developing automated bulldozers which include several digital </p>
+<p>features.</p>
+<p>•</p>
+<p>Aided by 3D scanners, cameras and drones that monitor terrain, these automated </p>
+<p>bulldozers are being developed to carry out groundworks under human supervision  </p>
+<p>•</p>
+<p>The drones which Komatsu use, also map out the site in its construction stages, </p>
+<p>producing a site map. </p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Technologies Contribution</b></p>
+<p><b>Reducing workloads</b></p>
+<p>•</p>
+<p>In 2017, the RICS compiled a report ‘the impact of emerging technologies on </p>
+<p>the surveying profession’ </p>
+<p>•</p>
+<p>This report indicates that over recent years, a large section of surveying </p>
+<p>workloads have been minimised by the help of technology.</p>
+<p>•</p>
+<p>The digitalisation of the construction industry combined with the increase in </p>
+<p>communication via mobile apps is continuing to improve the productivity of </p>
+<p>the industry. </p>
+<p>•</p>
+<p>The incorporation of digital project management platforms can improve the </p>
+<p>efficiency of a UK project by up to 70% </p>
+<p>(PCN 2019) </p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Technologies Contribution</b></p>
+<p>RICS table showing the vulnerability of </p>
+<p>certain surveying tasks now and over </p>
+<p>the next decade (Thompson, 2017).</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Innovation</b></p>
+<p><b>Lean Principles</b></p>
+<p>•</p>
+<p>Eliminate waste.</p>
+<p>•</p>
+<p>Precisely specify value from the end-user perspective.</p>
+<p>•</p>
+<p>Customer ‘value-stream’ – eliminate non-value adding </p>
+<p>steps.</p>
+<p>•</p>
+<p>Manage interfaces between steps in the process.</p>
+<p>•</p>
+<p>‘Pull-Push’ – don’t make anything before it is needed – </p>
+<p>‘just-in-time’ principles of production supply</p>
+<p>•</p>
+<p>Perfection by continuous improvement</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Innovation</b></p>
+<p><b>Lean Construction Techniques</b></p>
+<p>•</p>
+<p>Supply chain management.</p>
+<p>•</p>
+<p>Transparency of costs – ‘open book accounting’ contracts.</p>
+<p>•</p>
+<p>Elimination of design and construction waste.</p>
+<p>•</p>
+<p>Benchmarking – best possible production methods and </p>
+<p>outputs.</p>
+<p>•</p>
+<p>Risk management.</p>
+<p>•</p>
+<p>Just-in-time delivery of materials to reduce need for storage.</p>
+<p>•</p>
+<p>Does not always have to be a trade-off between time, cost &amp; </p>
+<p>quality.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>World Kita-Ayoyama Building in Japan</b></p>
+<p><b>Worker Control</b></p>
+<p>The project is controlled by the main board (Visual management) the centre piece is the clock which determines the </p>
+<p>day’s activities, the names of the collaborating companies, the logistics plans and health and safety information. </p>
+<p><i>Key</i></p>
+<p><i>1  Project mission and vision</i></p>
+<p><i>2 Project Clock</i></p>
+<p><i>3 Logistics information and awareness</i></p>
+<p><i>4 Health and safety information and collaborating </i></p>
+<p><i>companies</i></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Innovation – Offsite Construction</b></p>
+<p>•</p>
+<p>Characteristics and nature of construction present </p>
+<p>formidable obstacles to innovation.</p>
+<p>•</p>
+<p>Individual organisation labour-incentive schemes.</p>
+<p>•</p>
+<p>Improvements in project &amp; company organisation.</p>
+<p>•</p>
+<p>Lean construction processes &amp; techniques.</p>
+<p>•</p>
+<p>Use of standardised components.</p>
+<h1 style="page-break-before:always; "></h1>
+<p>RICS table showing the vulnerability of </p>
+<p>certain surveying tasks now and over </p>
+<p>the next decade (Thompson, 2017).</p>
+<h1 style="page-break-before:always; "></h1>
+<h1 style="page-break-before:always; "></h1>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Technologies Contribution</b></p>
+<p>RICS table showing the vulnerability of </p>
+<p>certain surveying tasks now and over </p>
+<p>the next decade (Thompson, 2017).</p>
+<h1 style="page-break-before:always; "></h1>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Pods </b></p>
+<p><b>Kitchens &amp; Bathrooms</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Pods </b></p>
+<p><b>Kitchens &amp; Bathrooms</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Summary</b></p>
+<p>•</p>
+<p>UK construction industry 7% of GDP; employs &gt;£2m people.</p>
+<p>•</p>
+<p>Efficiency important to real property – impacts upon construction </p>
+<p>and maintenance of buildings / assets.</p>
+<p>•</p>
+<p>Small firms &amp; high amount of casual labour gives impression of </p>
+<p>inefficiency but demand conditions are unique; supply conditions </p>
+<p>(consecutive operations, on-site production, small technical unit </p>
+<p>size, high labour costs, time lags) also very distinctive.</p>
+<p>•</p>
+<p>Unique interaction of demand and supply side through a wide </p>
+<p>variety of procurement / tendering arrangements.</p>
+<p>•</p>
+<p>Output per worker could be increased by labour incentive </p>
+<p>initiatives and substitution of capital for labour but skilled labour </p>
+<p>vital for industry – many small jobs are labour intensive.</p>
+<p>•</p>
+<p>‘Mass manufacturing’ has not been possible or fully embraced – </p>
+<p>but innovation through BIM, technology, new supply chain </p>
+<p>management approaches, lean construction, greater use of off-</p>
+<p>site manufacturing / construction could improve productivity.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Additional Reading!!</b></p>
+<p><b>Sources of Information</b></p>
+<p>•</p>
+<p>Office of National Statistics (ONS) https://www.ons.gov.uk/</p>
+<p>•</p>
+<p>NI Executive https://www.northernireland.gov.uk/</p>
+<p>•</p>
+<p>Northern Ireland Statistics &amp; Research Agency https://www.nisra.gov.uk/</p>
+<p>•</p>
+<p>Northern Ireland Audit Office (NIAO) https://www.niauditoffice.gov.uk/</p>
+<p>•</p>
+<p>Construction Employers Federation https://www.cefni.co.uk/</p>
+<p>•</p>
+<p>Chartered Institute of Building (CIOB) https://www.ciob.org/</p>
+<p>•</p>
+<p>Royal Institution of Chartered Surveyors (RICS) https://www.rics.org/uk/</p>
+<p>•</p>
+<p>Construction Industry Training Board (UK) https://www.citb.co.uk/</p>
+<p>•</p>
+<p>Construction Industry Training Board(NI) https://www.citbni.org.uk/home.aspx</p>
+<p>•</p>
+<p>Federation of Master Builders https://www.fmb.org.uk/</p>
+<p>•</p>
+<p>NI Federation of Housing Associations https://nifha.org/</p>
+<p>•</p>
+<p>Constructing Excellence https://www.constructingexcellence.org.uk/</p>
+<p>•</p>
+<p>Northern Ireland Audit Office (NIAO) https://www.niauditoffice.gov.uk/</p>
+<p>•</p>
+<p>Tier One Contractors websites: Graham, Farrans, OHMG, McAleer &amp; Rushe</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>ulster.ac.uk</b></p>
+<p><b>BEN130</b></p>
+<p><b>Built Environment Economics</b></p>
+<p><b>Week 2 – Economics of the </b></p>
+<p><b>Construction Industry</b></p>
+</body>
+</html>

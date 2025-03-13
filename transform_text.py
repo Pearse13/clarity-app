@@ -12,7 +12,8 @@ def check_spelling(text: str) -> tuple[str, list[str]]:
         print("\nPossible misspelled words found:")
         marked_text = text
         for word in misspelled:
-            print(f"- {word} (suggestions: {', '.join(list(spell.candidates(word))[:3])})")
+            suggestions = list(spell.candidates(word) or [])[:3]
+            print(f"- {word} (suggestions: {', '.join(suggestions)})")
             marked_text = marked_text.replace(word, f"*{word}*")
         return marked_text, list(misspelled)
     return text, []

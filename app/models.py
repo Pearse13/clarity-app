@@ -22,6 +22,10 @@ class TransformRequest(BaseModel):
         le=5,
         description="The level of transformation (1-5)"
     )
+    isLecture: bool = Field(
+        False,
+        description="Whether this is a lecture transformation request"
+    )
 
     @validator("text")
     def text_must_be_valid(cls, v):

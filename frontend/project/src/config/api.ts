@@ -6,7 +6,7 @@ export const API_URL = isDevelopment
   : import.meta.env.VITE_PRODUCTION_API_URL || 'https://api.clarity.app';
 
 export const API_ENDPOINTS = {
-  transform: `${API_URL}/transformText`
+  transform: `${API_URL}/api/transform`
 };
 
 // Verify the API configuration

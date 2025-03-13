@@ -34,9 +34,9 @@ const Auth0ProviderWithNavigate = ({ children }: { children: React.ReactNode }) 
   });
 
   const onRedirectCallback = (appState: any) => {
-    // After login, navigate to returnTo or transform
+    // After login, navigate to returnTo or lecture
     console.log('Auth0 redirect callback triggered with appState:', appState);
-    navigate(appState?.returnTo || '/transform', { replace: true });
+    navigate(appState?.returnTo || '/lecture', { replace: true });
   };
 
   // Add error event handler

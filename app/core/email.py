@@ -11,10 +11,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Email configuration
-EMAIL_HOST = os.getenv("EMAIL_HOST")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
-EMAIL_USERNAME = os.getenv("EMAIL_USERNAME")
-EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+EMAIL_USERNAME = os.getenv("EMAIL_USERNAME", "")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")
 EMAIL_FROM = os.getenv("EMAIL_FROM")
 
 # Store verification codes with expiration (in memory for now, use database in production)
@@ -55,7 +55,7 @@ def send_verification_email(to_email: str) -> bool:
         store_verification_code(to_email, code)
 
         msg = MIMEMultipart()
-        msg['From'] = EMAIL_FROM
+        msg['From'] = EMAIL_USERNAME or "noreply@clarity.app"
         msg['To'] = to_email
         msg['Subject'] = "Your Clarity App Verification Code"
 
@@ -72,7 +72,7 @@ def send_verification_email(to_email: str) -> bool:
 
         server = smtplib.SMTP(EMAIL_HOST, EMAIL_PORT)
         server.starttls()
-        server.login(EMAIL_USERNAME, EMAIL_PASSWORD)
+        server.login(EMAIL_USERNAME or "", EMAIL_PASSWORD or "")
         server.send_message(msg)
         server.quit()
         

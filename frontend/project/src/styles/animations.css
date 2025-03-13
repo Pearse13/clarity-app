@@ -1,0 +1,43 @@
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes typing {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.5s ease-out 0.1s forwards;
+}
+
+.animate-typing {
+  display: inline-block;
+}
+
+.animate-typing > span {
+  display: inline-block;
+  opacity: 0;
+  animation: typing 0.15s ease-out forwards;
+}
+
+/* Ensure words appear smoothly one after another */
+.animate-typing > span:nth-child(n+1) {
+  animation-delay: calc(0.15s * var(--word-index, 0));
+}

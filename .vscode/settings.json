@@ -1,0 +1,9 @@
+{
+    "python.analysis.extraPaths": [
+        "C:/Users/Pmccr/AppData/Local/Programs/Python/Python313/Lib/site-packages",
+        "${workspaceFolder}/backend"
+    ],
+    "python.analysis.typeCheckingMode": "basic",
+    "python.analysis.diagnosticMode": "workspace",
+    "python.analysis.autoImportCompletions": true
+} 

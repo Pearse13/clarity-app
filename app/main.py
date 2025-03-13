@@ -54,6 +54,12 @@ class VerifyCodeRequest(BaseModel):
     email: str
     code: str
 
+def get_client_host(request: Request) -> str:
+    """Safely get client host with fallback to unknown."""
+    if request and request.client and hasattr(request.client, 'host'):
+        return request.client.host
+    return "unknown"
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """Log all requests and their outcomes"""
@@ -63,7 +69,7 @@ async def log_requests(request: Request, call_next):
     request_data = {
         "method": request.method,
         "path": str(request.url.path),
-        "client_host": request.client.host,
+        "client_host": get_client_host(request),
         "user_agent": request.headers.get("user-agent")
     }
     security_logger.log_request(request_data, response.status_code)
@@ -83,15 +89,15 @@ async def transform(request: Request):
     authorized = await verify_request(request)
     if not authorized:
         security_logger.log_security_event("unauthorized_request", {
-            "client_host": request.client.host
+            "client_host": get_client_host(request)
         })
         return Response(status_code=403, content="Unauthorized")
     
     # Check rate limit
-    rate_limit_info = rate_limiter.check_rate_limit(request.client.host, request)
+    rate_limit_info = rate_limiter.check_rate_limit(get_client_host(request), request)
     if not rate_limit_info[0]:
         security_logger.log_security_event("rate_limit_exceeded", {
-            "client_host": request.client.host,
+            "client_host": get_client_host(request),
             "limit_info": rate_limit_info[1]
         })
         return Response(status_code=429, content="Rate limit exceeded")
@@ -107,7 +113,7 @@ async def transform(request: Request):
             data.get("level")
         )
         
-        app_logger.info(f"Successfully transformed text for {request.client.host}")
+        app_logger.info(f"Successfully transformed text for {get_client_host(request)}")
         return result
         
     except Exception as e:

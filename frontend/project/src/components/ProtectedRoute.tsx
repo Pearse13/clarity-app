@@ -12,7 +12,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     if (!isLoading && !isAuthenticated) {
       loginWithRedirect({
         authorizationParams: {
-          redirect_uri: window.location.origin + '/transform'
+          redirect_uri: window.location.origin + '/lecture'
         }
       });
     }
