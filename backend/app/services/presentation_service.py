@@ -125,11 +125,28 @@ class PresentationService:
                 logger.error(f"Failed to setup directory {directory}: {e}")
                 raise Exception(f"Failed to setup directory {directory}: {e}")
         
-        # Set LibreOffice path
-        self.soffice_path = Path(r"C:\Program Files\LibreOffice\program\soffice.exe")
-        if not self.soffice_path.exists():
-            # Try alternate path
-            self.soffice_path = Path(r"C:\Program Files (x86)\LibreOffice\program\soffice.exe")
+        # Set LibreOffice path based on operating system
+        if os.name == 'nt':  # Windows
+            self.soffice_path = Path(r"C:\Program Files\LibreOffice\program\soffice.exe")
+            if not self.soffice_path.exists():
+                # Try alternate path
+                self.soffice_path = Path(r"C:\Program Files (x86)\LibreOffice\program\soffice.exe")
+        else:  # Linux/Unix
+            # Check common Linux paths
+            possible_paths = [
+                Path("/usr/bin/libreoffice"),
+                Path("/usr/bin/soffice"),
+                Path("/usr/lib/libreoffice/program/soffice"),
+                Path("/opt/libreoffice/program/soffice")
+            ]
+            
+            for path in possible_paths:
+                if path.exists():
+                    self.soffice_path = path
+                    break
+            else:
+                # If no path is found, default to the most common location
+                self.soffice_path = Path("/usr/bin/soffice")
         
         logger.info(f"Using LibreOffice at: {self.soffice_path}")
         self._verify_libreoffice()

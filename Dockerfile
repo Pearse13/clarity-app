@@ -5,8 +5,15 @@ RUN apt-get update && apt-get install -y \
     python3 python3-pip python3-dev \
     libreoffice libreoffice-impress \
     fonts-liberation \
+    poppler-utils \
+    unoconv \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Make sure LibreOffice is executable
+RUN chmod +x /usr/bin/libreoffice && \
+    chmod +x /usr/bin/soffice && \
+    ln -sf /usr/bin/soffice /usr/local/bin/soffice
 
 # Set up working directory
 WORKDIR /app
