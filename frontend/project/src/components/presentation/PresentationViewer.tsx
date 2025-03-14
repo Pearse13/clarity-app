@@ -233,7 +233,7 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
 
       while (retryCount < maxRetries) {
         try {
-          const response = await fetch('http://localhost:8000/api/presentations/upload', {
+          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/presentations/upload`, {
             method: 'POST',
             body: formData,
           });
@@ -248,8 +248,8 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
           try {
             responseData = JSON.parse(responseText);
           } catch (e) {
-            console.error('Failed to parse response:', e);
-            throw new Error('Invalid response from server');
+            console.error('Error parsing JSON response:', e);
+            throw new Error(`Invalid JSON response: ${responseText}`);
           }
 
           if (!response.ok) {
@@ -267,7 +267,7 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
           console.log('Parsed response data:', responseData);
 
           // Construct full URL for the presentation
-          const fullUrl = `http://localhost:8000${responseData.url}`;
+          const fullUrl = `${import.meta.env.VITE_API_BASE_URL}${responseData.url}`;
           console.log('Full URL:', fullUrl);
           responseData.url = fullUrl;
 

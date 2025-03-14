@@ -19,7 +19,7 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ onVerifica
     setError('');
     
     try {
-      const response = await fetch('http://localhost:8000/send-verification', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/send-verification`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -46,7 +46,7 @@ export const EmailVerification: React.FC<EmailVerificationProps> = ({ onVerifica
     setError('');
     
     try {
-      const response = await fetch('http://localhost:8000/verify-code', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/verify-code`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
