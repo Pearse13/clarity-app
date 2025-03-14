@@ -271,22 +271,64 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
             throw new Error(responseData.error);
           }
 
-          if (!responseData.url) {
-            throw new Error('No URL returned from server');
+          // Check if we need to poll for status
+          if (responseData.status === "processing" && responseData.check_status_url) {
+            console.log('Document is processing, checking status...');
+            
+            // Poll for status until complete or max attempts reached
+            let statusCheckCount = 0;
+            const maxStatusChecks = 10;
+            
+            while (statusCheckCount < maxStatusChecks) {
+              console.log(`Status check attempt ${statusCheckCount + 1} of ${maxStatusChecks}`);
+              
+              // Wait before checking status
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              
+              // Check document status
+              const statusResponse = await fetch(`${apiUrl}${responseData.check_status_url}`);
+              const statusData = await statusResponse.json();
+              console.log('Status check response:', statusData);
+              
+              if (statusData.status === "complete" && statusData.url) {
+                // Document is ready
+                console.log('Document processing complete');
+                
+                // Construct full URL for the presentation
+                const fullUrl = `${apiUrl}${statusData.url}`;
+                console.log('Full URL:', fullUrl);
+                responseData.url = fullUrl;
+                
+                // Set progress to 100% when processing is complete
+                setUploadProgress(100);
+                setPresentation(responseData);
+                setIframeLoading(true);
+                return; // Success, exit the retry loop
+              } else if (statusData.status === "error") {
+                throw new Error(statusData.error || 'Error processing document');
+              }
+              
+              statusCheckCount++;
+            }
+            
+            throw new Error('Document processing timed out');
+          } else if (responseData.url) {
+            // Direct URL available (no processing needed)
+            console.log('Parsed response data:', responseData);
+
+            // Construct full URL for the presentation
+            const fullUrl = `${apiUrl}${responseData.url}`;
+            console.log('Full URL:', fullUrl);
+            responseData.url = fullUrl;
+
+            // Set progress to 100% when upload is actually complete
+            setUploadProgress(100);
+            setPresentation(responseData);
+            setIframeLoading(true);
+            return; // Success, exit the retry loop
+          } else {
+            throw new Error('No URL or status check URL returned from server');
           }
-
-          console.log('Parsed response data:', responseData);
-
-          // Construct full URL for the presentation
-          const fullUrl = `${apiUrl}${responseData.url}`;
-          console.log('Full URL:', fullUrl);
-          responseData.url = fullUrl;
-
-          // Set progress to 100% when upload is actually complete
-          setUploadProgress(100);
-          setPresentation(responseData);
-          setIframeLoading(true);
-          return; // Success, exit the retry loop
         } catch (err) {
           lastError = err;
           retryCount++;
