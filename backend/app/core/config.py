@@ -11,6 +11,8 @@ class Settings(BaseSettings):
         "http://localhost:5174",  # Alternative Vite port
         "http://localhost:3000",  # Next.js dev server
         "http://localhost:8000",  # Backend API
+        "https://clarity-app-pearse13.vercel.app",  # Production frontend
+        "http://localhost:5174",  # Development frontend
         "*",  # Allow all origins in production
     ]
     

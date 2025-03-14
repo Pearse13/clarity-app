@@ -56,8 +56,26 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def add_security_headers(request: Request, call_next):
         response = await call_next(request)
-        # Allow iframe embedding from localhost
-        if request.url.hostname in ['localhost', '127.0.0.1']:
+        
+        # Get environment
+        environment = os.getenv("ENVIRONMENT", "development")
+        
+        # In production, allow all origins
+        if environment == "production":
+            # For production, allow all origins
+            origin = request.headers.get("Origin")
+            if origin:
+                response.headers["Access-Control-Allow-Origin"] = origin
+                response.headers["Access-Control-Allow-Credentials"] = "true"
+                response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+                response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-API-Key"
+            
+            # Set security headers for production
+            response.headers["X-Frame-Options"] = "SAMEORIGIN"
+            response.headers["Content-Security-Policy"] = "frame-ancestors 'self'"
+            
+        # For development environment
+        elif request.url.hostname in ['localhost', '127.0.0.1']:
             response.headers["X-Frame-Options"] = "ALLOW-FROM http://localhost:5174 http://localhost:8000"
             # Add more permissive CSP for static files
             if request.url.path.startswith('/static/'):
