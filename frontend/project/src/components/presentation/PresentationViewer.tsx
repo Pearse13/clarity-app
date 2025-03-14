@@ -290,12 +290,31 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
               const statusData = await statusResponse.json();
               console.log('Status check response:', statusData);
               
-              if (statusData.status === "complete" && statusData.url) {
+              // Check if document is complete (handle both 'complete' and 'completed' status)
+              if ((statusData.status === "complete" || statusData.status === "completed") && 
+                  (statusData.url || (statusData.files && Object.keys(statusData.files).length > 0))) {
                 // Document is ready
                 console.log('Document processing complete');
                 
+                // Get URL from response (either direct url or from files object)
+                let documentUrl = statusData.url;
+                
+                // If no direct URL but files are available, use the first file
+                if (!documentUrl && statusData.files) {
+                  const fileKeys = Object.keys(statusData.files);
+                  if (fileKeys.length > 0) {
+                    const firstFileKey = fileKeys[0];
+                    documentUrl = statusData.files[firstFileKey].url || `/static/presentations/${statusData.document_id}/${firstFileKey}`;
+                    console.log('Using file URL:', documentUrl);
+                  }
+                }
+                
+                if (!documentUrl) {
+                  throw new Error('No document URL found in response');
+                }
+                
                 // Construct full URL for the presentation
-                const fullUrl = `${apiUrl}${statusData.url}`;
+                const fullUrl = documentUrl.startsWith('http') ? documentUrl : `${apiUrl}${documentUrl}`;
                 console.log('Full URL:', fullUrl);
                 responseData.url = fullUrl;
                 
