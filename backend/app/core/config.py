@@ -1,6 +1,7 @@
 """Application configuration."""
 from typing import List
 from pydantic_settings import BaseSettings
+import os
 
 class Settings(BaseSettings):
     """Application settings."""
@@ -10,10 +11,11 @@ class Settings(BaseSettings):
         "http://localhost:5174",  # Alternative Vite port
         "http://localhost:3000",  # Next.js dev server
         "http://localhost:8000",  # Backend API
+        "*",  # Allow all origins in production
     ]
     
     # OpenAI settings
-    openai_api_key: str = "your-api-key-here"
+    openai_api_key: str = os.getenv("OPENAI_API_KEY", "your-api-key-here")
     
     # Auth0 settings
     auth0_domain: str = "dev-8utndajax3l877vt.us.auth0.com"
