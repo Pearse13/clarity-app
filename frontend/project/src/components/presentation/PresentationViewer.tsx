@@ -240,7 +240,11 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
 
       while (retryCount < maxRetries) {
         try {
-          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/presentations/upload`, {
+          // Force using the production URL
+          const apiUrl = 'https://clarity-backend-production.up.railway.app';
+          console.log('Using API URL for upload:', apiUrl);
+          
+          const response = await fetch(`${apiUrl}/api/presentations/upload`, {
             method: 'POST',
             body: formData,
           });
@@ -274,7 +278,7 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
           console.log('Parsed response data:', responseData);
 
           // Construct full URL for the presentation
-          const fullUrl = `${import.meta.env.VITE_API_BASE_URL}${responseData.url}`;
+          const fullUrl = `${apiUrl}${responseData.url}`;
           console.log('Full URL:', fullUrl);
           responseData.url = fullUrl;
 
