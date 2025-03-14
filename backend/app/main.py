@@ -115,6 +115,16 @@ def create_app() -> FastAPI:
 # Create FastAPI app
 app = create_app()
 
+# Add global exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {str(exc)}")
+    return Response(
+        status_code=500,
+        content=f"Internal Server Error: An unexpected error occurred. Please try again later.",
+        media_type="text/plain"
+    )
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     logger.info(f"Incoming request: {request.method} {request.url}")
@@ -135,7 +145,50 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    try:
+        # Check if LibreOffice is accessible
+        import subprocess
+        import os
+        
+        # Determine the command based on OS
+        if os.name == 'nt':  # Windows
+            cmd = ['where', 'soffice']
+        else:  # Linux/Unix
+            cmd = ['which', 'soffice']
+        
+        # Run the command to check if LibreOffice is in PATH
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        libreoffice_status = "available" if result.returncode == 0 else "not found"
+        
+        # Check OpenAI API key
+        openai_key = os.getenv("OPENAI_API_KEY", "")
+        openai_status = "configured" if openai_key and len(openai_key) > 20 else "missing or invalid"
+        
+        # Check data directories
+        backend_dir = Path(__file__).parent.parent.parent.absolute()
+        backend_data_dir = backend_dir / "data"
+        static_dir = backend_data_dir / "static"
+        temp_dir = backend_data_dir / "temp"
+        
+        directories_status = {
+            "static": static_dir.exists(),
+            "temp": temp_dir.exists(),
+            "presentations": (static_dir / "presentations").exists()
+        }
+        
+        return {
+            "status": "healthy",
+            "libreoffice": libreoffice_status,
+            "openai_api": openai_status,
+            "directories": directories_status,
+            "environment": os.getenv("ENVIRONMENT", "not set")
+        }
+    except Exception as e:
+        logger.error(f"Health check error: {str(e)}")
+        return {
+            "status": "unhealthy",
+            "error": str(e)
+        }
 
 class EmailVerificationRequest(BaseModel):
     email: str
