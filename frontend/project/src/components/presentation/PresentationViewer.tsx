@@ -247,6 +247,12 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
           const response = await fetch(`${apiUrl}/api/presentations/upload`, {
             method: 'POST',
             body: formData,
+            headers: {
+              'Accept': 'application/json',
+              'Origin': window.location.origin
+            },
+            credentials: 'include',
+            mode: 'cors'
           });
 
           console.log('Response status:', response.status);
@@ -286,45 +292,94 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
               await new Promise(resolve => setTimeout(resolve, 2000));
               
               // Check document status
-              const statusResponse = await fetch(`${apiUrl}${responseData.check_status_url}`);
-              const statusData = await statusResponse.json();
-              console.log('Status check response:', statusData);
-              
-              // Check if document is complete (handle both 'complete' and 'completed' status)
-              if ((statusData.status === "complete" || statusData.status === "completed") && 
-                  (statusData.url || (statusData.files && Object.keys(statusData.files).length > 0))) {
-                // Document is ready
-                console.log('Document processing complete');
+              try {
+                const statusResponse = await fetch(`${apiUrl}${responseData.check_status_url}`, {
+                  method: 'GET',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Origin': window.location.origin
+                  },
+                  credentials: 'include',
+                  mode: 'cors'
+                });
                 
-                // Get URL from response (either direct url or from files object)
-                let documentUrl = statusData.url;
+                console.log('Status check response status:', statusResponse.status);
+                console.log('Status check response headers:', Object.fromEntries(statusResponse.headers.entries()));
                 
-                // If no direct URL but files are available, use the first file
-                if (!documentUrl && statusData.files) {
-                  const fileKeys = Object.keys(statusData.files);
-                  if (fileKeys.length > 0) {
-                    const firstFileKey = fileKeys[0];
-                    documentUrl = statusData.files[firstFileKey].url || `/static/presentations/${statusData.document_id}/${firstFileKey}`;
-                    console.log('Using file URL:', documentUrl);
+                if (!statusResponse.ok) {
+                  console.error('Status check failed with status:', statusResponse.status);
+                  throw new Error(`Status check failed with status: ${statusResponse.status}`);
+                }
+                
+                const statusText = await statusResponse.text();
+                console.log('Status check raw response:', statusText);
+                
+                let statusData;
+                try {
+                  statusData = JSON.parse(statusText);
+                } catch (e) {
+                  console.error('Error parsing status JSON response:', e);
+                  throw new Error(`Invalid JSON in status response: ${statusText}`);
+                }
+                
+                console.log('Status check response:', statusData);
+                
+                // Check if document is complete (handle both 'complete' and 'completed' status)
+                if ((statusData.status === "complete" || statusData.status === "completed") && 
+                    (statusData.url || (statusData.files && Object.keys(statusData.files).length > 0))) {
+                  // Document is ready
+                  console.log('Document processing complete');
+                  
+                  // Get URL from response (either direct url or from files object)
+                  let documentUrl = statusData.url;
+                  
+                  // If no direct URL but files are available, use the first file
+                  if (!documentUrl && statusData.files) {
+                    const fileKeys = Object.keys(statusData.files);
+                    if (fileKeys.length > 0) {
+                      const firstFileKey = fileKeys[0];
+                      documentUrl = statusData.files[firstFileKey].url || `/static/presentations/${statusData.document_id}/${firstFileKey}`;
+                      console.log('Using file URL:', documentUrl);
+                    }
                   }
+                  
+                  if (!documentUrl) {
+                    throw new Error('No document URL found in response');
+                  }
+                  
+                  // Construct full URL for the presentation
+                  const fullUrl = documentUrl.startsWith('http') ? documentUrl : `${apiUrl}${documentUrl}`;
+                  console.log('Full URL:', fullUrl);
+                  responseData.url = fullUrl;
+                  
+                  // Set progress to 100% when processing is complete
+                  setUploadProgress(100);
+                  setPresentation(responseData);
+                  setIframeLoading(true);
+                  return; // Success, exit the retry loop
+                } else if (statusData.status === "error") {
+                  throw new Error(statusData.error || 'Error processing document');
                 }
+              } catch (statusErr) {
+                console.error('Error checking document status:', statusErr);
                 
-                if (!documentUrl) {
-                  throw new Error('No document URL found in response');
-                }
+                // Fallback: Try to construct a URL directly based on document_id
+                console.log('Status check failed, trying fallback URL construction');
                 
-                // Construct full URL for the presentation
-                const fullUrl = documentUrl.startsWith('http') ? documentUrl : `${apiUrl}${documentUrl}`;
-                console.log('Full URL:', fullUrl);
-                responseData.url = fullUrl;
+                // Wait a bit to give the backend time to process
+                await new Promise(resolve => setTimeout(resolve, 5000));
                 
-                // Set progress to 100% when processing is complete
+                // Construct a fallback URL
+                const fallbackUrl = `${apiUrl}/static/presentations/${responseData.document_id}/document.pdf`;
+                console.log('Using fallback URL:', fallbackUrl);
+                
+                // Set the URL and continue
+                responseData.url = fallbackUrl;
                 setUploadProgress(100);
                 setPresentation(responseData);
                 setIframeLoading(true);
-                return; // Success, exit the retry loop
-              } else if (statusData.status === "error") {
-                throw new Error(statusData.error || 'Error processing document');
+                return; // Exit the retry loop
               }
               
               statusCheckCount++;
