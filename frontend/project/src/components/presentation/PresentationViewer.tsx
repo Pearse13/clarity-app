@@ -1,6 +1,13 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Upload, AlertCircle, RefreshCw } from 'lucide-react';
 
+// Debug log for environment variables
+console.log('Environment variables:', {
+  VITE_ENV: import.meta.env.VITE_ENV,
+  VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
+  VITE_PRODUCTION_API_URL: import.meta.env.VITE_PRODUCTION_API_URL
+});
+
 interface UploadResponse {
   id: string;
   url: string;

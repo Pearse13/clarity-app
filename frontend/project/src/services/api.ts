@@ -1,7 +1,11 @@
 import axios from 'axios';
 import { ApiRequestError, StreamProgressCallback } from '../types/api';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Use Vite environment variables instead of process.env
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+// Debug log to check the API URL
+console.log('API Service using URL:', API_BASE_URL);
 
 export type TransformType = 'simplify' | 'sophisticate' | 'casualise' | 'formalise';
 
