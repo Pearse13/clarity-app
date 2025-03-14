@@ -31,6 +31,10 @@ RUN mkdir -p data/temp data/documents data/static
 # Set HOME for LibreOffice user profile
 ENV HOME=/app
 
+# Set environment variables
+ENV PORT=8000
+ENV PYTHONUNBUFFERED=1
+
 # Expose the port
 EXPOSE 8000
 

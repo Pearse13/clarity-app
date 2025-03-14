@@ -20,6 +20,7 @@ from app.core.rate_limit import RateLimiter
 from app.core.email import send_verification_email, verify_code
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletion
+from datetime import datetime
 
 # Load environment variables
 load_dotenv()
@@ -135,13 +136,20 @@ async def log_requests(request: Request, call_next):
 
 @app.get("/")
 async def root():
-    return {
-        "name": "Clarity API",
-        "status": "running",
-        "version": "1.0.0",
-        "documentation": "/docs",
-        "health": "/health"
-    }
+    try:
+        # Simple response that doesn't depend on any external services
+        return {
+            "name": "Clarity API",
+            "status": "running",
+            "version": "1.0.0",
+            "documentation": "/docs",
+            "health": "/health",
+            "timestamp": str(datetime.now())
+        }
+    except Exception as e:
+        logger.error(f"Error in root endpoint: {str(e)}")
+        # Return a simple response even if there's an error
+        return {"status": "running"}
 
 @app.get("/health")
 async def health_check():
