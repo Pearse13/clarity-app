@@ -14,6 +14,7 @@ interface UploadResponse {
   filename: string;
   document_id?: string; // Optional document_id field
   apiUrl?: string; // Optional API URL as fallback
+  useDirectViewer?: boolean;
 }
 
 interface PresentationViewerProps {
@@ -855,25 +856,38 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
 
           {!iframeLoading && !iframeError && (
             <div className="flex-grow border rounded-lg overflow-hidden">
-              {/* Use iframe for PDF display - often has better browser support */}
+              {/* Use Google Docs Viewer as a reliable PDF viewer */}
               <iframe
-                src={presentation.url}
+                src={`https://docs.google.com/viewer?url=${encodeURIComponent(presentation.url)}&embedded=true`}
                 className="w-full h-full"
                 title="PDF Viewer"
                 style={{ border: 'none', width: '100%', height: '100%' }}
                 onLoad={() => {
-                  console.log('PDF iframe loaded successfully');
+                  console.log('Google Docs PDF viewer loaded successfully');
                   setIframeLoading(false);
                   setIframeError(null);
                   setRetryCount(0);
                 }}
                 onError={(e) => {
-                  console.error('PDF iframe error:', e);
-                  setIframeError('Failed to load PDF preview. Trying alternative method...');
-                  if (retryCount < 3) {
-                    retryLoad();
-                  }
+                  console.error('Google Docs PDF viewer error:', e);
+                  // Fall back to direct PDF display
+                  setPresentation(prev => {
+                    if (!prev) return null;
+                    return { ...prev, useDirectViewer: true };
+                  });
                 }}
+              />
+            </div>
+          )}
+          
+          {/* Fallback direct PDF viewer if Google Docs viewer fails */}
+          {!iframeLoading && !iframeError && presentation?.useDirectViewer && (
+            <div className="flex-grow border rounded-lg overflow-hidden">
+              <iframe
+                src={presentation.url}
+                className="w-full h-full"
+                title="Direct PDF Viewer"
+                style={{ border: 'none', width: '100%', height: '100%' }}
               />
             </div>
           )}
