@@ -36,6 +36,37 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
   const [retryCount, setRetryCount] = useState(0);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+  // Check if the backend API is accessible
+  useEffect(() => {
+    const checkBackendAccess = async () => {
+      try {
+        const apiUrl = 'https://clarity-backend-production.up.railway.app';
+        console.log('Checking backend API access at:', apiUrl);
+        
+        const response = await fetch(`${apiUrl}/health`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Origin': window.location.origin
+          },
+          mode: 'cors'
+        });
+        
+        console.log('Backend API health check status:', response.status);
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Backend API health check response:', data);
+        } else {
+          console.error('Backend API health check failed with status:', response.status);
+        }
+      } catch (err) {
+        console.error('Error checking backend API access:', err);
+      }
+    };
+    
+    checkBackendAccess();
+  }, []);
+
   // Clean up selected text by removing CSS and unwanted content
   const cleanSelectedText = (text: string): string => {
     // Remove CSS-like content
@@ -366,7 +397,33 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                   // Construct full URL for the presentation
                   const fullUrl = documentUrl.startsWith('http') ? documentUrl : `${apiUrl}${documentUrl}`;
                   console.log('Full URL:', fullUrl);
-                  responseData.url = fullUrl;
+                  
+                  // Test if the URL is accessible
+                  try {
+                    const testResponse = await fetch(fullUrl, {
+                      method: 'HEAD',
+                      headers: {
+                        'Accept': 'application/json',
+                        'Origin': window.location.origin
+                      },
+                      credentials: 'include',
+                      mode: 'cors'
+                    });
+                    
+                    if (!testResponse.ok) {
+                      console.error('URL is not accessible:', fullUrl);
+                      // Try an alternative URL format
+                      const alternativeUrl = `${apiUrl}/static/presentations/${statusData.document_id}/presentation.pdf`;
+                      console.log('Trying alternative URL:', alternativeUrl);
+                      responseData.url = alternativeUrl;
+                    } else {
+                      responseData.url = fullUrl;
+                    }
+                  } catch (e) {
+                    console.error('Error testing URL accessibility:', e);
+                    // Use the URL anyway
+                    responseData.url = fullUrl;
+                  }
                   
                   // Set progress to 100% when processing is complete
                   setUploadProgress(100);
@@ -500,63 +557,126 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
   }, [presentation, retryCount]);
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">Presentation Viewer</h2>
-        <div className="flex space-x-2">
-          <input
-            type="file"
-            accept=".pdf,.ppt,.pptx,.doc,.docx"
-            onChange={handleFileUpload}
-            className="hidden"
-            ref={fileInputRef}
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Upload File
-          </button>
-        </div>
-      </div>
+    <div className="h-full">
+      {presentation ? (
+        // Presentation Viewer
+        <div className="flex flex-col h-full">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold">Presentation Viewer</h2>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => {
+                  setPresentation(null);
+                  setIframeError(null);
+                  setRetryCount(0);
+                  setIframeLoading(false);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Upload Another
+              </button>
+            </div>
+          </div>
 
-      {uploading && (
-        <div className="flex flex-col items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-          <p className="mt-4 text-gray-600">Processing your file...</p>
-        </div>
-      )}
+          {iframeLoading && (
+            <div className="flex flex-col items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+              <p className="mt-4 text-gray-600">Loading your file...</p>
+            </div>
+          )}
 
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          <p>{error}</p>
-        </div>
-      )}
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              <p>{error}</p>
+            </div>
+          )}
 
-      {presentation && !iframeLoading && (
-        <div className="flex-grow border rounded-lg overflow-hidden">
-          {presentation.url.endsWith('.pdf') ? (
-            <object
-              data={presentation.url}
-              type="application/pdf"
-              className="w-full h-full"
-            >
-              <p>Unable to display PDF. <a href={presentation.url} target="_blank" rel="noopener noreferrer">Download</a> instead.</p>
-            </object>
-          ) : (
-            <iframe
-              src={presentation.url}
-              className="w-full h-full"
-              title="Presentation Viewer"
-              onLoad={handleIframeLoad}
-              onError={handleIframeError}
-              style={{ pointerEvents: 'all' }}
-              referrerPolicy="origin"
-              allow="fullscreen"
-              loading="lazy"
-            ></iframe>
+          {!iframeLoading && (
+            <div className="flex-grow border rounded-lg overflow-hidden">
+              {presentation.url.endsWith('.pdf') ? (
+                <div className="w-full h-full relative">
+                  <object
+                    data={presentation.url}
+                    type="application/pdf"
+                    className="w-full h-full"
+                  >
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 p-4">
+                      <p className="mb-4 text-gray-700">Unable to display PDF directly.</p>
+                      <div className="flex gap-2">
+                        <a 
+                          href={presentation.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                        >
+                          Open PDF
+                        </a>
+                        <button
+                          onClick={() => window.open(presentation.url, '_blank')}
+                          className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                        >
+                          Download
+                        </button>
+                      </div>
+                    </div>
+                  </object>
+                </div>
+              ) : (
+                <iframe
+                  src={presentation.url}
+                  className="w-full h-full"
+                  title="Presentation Viewer"
+                  onLoad={handleIframeLoad}
+                  onError={handleIframeError}
+                  style={{ pointerEvents: 'all' }}
+                  referrerPolicy="origin"
+                  allow="fullscreen"
+                  loading="lazy"
+                ></iframe>
+              )}
+            </div>
           )}
         </div>
+      ) : (
+        // Upload Area
+        <label 
+          htmlFor="file-upload"
+          className="h-full flex flex-col items-center justify-center gap-4 p-6 bg-white/80 backdrop-blur-xl shadow-sm hover:bg-white/90 transition-colors cursor-pointer relative"
+        >
+          {error ? (
+            <div className="text-red-500 text-xl mb-4">{error}</div>
+          ) : uploading ? (
+            <>
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+              <p className="mt-4 text-gray-600">Processing your file...</p>
+              <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-100">
+                <div 
+                  className="h-full bg-blue-600 transition-all duration-150"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <Upload className="w-8 h-8 text-blue-600 stroke-[1.5]" />
+              <span className="text-[15px] text-gray-900 font-medium tracking-tight">
+                Upload Document
+              </span>
+              <p className="text-xs text-gray-500">
+                Supported formats: PowerPoint, Word, PDF
+              </p>
+            </>
+          )}
+          <input 
+            id="file-upload" 
+            type="file"
+            accept=".ppt,.pptx,.doc,.docx,.pdf"
+            className="hidden" 
+            onChange={handleFileUpload}
+            ref={fileInputRef}
+            disabled={uploading}
+          />
+        </label>
       )}
     </div>
   );
