@@ -34,6 +34,7 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
   const [iframeLoading, setIframeLoading] = useState(false);
   const [iframeError, setIframeError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [fileInputRef] = useState<React.RefObject<HTMLInputElement>>(null);
 
   // Clean up selected text by removing CSS and unwanted content
   const cleanSelectedText = (text: string): string => {
@@ -499,113 +500,63 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
   }, [presentation, retryCount]);
 
   return (
-    <div className="h-full">
-      {presentation ? (
-        // Presentation Viewer
-        <div className="w-full h-full p-4">
-          <div className="mb-4 flex justify-between items-center">
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  setPresentation(null);
-                  setIframeError(null);
-                  setRetryCount(0);
-                  setIframeLoading(false);
-                }}
-                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Upload Another
-              </button>
-              {iframeError && (
-                <button
-                  onClick={retryLoad}
-                  disabled={retryCount >= 3}
-                  className={`px-4 py-2 text-sm rounded-lg flex items-center gap-2 ${
-                    retryCount >= 3
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
-                  }`}
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Retry
-                </button>
-              )}
-            </div>
-            {iframeError && (
-              <p className="text-sm text-red-500">
-                {iframeError}
-                {retryCount >= 3 ? ' (Max retries reached)' : ''}
-              </p>
-            )}
-          </div>
-          {iframeLoading && (
-            <div className="w-full h-[calc(100%-60px)] flex items-center justify-center bg-white rounded-xl">
-              <div className="flex flex-col items-center gap-2">
-                <RefreshCw className="w-6 h-6 text-blue-600 animate-spin" />
-                <p className="text-gray-500">Loading file preview...</p>
-                <p className="text-sm text-gray-400">This may take a few moments</p>
-              </div>
-            </div>
-          )}
-          <iframe
-            src={presentation.url}
-            className={`w-full h-[calc(100%-60px)] border-0 rounded-xl shadow-sm bg-white transition-opacity duration-300 ${
-              iframeLoading ? 'opacity-0' : 'opacity-100'
-            }`}
-            title={presentation.filename}
-            sandbox="allow-same-origin allow-scripts allow-popups allow-modals allow-downloads allow-forms allow-presentation"
-            onLoad={handleIframeLoad}
-            onError={handleIframeError}
-            style={{ pointerEvents: 'all' }}
-            referrerPolicy="origin"
-            allow="fullscreen"
-            loading="lazy"
-          />
-        </div>
-      ) : (
-        // Upload Area
-        <label 
-          htmlFor="file-upload"
-          className={`
-            h-full flex flex-col items-center justify-center gap-4 p-6
-            ${uploading ? 'bg-blue-50' : 'bg-white/80'} 
-            backdrop-blur-xl shadow-sm hover:bg-white/90 
-            transition-colors cursor-pointer relative
-          `}
-        >
-          {error ? (
-            <AlertCircle className="w-8 h-8 text-red-500 stroke-[1.5]" />
-          ) : uploading ? (
-            <>
-              <RefreshCw className="w-8 h-8 text-blue-600 stroke-[1.5] animate-spin" />
-              <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-100">
-                <div 
-                  className="h-full bg-blue-600 transition-all duration-150"
-                  style={{ width: `${uploadProgress}%` }}
-                />
-              </div>
-            </>
-          ) : (
-            <Upload className="w-8 h-8 text-blue-600 stroke-[1.5]" />
-          )}
-          <span className="text-[15px] text-gray-900 font-medium tracking-tight">
-            {uploading ? `Uploading... ${Math.round(uploadProgress)}%` : 'Upload Document'}
-          </span>
-          {error && (
-            <p className="text-sm text-red-500 text-center">{error}</p>
-          )}
-          <p className="text-xs text-gray-500">
-            Supported formats: PowerPoint, Word, PDF
-          </p>
-          <input 
-            id="file-upload" 
+    <div className="flex flex-col h-full">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-semibold">Presentation Viewer</h2>
+        <div className="flex space-x-2">
+          <input
             type="file"
-            accept=".ppt,.pptx,.doc,.docx,.pdf"
-            className="hidden" 
+            accept=".pdf,.ppt,.pptx,.doc,.docx"
             onChange={handleFileUpload}
-            disabled={uploading}
+            className="hidden"
+            ref={fileInputRef}
           />
-        </label>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Upload File
+          </button>
+        </div>
+      </div>
+
+      {uploading && (
+        <div className="flex flex-col items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          <p className="mt-4 text-gray-600">Processing your file...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <p>{error}</p>
+        </div>
+      )}
+
+      {presentation && !iframeLoading && (
+        <div className="flex-grow border rounded-lg overflow-hidden">
+          {presentation.url.endsWith('.pdf') ? (
+            <object
+              data={presentation.url}
+              type="application/pdf"
+              className="w-full h-full"
+            >
+              <p>Unable to display PDF. <a href={presentation.url} target="_blank" rel="noopener noreferrer">Download</a> instead.</p>
+            </object>
+          ) : (
+            <iframe
+              src={presentation.url}
+              className="w-full h-full"
+              title="Presentation Viewer"
+              onLoad={handleIframeLoad}
+              onError={handleIframeError}
+              style={{ pointerEvents: 'all' }}
+              referrerPolicy="origin"
+              allow="fullscreen"
+              loading="lazy"
+            ></iframe>
+          )}
+        </div>
       )}
     </div>
   );
