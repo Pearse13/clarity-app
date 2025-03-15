@@ -311,6 +311,37 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
             throw new Error(responseData.error);
           }
 
+          // For PDFs, display immediately without waiting for processing
+          if (file.type === 'application/pdf' && responseData.document_id) {
+            console.log('PDF file uploaded, displaying immediately without waiting for processing');
+            
+            // Construct direct URLs to try for the PDF
+            const directPdfUrls = [
+              `${apiUrl}/static/uploads/${responseData.document_id}.pdf`,
+              `${apiUrl}/static/presentations/${responseData.document_id}/original.pdf`,
+              `${apiUrl}/static/presentations/${responseData.document_id}/${file.name.replace(/\s+/g, '_')}`
+            ];
+            
+            console.log('Will try these direct PDF URLs:', directPdfUrls);
+            
+            // Create response object with the direct URL
+            const directResponse: UploadResponse = {
+              id: responseData.document_id,
+              url: directPdfUrls[0], // Try the first URL
+              filename: file.name,
+              document_id: responseData.document_id,
+              apiUrl: directPdfUrls[1] // Store the second URL as a fallback
+            };
+            
+            // Set progress to 100% to indicate we're done
+            setUploadProgress(100);
+            setPresentation(directResponse);
+            setIframeLoading(true);
+            
+            console.log('PDF displayed immediately after upload');
+            return; // Exit the upload function
+          }
+
           // Check if we need to poll for status
           if (responseData.status === "processing" && responseData.check_status_url) {
             console.log('Document is processing, checking status...');
@@ -590,21 +621,23 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
     // Try different URL formats based on retry count
     const apiUrl = 'https://clarity-backend-production.up.railway.app';
     const docId = presentation.document_id || presentation.url.split('/').slice(-2)[0]; // Extract document ID from URL or use document_id if available
+    const fileName = presentation.filename.replace(/\s+/g, '_'); // Replace spaces with underscores
     
-    let newUrl;
-    if (retryCount === 0 && presentation.apiUrl) {
-      // Try the API endpoint URL if available
-      newUrl = presentation.apiUrl;
-      console.log('Trying API endpoint URL:', newUrl);
-    } else if (retryCount === 0 || retryCount === 1) {
-      // Try the static file path format
-      newUrl = `${apiUrl}/static/presentations/${docId}/presentation.pdf`;
-      console.log('Trying static file path format:', newUrl);
-    } else {
-      // Try another static path format
-      newUrl = `${apiUrl}/static/presentations/${docId}/document.pdf`;
-      console.log('Trying alternative static path format:', newUrl);
-    }
+    // Create an array of URLs to try
+    const urlsToTry = [
+      // First retry: Try the API endpoint URL if available or the static file path
+      retryCount === 0 && presentation.apiUrl ? presentation.apiUrl : `${apiUrl}/static/presentations/${docId}/presentation.pdf`,
+      // Second retry: Try another static path format
+      `${apiUrl}/static/presentations/${docId}/document.pdf`,
+      // Third retry: Try the original file name
+      `${apiUrl}/static/presentations/${docId}/${fileName}`,
+      // Fourth retry: Try the uploads directory
+      `${apiUrl}/static/uploads/${docId}.pdf`
+    ];
+    
+    // Use the URL corresponding to the current retry count
+    const newUrl = urlsToTry[retryCount] || urlsToTry[0];
+    console.log(`Retry ${retryCount + 1}: Trying URL: ${newUrl}`);
     
     // Update the presentation URL
     setPresentation(prev => {
