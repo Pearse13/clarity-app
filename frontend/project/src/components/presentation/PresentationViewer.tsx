@@ -762,31 +762,22 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
 
           {!iframeLoading && !iframeError && (
             <div className="flex-grow border rounded-lg overflow-hidden">
-              {/* Use direct PDF embed for better performance */}
-              <embed
+              {/* Use iframe for better PDF handling */}
+              <iframe
                 src={presentation.url}
-                type="application/pdf"
                 className="w-full h-full"
                 style={{ width: '100%', height: '100%', minHeight: '500px' }}
+                onLoad={() => {
+                  console.log('PDF loaded successfully');
+                  setIframeLoading(false);
+                }}
+                onError={() => {
+                  console.log('PDF failed to load');
+                  setIframeError('Failed to load PDF. Please try again.');
+                  setIframeLoading(false);
+                }}
               />
             </div>
-          )}
-          
-          {/* Add a loading complete handler */}
-          {presentation && (
-            <img 
-              src={presentation.url} 
-              style={{ display: 'none' }} 
-              onLoad={() => {
-                console.log('PDF loaded successfully');
-                setIframeLoading(false);
-              }}
-              onError={() => {
-                console.log('PDF failed to load');
-                setIframeError('Failed to load PDF. Please try again.');
-                setIframeLoading(false);
-              }}
-            />
           )}
         </div>
       ) : (
