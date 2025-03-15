@@ -49,7 +49,7 @@ function App() {
       const response = await fetch(`${API_BASE_URL}/api/presentations/upload`, {
         method: 'POST',
         body: formData,
-        // Add credentials if needed for authentication
+        // Remove credentials mode to fix CORS error
         // credentials: 'include',
       });
 
