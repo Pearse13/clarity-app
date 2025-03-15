@@ -37,6 +37,7 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
   const [iframeError, setIframeError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [viewerType, setViewerType] = useState<'iframe' | 'embed'>('iframe');
 
   // Check if the backend API is accessible
   useEffect(() => {
@@ -548,6 +549,9 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
     console.log('iframe loaded or attempted to load');
     const iframe = event.target as HTMLIFrameElement;
     
+    // Log the iframe src for debugging
+    console.log('iframe src:', iframe.src);
+    
     // Check if the iframe content is accessible
     try {
       // Try to access the contentDocument to see if it loaded successfully
@@ -584,6 +588,29 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
     }
   }, [presentation, retryLoad]);
 
+  // Add a function to open the PDF in a new tab
+  const openInNewTab = useCallback(() => {
+    if (presentation?.url) {
+      window.open(presentation.url, '_blank');
+    }
+  }, [presentation]);
+
+  // Add a function to try the API URL
+  const tryApiUrl = useCallback(() => {
+    if (presentation?.apiUrl) {
+      console.log('Trying API URL:', presentation.apiUrl);
+      setIframeLoading(true);
+      setIframeError(null);
+      setPresentation(prev => {
+        if (!prev) return null;
+        return { 
+          ...prev, 
+          url: presentation.apiUrl || prev.url // Ensure url is never undefined
+        };
+      });
+    }
+  }, [presentation]);
+
   // Handle object load event for PDFs
   const handleObjectLoad = (event: React.SyntheticEvent<HTMLObjectElement>) => {
     console.log('PDF object loaded successfully');
@@ -618,6 +645,13 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
     }
   };
 
+  // Function to toggle viewer type
+  const toggleViewerType = useCallback(() => {
+    setViewerType(prev => prev === 'iframe' ? 'embed' : 'iframe');
+    setIframeLoading(true);
+    setIframeError(null);
+  }, []);
+
   return (
     <div className="h-full">
       {presentation ? (
@@ -645,6 +679,29 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
               <p className="mt-4 text-gray-600">Loading your file...</p>
               <p className="mt-2 text-xs text-gray-500">URL: {presentation.url}</p>
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={openInNewTab}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Open in New Tab
+                </button>
+                {presentation.apiUrl && (
+                  <button
+                    onClick={tryApiUrl}
+                    className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                  >
+                    Try API URL
+                  </button>
+                )}
+                <a 
+                  href={presentation.url} 
+                  download={`presentation-${new Date().toISOString().split('T')[0]}.pdf`}
+                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                >
+                  Download
+                </a>
+              </div>
             </div>
           )}
 
@@ -679,17 +736,38 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
 
           {!iframeLoading && !iframeError && (
             <div className="flex-grow border rounded-lg overflow-hidden">
-              <iframe
-                src={presentation.url}
-                className="w-full h-full"
-                title="Presentation Viewer"
-                onLoad={handleIframeLoadWithCheck}
-                onError={handleIframeError}
-                style={{ pointerEvents: 'all' }}
-                referrerPolicy="origin"
-                allow="fullscreen"
-                loading="lazy"
-              ></iframe>
+              {viewerType === 'iframe' ? (
+                <iframe
+                  src={presentation.url}
+                  className="w-full h-full"
+                  title="Presentation Viewer"
+                  onLoad={handleIframeLoadWithCheck}
+                  onError={handleIframeError}
+                  style={{ pointerEvents: 'all' }}
+                  referrerPolicy="origin"
+                  allow="fullscreen"
+                  loading="lazy"
+                ></iframe>
+              ) : (
+                <embed
+                  src={presentation.url}
+                  type="application/pdf"
+                  className="w-full h-full"
+                  title="PDF Viewer"
+                />
+              )}
+            </div>
+          )}
+
+          {/* Viewer type toggle button */}
+          {!iframeLoading && !iframeError && (
+            <div className="mt-2 flex justify-end">
+              <button
+                onClick={toggleViewerType}
+                className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+              >
+                Switch to {viewerType === 'iframe' ? 'Embed' : 'IFrame'} Viewer
+              </button>
             </div>
           )}
         </div>
