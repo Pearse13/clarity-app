@@ -12,6 +12,7 @@ interface UploadResponse {
   id: string;
   url: string;
   filename: string;
+  document_id?: string; // Optional document_id field
 }
 
 interface PresentationViewerProps {
@@ -394,12 +395,24 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                     throw new Error('No document URL found in response');
                   }
                   
-                  // Use a consistent URL format - always use the static file path
-                  const fullUrl = `${apiUrl}/static/presentations/${statusData.document_id}/presentation.pdf`;
-                  console.log('Using consistent URL format:', fullUrl);
+                  // Try both URL formats - first the API endpoint, then the static file path
+                  let fullUrl;
+                  if (documentUrl.startsWith('http')) {
+                    fullUrl = documentUrl;
+                  } else if (documentUrl.startsWith('/api/')) {
+                    fullUrl = `${apiUrl}${documentUrl}`;
+                  } else {
+                    // Construct a static file path
+                    fullUrl = `${apiUrl}/static/presentations/${statusData.document_id}/presentation.pdf`;
+                  }
+                  
+                  console.log('Using URL:', fullUrl);
                   
                   // Set the URL in the response data
                   responseData.url = fullUrl;
+                  
+                  // Store the document_id for future use
+                  responseData.document_id = statusData.document_id;
                   
                   // Set progress to 100% when processing is complete
                   setUploadProgress(100);
@@ -499,7 +512,7 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
 
   // Handle object load event for PDFs
   const handleObjectLoad = (event: React.SyntheticEvent<HTMLObjectElement>) => {
-    console.log('PDF object loaded');
+    console.log('PDF object loaded successfully');
     
     // Delay setting loading to false to ensure content is rendered
     setTimeout(() => {
@@ -513,6 +526,11 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
     console.error('PDF object error:', event);
     setIframeError('Failed to load PDF preview. You can try opening it directly in your browser.');
     setIframeLoading(false);
+    
+    // Try a different URL format if this is the first error
+    if (retryCount === 0) {
+      retryLoad();
+    }
   };
 
   const handleIframeError = (event: React.SyntheticEvent<HTMLIFrameElement>) => {
@@ -538,15 +556,30 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
     setIframeError(null);
     setRetryCount(prev => prev + 1);
     
-    // Add a timestamp to force reload
-    const timestamp = new Date().getTime();
-    const url = new URL(presentation.url, window.location.origin);
-    url.searchParams.set('t', timestamp.toString());
+    // Try different URL formats based on retry count
+    const apiUrl = 'https://clarity-backend-production.up.railway.app';
+    const docId = presentation.document_id || presentation.url.split('/').slice(-2)[0]; // Extract document ID from URL or use document_id if available
+    
+    let newUrl;
+    if (retryCount === 0) {
+      // Try the direct static file path
+      newUrl = `${apiUrl}/static/presentations/${docId}/presentation.pdf`;
+      console.log('Trying direct static file path:', newUrl);
+    } else if (retryCount === 1) {
+      // Try the API endpoint format
+      newUrl = `${apiUrl}/api/presentations/files/${docId}/presentation.pdf`;
+      console.log('Trying API endpoint format:', newUrl);
+    } else {
+      // Add a timestamp to force reload
+      const timestamp = new Date().getTime();
+      newUrl = `${apiUrl}/static/presentations/${docId}/presentation.pdf?t=${timestamp}`;
+      console.log('Adding timestamp to URL:', newUrl);
+    }
     
     // Update the presentation URL
     setPresentation(prev => {
       if (!prev) return null;
-      return { ...prev, url: url.toString() };
+      return { ...prev, url: newUrl };
     });
   }, [presentation, retryCount]);
 
@@ -589,21 +622,14 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
           {iframeError && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
               <p>{iframeError}</p>
-              <p className="text-sm mt-2">URL: {presentation.url}</p>
+              <p className="text-sm mt-2">The file was uploaded successfully, but there was an issue displaying it in the browser.</p>
               <div className="mt-4 flex gap-2">
-                <a 
-                  href={presentation.url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                >
-                  Open in Browser
-                </a>
                 <button
                   onClick={retryLoad}
-                  className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2"
                 >
-                  Retry
+                  <RefreshCw className="w-4 h-4" />
+                  Try Again
                 </button>
               </div>
             </div>
@@ -611,50 +637,17 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
 
           {!iframeLoading && !iframeError && (
             <div className="flex-grow border rounded-lg overflow-hidden">
-              {presentation.url.endsWith('.pdf') ? (
-                <div className="w-full h-full relative">
-                  <object
-                    data={presentation.url}
-                    type="application/pdf"
-                    className="w-full h-full"
-                    onLoad={handleObjectLoad}
-                    onError={handleObjectError}
-                  >
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 p-4">
-                      <p className="mb-4 text-gray-700">Your browser cannot display this PDF directly.</p>
-                      <div className="flex gap-2">
-                        <a 
-                          href={presentation.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                        >
-                          Open in New Tab
-                        </a>
-                        <a 
-                          href={presentation.url} 
-                          download={`presentation-${new Date().toISOString().split('T')[0]}.pdf`}
-                          className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-                        >
-                          Download PDF
-                        </a>
-                      </div>
-                    </div>
-                  </object>
-                </div>
-              ) : (
-                <iframe
-                  src={presentation.url}
-                  className="w-full h-full"
-                  title="Presentation Viewer"
-                  onLoad={handleIframeLoad}
-                  onError={handleIframeError}
-                  style={{ pointerEvents: 'all' }}
-                  referrerPolicy="origin"
-                  allow="fullscreen"
-                  loading="lazy"
-                ></iframe>
-              )}
+              <iframe
+                src={presentation.url}
+                className="w-full h-full"
+                title="Presentation Viewer"
+                onLoad={handleIframeLoad}
+                onError={handleIframeError}
+                style={{ pointerEvents: 'all' }}
+                referrerPolicy="origin"
+                allow="fullscreen"
+                loading="lazy"
+              ></iframe>
             </div>
           )}
         </div>
