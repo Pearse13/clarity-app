@@ -16,6 +16,7 @@ interface UploadResponse {
   apiUrl?: string; // Optional API URL as fallback
   useDirectViewer?: boolean;
   possibleUrls?: string[];
+  isPowerPoint?: boolean;
 }
 
 interface PresentationViewerProps {
@@ -339,6 +340,45 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
             setIframeLoading(false);
             
             console.log('PDF displayed directly from original file');
+            return; // Exit the upload function
+          }
+          
+          // For PowerPoint files, use Google Docs Viewer
+          if ((file.type === 'application/vnd.ms-powerpoint' || 
+               file.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') && 
+              responseData.document_id) {
+            console.log('PowerPoint file uploaded, displaying using Google Docs Viewer');
+            
+            // Get the document ID
+            const docId = responseData.document_id;
+            
+            // Set progress to 100% to indicate upload is complete
+            setUploadProgress(100);
+            
+            // Create a data URL directly from the file
+            const dataUrl = URL.createObjectURL(file);
+            
+            // Store the original file in a variable for later use
+            const originalFileUrl = dataUrl;
+            
+            // Create a Google Docs Viewer URL
+            // Note: This requires the file to be publicly accessible, which it isn't yet
+            // So we'll use the original file data URL and handle the display differently
+            
+            // Create response object with the data URL
+            const directResponse: UploadResponse = {
+              id: docId,
+              url: dataUrl, // We'll use this in the viewer component
+              filename: file.name,
+              document_id: docId,
+              isPowerPoint: true // Add a flag to indicate this is a PowerPoint file
+            };
+            
+            // Set the presentation with the data URL
+            setPresentation(directResponse);
+            setIframeLoading(false);
+            
+            console.log('PowerPoint file ready for display');
             return; // Exit the upload function
           }
 
@@ -762,21 +802,58 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
 
           {!iframeLoading && !iframeError && (
             <div className="flex-grow border rounded-lg overflow-hidden">
-              {/* Use iframe for better PDF handling */}
-              <iframe
-                src={presentation.url}
-                className="w-full h-full"
-                style={{ width: '100%', height: '100%', minHeight: '500px' }}
-                onLoad={() => {
-                  console.log('PDF loaded successfully');
-                  setIframeLoading(false);
-                }}
-                onError={() => {
-                  console.log('PDF failed to load');
-                  setIframeError('Failed to load PDF. Please try again.');
-                  setIframeLoading(false);
-                }}
-              />
+              {presentation.isPowerPoint ? (
+                // For PowerPoint files, use Office Online Viewer
+                <div className="w-full h-full flex flex-col">
+                  <div className="bg-gray-100 p-4 text-center">
+                    <p className="text-gray-700 mb-2">PowerPoint files can't be displayed directly in the browser.</p>
+                    <div className="flex justify-center space-x-4">
+                      <button
+                        onClick={openInNewTab}
+                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                      >
+                        Download PowerPoint
+                      </button>
+                      <button
+                        onClick={() => {
+                          // Create a Google Docs Viewer URL
+                          const googleDocsUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(window.location.origin + '/api/presentations/file/' + presentation.document_id)}`;
+                          setPresentation(prev => {
+                            if (!prev) return null;
+                            return { ...prev, url: googleDocsUrl };
+                          });
+                          setIframeLoading(true);
+                        }}
+                        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                      >
+                        Try Online Viewer
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex-grow flex items-center justify-center">
+                    <div className="text-center p-8">
+                      <h3 className="text-xl font-semibold mb-2">{presentation.filename}</h3>
+                      <p className="text-gray-600">PowerPoint file uploaded successfully.</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                // For PDFs, use direct embed
+                <iframe
+                  src={presentation.url}
+                  className="w-full h-full"
+                  style={{ width: '100%', height: '100%', minHeight: '500px' }}
+                  onLoad={() => {
+                    console.log('PDF loaded successfully');
+                    setIframeLoading(false);
+                  }}
+                  onError={() => {
+                    console.log('PDF failed to load');
+                    setIframeError('Failed to load PDF. Please try again.');
+                    setIframeLoading(false);
+                  }}
+                />
+              )}
             </div>
           )}
         </div>
