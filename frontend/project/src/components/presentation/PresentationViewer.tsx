@@ -316,9 +316,9 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
             console.log('PDF file uploaded, displaying immediately without waiting for processing');
             
             // Construct the most reliable URL for the PDF
-            // Try a different URL format that might work better with the backend storage
+            // Try the uploads directory first, which is more likely to have the file immediately
             const docId = responseData.document_id;
-            const directPdfUrl = `${apiUrl}/static/presentations/${docId}/original.pdf`;
+            const directPdfUrl = `${apiUrl}/static/uploads/${docId}.pdf`;
             console.log('Using direct PDF URL:', directPdfUrl);
             
             // Create response object with the direct URL
@@ -328,7 +328,7 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
               filename: file.name,
               document_id: docId,
               // Store alternative URLs as fallbacks
-              apiUrl: `${apiUrl}/static/uploads/${docId}.pdf`
+              apiUrl: `${apiUrl}/static/presentations/${docId}/original.pdf`
             };
             
             // Set progress to 100% to indicate we're done
@@ -856,40 +856,40 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
 
           {!iframeLoading && !iframeError && (
             <div className="flex-grow border rounded-lg overflow-hidden">
-              {/* Use Google Docs Viewer as a reliable PDF viewer */}
-              <iframe
-                src={`https://docs.google.com/viewer?url=${encodeURIComponent(presentation.url)}&embedded=true`}
+              {/* Use direct PDF embed for better performance */}
+              <embed
+                src={presentation.url}
+                type="application/pdf"
                 className="w-full h-full"
-                title="PDF Viewer"
-                style={{ border: 'none', width: '100%', height: '100%' }}
-                onLoad={() => {
-                  console.log('Google Docs PDF viewer loaded successfully');
-                  setIframeLoading(false);
-                  setIframeError(null);
-                  setRetryCount(0);
-                }}
-                onError={(e) => {
-                  console.error('Google Docs PDF viewer error:', e);
-                  // Fall back to direct PDF display
-                  setPresentation(prev => {
-                    if (!prev) return null;
-                    return { ...prev, useDirectViewer: true };
-                  });
-                }}
+                style={{ width: '100%', height: '100%' }}
               />
             </div>
           )}
           
-          {/* Fallback direct PDF viewer if Google Docs viewer fails */}
-          {!iframeLoading && !iframeError && presentation?.useDirectViewer && (
-            <div className="flex-grow border rounded-lg overflow-hidden">
-              <iframe
-                src={presentation.url}
-                className="w-full h-full"
-                title="Direct PDF Viewer"
-                style={{ border: 'none', width: '100%', height: '100%' }}
-              />
-            </div>
+          {/* Add a loading complete handler */}
+          {presentation && (
+            <img 
+              src={presentation.url} 
+              style={{ display: 'none' }} 
+              onLoad={() => {
+                console.log('PDF loaded successfully');
+                setIframeLoading(false);
+              }}
+              onError={() => {
+                console.log('PDF failed to load, trying data URL approach');
+                // Try to fetch as data URL
+                fetchPdfAsDataUrl(presentation.url).then(dataUrl => {
+                  if (dataUrl) {
+                    setPresentation(prev => {
+                      if (!prev) return null;
+                      return { ...prev, url: dataUrl };
+                    });
+                  } else {
+                    setIframeError('Failed to load PDF. Please try again.');
+                  }
+                });
+              }}
+            />
           )}
         </div>
       ) : (
