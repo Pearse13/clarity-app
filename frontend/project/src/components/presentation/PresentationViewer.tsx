@@ -319,38 +319,26 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
             // Get the document ID
             const docId = responseData.document_id;
             
-            // Try multiple possible locations for the PDF
-            const possibleUrls = [
-              // Try the original file in the presentations directory
-              `${apiUrl}/static/presentations/${docId}/original.pdf`,
-              // Try the uploads directory
-              `${apiUrl}/static/uploads/${docId}.pdf`,
-              // Try with the document name
-              `${apiUrl}/static/presentations/${docId}/${file.name.replace(/\s+/g, '_')}`,
-              // Try the document.pdf format
-              `${apiUrl}/static/presentations/${docId}/document.pdf`,
-              // Try the presentation.pdf format
-              `${apiUrl}/static/presentations/${docId}/presentation.pdf`
-            ];
+            // Set progress to 100% to indicate upload is complete
+            setUploadProgress(100);
             
-            console.log('Will try these PDF URLs in sequence:', possibleUrls);
+            // Create a data URL directly from the file
+            const dataUrl = URL.createObjectURL(file);
+            console.log('Created data URL from original file:', dataUrl);
             
-            // Create response object with the URLs to try
+            // Create response object with the data URL
             const directResponse: UploadResponse = {
               id: docId,
-              url: possibleUrls[0], // Start with the first URL
+              url: dataUrl,
               filename: file.name,
-              document_id: docId,
-              // Store all URLs to try
-              possibleUrls: possibleUrls
+              document_id: docId
             };
             
-            // Set progress to 100% to indicate we're done
-            setUploadProgress(100);
+            // Set the presentation with the data URL
             setPresentation(directResponse);
-            setIframeLoading(true);
+            setIframeLoading(false);
             
-            console.log('PDF displayed immediately after upload');
+            console.log('PDF displayed directly from original file');
             return; // Exit the upload function
           }
 
@@ -647,135 +635,32 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
   };
 
   const retryLoad = useCallback(async () => {
-    if (!presentation || retryCount >= 3) {
-      setIframeError('Failed to load PDF preview after multiple attempts');
-      setIframeLoading(false);
+    if (!presentation) {
+      setIframeError('No presentation to reload');
       return;
     }
     
     console.log('Retrying PDF load...');
     setIframeLoading(true);
     setIframeError(null);
-    setRetryCount(prev => prev + 1);
     
-    // Try different URL formats based on retry count
-    const apiUrl = 'https://clarity-backend-production.up.railway.app';
-    const docId = presentation.document_id || presentation.url.split('/').slice(-2)[0]; // Extract document ID from URL or use document_id if available
-    const fileName = presentation.filename.replace(/\s+/g, '_'); // Replace spaces with underscores
-    
-    // If we have possibleUrls, use those first
-    if (presentation.possibleUrls && presentation.possibleUrls.length > 0) {
-      // Try the next URL in the sequence
-      const currentUrlIndex = presentation.possibleUrls.indexOf(presentation.url);
-      const nextIndex = (currentUrlIndex + 1) % presentation.possibleUrls.length;
-      const nextUrl = presentation.possibleUrls[nextIndex];
-      
-      console.log(`Retry ${retryCount + 1}: Trying URL ${nextIndex + 1}/${presentation.possibleUrls.length}: ${nextUrl}`);
-      
-      // Update the presentation URL
-      setPresentation(prev => {
-        if (!prev) return null;
-        return { ...prev, url: nextUrl };
-      });
-      return;
-    }
-    
-    // If this is the last retry attempt, try fetching the PDF as a data URL
-    if (retryCount === 2) {
-      console.log('Last retry attempt, trying to fetch PDF as data URL');
-      
-      // Try all possible URLs
-      const urlsToTry = [
-        presentation.url,
-        presentation.apiUrl || '',
-        `${apiUrl}/static/presentations/${docId}/original.pdf`,
-        `${apiUrl}/static/uploads/${docId}.pdf`,
-        `${apiUrl}/static/presentations/${docId}/${fileName}`
-      ].filter(Boolean); // Remove empty strings
-      
-      for (const url of urlsToTry) {
-        const dataUrl = await fetchPdfAsDataUrl(url);
-        if (dataUrl) {
-          console.log('Successfully fetched PDF as data URL');
-          setPresentation(prev => {
-            if (!prev) return null;
-            return { ...prev, url: dataUrl };
-          });
-          return;
-        }
-      }
-      
-      setIframeError('Failed to load PDF. Please try again later.');
-      setIframeLoading(false);
-      return;
-    }
-    
-    // Create an array of URLs to try
-    const urlsToTry = [
-      // First retry: Try the API endpoint URL if available or the static file path
-      retryCount === 0 && presentation.apiUrl ? presentation.apiUrl : `${apiUrl}/static/presentations/${docId}/presentation.pdf`,
-      // Second retry: Try another static path format
-      `${apiUrl}/static/presentations/${docId}/document.pdf`,
-      // Third retry: Try the original file name
-      `${apiUrl}/static/presentations/${docId}/${fileName}`,
-      // Fourth retry: Try the uploads directory
-      `${apiUrl}/static/uploads/${docId}.pdf`
-    ];
-    
-    // Use the URL corresponding to the current retry count
-    const newUrl = urlsToTry[retryCount] || urlsToTry[0];
-    console.log(`Retry ${retryCount + 1}: Trying URL: ${newUrl}`);
-    
-    // Update the presentation URL
+    // Simply reload the current URL
     setPresentation(prev => {
       if (!prev) return null;
-      return { ...prev, url: newUrl };
+      // Force a refresh by creating a new URL object with the same source
+      const refreshedUrl = prev.url.includes('blob:') 
+        ? prev.url  // Keep blob URLs as they are
+        : `${prev.url}${prev.url.includes('?') ? '&' : '?'}refresh=${Date.now()}`;
+      return { ...prev, url: refreshedUrl };
     });
-  }, [presentation, retryCount, fetchPdfAsDataUrl]);
+  }, [presentation]);
 
-  // Add a function to handle iframe load with URL checking
-  const handleIframeLoadWithCheck = useCallback(async (event: React.SyntheticEvent<HTMLIFrameElement>) => {
-    console.log('iframe loaded or attempted to load');
-    const iframe = event.target as HTMLIFrameElement;
-    
-    // Log the iframe src for debugging
-    console.log('iframe src:', iframe.src);
-    
-    // Check if the iframe content is accessible
-    try {
-      // Try to access the contentDocument to see if it loaded successfully
-      if (iframe.contentDocument) {
-        console.log('iframe content loaded successfully');
-        
-        // Delay setting loading to false to ensure content is rendered
-        setTimeout(() => {
-          setIframeLoading(false);
-          setIframeError(null);
-          setRetryCount(0);
-        }, 500);
-        
-        return;
-      }
-    } catch (err) {
-      // If we can't access the contentDocument, it might be due to CORS
-      console.warn('Could not access iframe content, possibly due to CORS:', err);
-    }
-    
-    // If we get here, the iframe might have loaded but with an error page
-    // Check if the URL is accessible
-    const isAccessible = await checkUrlAccessible(presentation?.url || '');
-    
-    if (!isAccessible) {
-      console.log('URL is not accessible, retrying with a different format');
-      retryLoad();
-    } else {
-      // URL is accessible but iframe might still have issues
-      // Set loading to false anyway
-      setTimeout(() => {
-        setIframeLoading(false);
-      }, 500);
-    }
-  }, [presentation, retryLoad]);
+  // Add a function to handle iframe load
+  const handleIframeLoad = useCallback((event: React.SyntheticEvent<HTMLIFrameElement>) => {
+    console.log('iframe loaded');
+    setIframeLoading(false);
+    setIframeError(null);
+  }, []);
 
   // Add a function to open the PDF in a new tab
   const openInNewTab = useCallback(() => {
@@ -816,22 +701,12 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
     console.error('PDF object error:', event);
     setIframeError('Failed to load PDF preview. You can try opening it directly in your browser.');
     setIframeLoading(false);
-    
-    // Try a different URL format if this is the first error
-    if (retryCount === 0) {
-      retryLoad();
-    }
   };
 
   const handleIframeError = (event: React.SyntheticEvent<HTMLIFrameElement>) => {
     console.error('iframe error:', event);
     setIframeError('Failed to load file preview');
     setIframeLoading(false);
-    
-    // Only retry if we haven't exceeded max retries
-    if (retryCount < 3) {
-      retryLoad();
-    }
   };
 
   return (
@@ -892,7 +767,7 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                 src={presentation.url}
                 type="application/pdf"
                 className="w-full h-full"
-                style={{ width: '100%', height: '100%' }}
+                style={{ width: '100%', height: '100%', minHeight: '500px' }}
               />
             </div>
           )}
@@ -907,35 +782,9 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                 setIframeLoading(false);
               }}
               onError={() => {
-                console.log('PDF failed to load, trying next URL in sequence');
-                
-                // Try the next URL in the sequence if available
-                if (presentation.possibleUrls && presentation.possibleUrls.length > 1) {
-                  const currentUrlIndex = presentation.possibleUrls.indexOf(presentation.url);
-                  if (currentUrlIndex >= 0 && currentUrlIndex < presentation.possibleUrls.length - 1) {
-                    const nextUrl = presentation.possibleUrls[currentUrlIndex + 1];
-                    console.log(`Trying next URL (${currentUrlIndex + 2}/${presentation.possibleUrls.length}): ${nextUrl}`);
-                    
-                    setPresentation(prev => {
-                      if (!prev) return null;
-                      return { ...prev, url: nextUrl };
-                    });
-                    return;
-                  }
-                }
-                
-                // If we've tried all URLs or no possibleUrls are available, try the data URL approach
-                console.log('All URLs failed, trying data URL approach');
-                fetchPdfAsDataUrl(presentation.url).then(dataUrl => {
-                  if (dataUrl) {
-                    setPresentation(prev => {
-                      if (!prev) return null;
-                      return { ...prev, url: dataUrl };
-                    });
-                  } else {
-                    setIframeError('Failed to load PDF. Please try again.');
-                  }
-                });
+                console.log('PDF failed to load');
+                setIframeError('Failed to load PDF. Please try again.');
+                setIframeLoading(false);
               }}
             />
           )}
