@@ -419,6 +419,37 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                   return; // Success, exit the retry loop
                 } else if (statusData.status === "error") {
                   throw new Error(statusData.error || 'Error processing document');
+                } else if (statusCheckCount >= 5 && statusData.status === "processing") {
+                  // If we've checked 5+ times and it's still processing, try to display the PDF directly
+                  console.log('Processing taking too long, attempting to display PDF directly');
+                  
+                  // For PDFs, we can try to display the original file directly
+                  if (file.type === 'application/pdf') {
+                    console.log('File is a PDF, attempting to display original file');
+                    
+                    // Construct a direct URL to the uploaded PDF
+                    const directPdfUrl = `${apiUrl}/static/uploads/${statusData.document_id}.pdf`;
+                    console.log('Using direct PDF URL:', directPdfUrl);
+                    
+                    // Create a new response object with the direct URL
+                    const directResponse: UploadResponse = {
+                      id: statusData.document_id,
+                      url: directPdfUrl,
+                      filename: file.name,
+                      document_id: statusData.document_id,
+                      apiUrl: directPdfUrl
+                    };
+                    
+                    // Set progress to 100% to indicate we're done waiting
+                    setUploadProgress(100);
+                    setPresentation(directResponse);
+                    setIframeLoading(true);
+                    
+                    // Add a warning message
+                    console.warn('Document processing is taking longer than expected. Displaying original PDF file.');
+                    
+                    return; // Exit the retry loop
+                  }
                 }
               } catch (statusErr) {
                 console.error('Error checking document status:', statusErr);
@@ -473,6 +504,46 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
       }
 
       // If we get here, all retries failed
+      // For PDFs, try a last-resort fallback to display the original file
+      if (file.type === 'application/pdf') {
+        console.log('All retries failed, attempting to display original PDF as last resort');
+        
+        try {
+          // Get the API URL
+          const apiUrl = 'https://clarity-backend-production.up.railway.app';
+          
+          // Create a document ID from the filename if we don't have one
+          const documentId = file.name.replace(/\s+/g, '-').toLowerCase();
+          
+          // Construct possible URLs for the original PDF
+          const directPdfUrl = `${apiUrl}/static/uploads/${documentId}.pdf`;
+          
+          console.log('Using direct PDF URL as fallback:', directPdfUrl);
+          
+          // Create a new response object
+          const fallbackResponse: UploadResponse = {
+            id: documentId,
+            url: directPdfUrl,
+            filename: file.name,
+            document_id: documentId,
+            apiUrl: directPdfUrl
+          };
+          
+          // Set progress to 100% to indicate we're done waiting
+          setUploadProgress(100);
+          setPresentation(fallbackResponse);
+          setIframeLoading(true);
+          
+          // Add a warning message
+          console.warn('Document processing failed. Attempting to display original PDF file as fallback.');
+          
+          return; // Exit with our best attempt
+        } catch (fallbackErr) {
+          console.error('Fallback attempt failed:', fallbackErr);
+          // Continue to throw the original error
+        }
+      }
+      
       throw lastError;
       
     } catch (err) {
