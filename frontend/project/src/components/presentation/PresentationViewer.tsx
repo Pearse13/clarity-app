@@ -13,6 +13,7 @@ interface UploadResponse {
   url: string;
   filename: string;
   document_id?: string; // Optional document_id field
+  apiUrl?: string; // Optional API URL as fallback
 }
 
 interface PresentationViewerProps {
@@ -395,21 +396,19 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                     throw new Error('No document URL found in response');
                   }
                   
-                  // Try both URL formats - first the API endpoint, then the static file path
-                  let fullUrl;
-                  if (documentUrl.startsWith('http')) {
-                    fullUrl = documentUrl;
-                  } else if (documentUrl.startsWith('/api/')) {
-                    fullUrl = `${apiUrl}${documentUrl}`;
-                  } else {
-                    // Construct a static file path
-                    fullUrl = `${apiUrl}/static/presentations/${statusData.document_id}/presentation.pdf`;
-                  }
+                  // Try the static file path first, as it's more likely to work
+                  const fullUrl = `${apiUrl}/static/presentations/${statusData.document_id}/presentation.pdf`;
+                  console.log('Using static file path:', fullUrl);
                   
-                  console.log('Using URL:', fullUrl);
+                  // Store the API URL as a fallback
+                  const apiEndpointUrl = documentUrl.startsWith('http') 
+                    ? documentUrl 
+                    : `${apiUrl}${documentUrl}`;
+                  console.log('API endpoint URL (fallback):', apiEndpointUrl);
                   
                   // Set the URL in the response data
                   responseData.url = fullUrl;
+                  responseData.apiUrl = apiEndpointUrl; // Store the API URL as a fallback
                   
                   // Store the document_id for future use
                   responseData.document_id = statusData.document_id;
@@ -485,30 +484,105 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
     }
   };
 
-  const handleIframeLoad = (event: React.SyntheticEvent<HTMLIFrameElement>) => {
-    console.log('iframe loaded');
+  // Function to check if a URL is accessible
+  const checkUrlAccessible = async (url: string): Promise<boolean> => {
+    try {
+      console.log('Checking if URL is accessible:', url);
+      const response = await fetch(url, {
+        method: 'HEAD',
+        headers: {
+          'Accept': 'application/json',
+          'Origin': window.location.origin
+        },
+        mode: 'cors'
+      });
+      
+      console.log('URL check status:', response.status);
+      return response.ok;
+    } catch (err) {
+      console.error('Error checking URL:', err);
+      return false;
+    }
+  };
+
+  const retryLoad = useCallback(() => {
+    if (!presentation || retryCount >= 3) {
+      setIframeError('Failed to load file preview after multiple attempts');
+      setIframeLoading(false);
+      return;
+    }
+    
+    console.log('Retrying iframe load...');
+    setIframeLoading(true);
+    setIframeError(null);
+    setRetryCount(prev => prev + 1);
+    
+    // Try different URL formats based on retry count
+    const apiUrl = 'https://clarity-backend-production.up.railway.app';
+    const docId = presentation.document_id || presentation.url.split('/').slice(-2)[0]; // Extract document ID from URL or use document_id if available
+    
+    let newUrl;
+    if (retryCount === 0 && presentation.apiUrl) {
+      // Try the API endpoint URL if available
+      newUrl = presentation.apiUrl;
+      console.log('Trying API endpoint URL:', newUrl);
+    } else if (retryCount === 0 || retryCount === 1) {
+      // Try the static file path format
+      newUrl = `${apiUrl}/static/presentations/${docId}/presentation.pdf`;
+      console.log('Trying static file path format:', newUrl);
+    } else {
+      // Try another static path format
+      newUrl = `${apiUrl}/static/presentations/${docId}/document.pdf`;
+      console.log('Trying alternative static path format:', newUrl);
+    }
+    
+    // Update the presentation URL
+    setPresentation(prev => {
+      if (!prev) return null;
+      return { ...prev, url: newUrl };
+    });
+  }, [presentation, retryCount]);
+
+  // Add a function to handle iframe load with URL checking
+  const handleIframeLoadWithCheck = useCallback(async (event: React.SyntheticEvent<HTMLIFrameElement>) => {
+    console.log('iframe loaded or attempted to load');
     const iframe = event.target as HTMLIFrameElement;
     
-    // Delay setting loading to false to ensure content is rendered
-    setTimeout(() => {
-      setIframeLoading(false);
-      setIframeError(null);
-      setRetryCount(0);
-    }, 500);
-    
-    // Add a message listener for communication with the iframe content
-    window.addEventListener('message', (event) => {
-      // Verify the origin of the message
-      if (event.origin !== window.location.origin) return;
-      
-      if (event.data.type === 'textSelection') {
-        const cleanText = cleanSelectedText(event.data.text);
-        if (cleanText && onTextSelect) {
-          onTextSelect(cleanText);
-        }
+    // Check if the iframe content is accessible
+    try {
+      // Try to access the contentDocument to see if it loaded successfully
+      if (iframe.contentDocument) {
+        console.log('iframe content loaded successfully');
+        
+        // Delay setting loading to false to ensure content is rendered
+        setTimeout(() => {
+          setIframeLoading(false);
+          setIframeError(null);
+          setRetryCount(0);
+        }, 500);
+        
+        return;
       }
-    });
-  };
+    } catch (err) {
+      // If we can't access the contentDocument, it might be due to CORS
+      console.warn('Could not access iframe content, possibly due to CORS:', err);
+    }
+    
+    // If we get here, the iframe might have loaded but with an error page
+    // Check if the URL is accessible
+    const isAccessible = await checkUrlAccessible(presentation?.url || '');
+    
+    if (!isAccessible) {
+      console.log('URL is not accessible, retrying with a different format');
+      retryLoad();
+    } else {
+      // URL is accessible but iframe might still have issues
+      // Set loading to false anyway
+      setTimeout(() => {
+        setIframeLoading(false);
+      }, 500);
+    }
+  }, [presentation, retryLoad]);
 
   // Handle object load event for PDFs
   const handleObjectLoad = (event: React.SyntheticEvent<HTMLObjectElement>) => {
@@ -543,45 +617,6 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
       retryLoad();
     }
   };
-
-  const retryLoad = useCallback(() => {
-    if (!presentation || retryCount >= 3) {
-      setIframeError('Failed to load file preview after multiple attempts');
-      setIframeLoading(false);
-      return;
-    }
-    
-    console.log('Retrying iframe load...');
-    setIframeLoading(true);
-    setIframeError(null);
-    setRetryCount(prev => prev + 1);
-    
-    // Try different URL formats based on retry count
-    const apiUrl = 'https://clarity-backend-production.up.railway.app';
-    const docId = presentation.document_id || presentation.url.split('/').slice(-2)[0]; // Extract document ID from URL or use document_id if available
-    
-    let newUrl;
-    if (retryCount === 0) {
-      // Try the direct static file path
-      newUrl = `${apiUrl}/static/presentations/${docId}/presentation.pdf`;
-      console.log('Trying direct static file path:', newUrl);
-    } else if (retryCount === 1) {
-      // Try the API endpoint format
-      newUrl = `${apiUrl}/api/presentations/files/${docId}/presentation.pdf`;
-      console.log('Trying API endpoint format:', newUrl);
-    } else {
-      // Add a timestamp to force reload
-      const timestamp = new Date().getTime();
-      newUrl = `${apiUrl}/static/presentations/${docId}/presentation.pdf?t=${timestamp}`;
-      console.log('Adding timestamp to URL:', newUrl);
-    }
-    
-    // Update the presentation URL
-    setPresentation(prev => {
-      if (!prev) return null;
-      return { ...prev, url: newUrl };
-    });
-  }, [presentation, retryCount]);
 
   return (
     <div className="h-full">
@@ -631,6 +666,13 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                   <RefreshCw className="w-4 h-4" />
                   Try Again
                 </button>
+                <a 
+                  href={presentation.url} 
+                  download={`presentation-${new Date().toISOString().split('T')[0]}.pdf`}
+                  className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                >
+                  Download File
+                </a>
               </div>
             </div>
           )}
@@ -641,7 +683,7 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                 src={presentation.url}
                 className="w-full h-full"
                 title="Presentation Viewer"
-                onLoad={handleIframeLoad}
+                onLoad={handleIframeLoadWithCheck}
                 onError={handleIframeError}
                 style={{ pointerEvents: 'all' }}
                 referrerPolicy="origin"
