@@ -215,7 +215,7 @@ class PresentationService:
             head_content = """
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1">
-                <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' http://localhost:* data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; frame-ancestors http://localhost:5174 http://localhost:8000">
+                <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' http://localhost:* data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; frame-ancestors *">
                 <base target="_blank">
             """
             html_content = html_content.replace('<head>', f'<head>{head_content}')

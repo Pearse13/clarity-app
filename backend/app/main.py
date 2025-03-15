@@ -71,8 +71,8 @@ def create_app() -> FastAPI:
                 response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-API-Key"
             
             # Set security headers for production
-            response.headers["X-Frame-Options"] = "SAMEORIGIN"
-            response.headers["Content-Security-Policy"] = "frame-ancestors 'self'"
+            response.headers["X-Frame-Options"] = "ALLOW-FROM *"
+            response.headers["Content-Security-Policy"] = "frame-ancestors *"
             
         # For development environment
         elif request.url.hostname in ['localhost', '127.0.0.1']:
