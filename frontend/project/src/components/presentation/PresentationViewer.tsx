@@ -394,36 +394,12 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                     throw new Error('No document URL found in response');
                   }
                   
-                  // Construct full URL for the presentation
-                  const fullUrl = documentUrl.startsWith('http') ? documentUrl : `${apiUrl}${documentUrl}`;
-                  console.log('Full URL:', fullUrl);
+                  // Use a consistent URL format - always use the static file path
+                  const fullUrl = `${apiUrl}/static/presentations/${statusData.document_id}/presentation.pdf`;
+                  console.log('Using consistent URL format:', fullUrl);
                   
-                  // Test if the URL is accessible
-                  try {
-                    const testResponse = await fetch(fullUrl, {
-                      method: 'HEAD',
-                      headers: {
-                        'Accept': 'application/json',
-                        'Origin': window.location.origin
-                      },
-                      credentials: 'include',
-                      mode: 'cors'
-                    });
-                    
-                    if (!testResponse.ok) {
-                      console.error('URL is not accessible:', fullUrl);
-                      // Try an alternative URL format
-                      const alternativeUrl = `${apiUrl}/static/presentations/${statusData.document_id}/presentation.pdf`;
-                      console.log('Trying alternative URL:', alternativeUrl);
-                      responseData.url = alternativeUrl;
-                    } else {
-                      responseData.url = fullUrl;
-                    }
-                  } catch (e) {
-                    console.error('Error testing URL accessibility:', e);
-                    // Use the URL anyway
-                    responseData.url = fullUrl;
-                  }
+                  // Set the URL in the response data
+                  responseData.url = fullUrl;
                   
                   // Set progress to 100% when processing is complete
                   setUploadProgress(100);
@@ -521,6 +497,24 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
     });
   };
 
+  // Handle object load event for PDFs
+  const handleObjectLoad = (event: React.SyntheticEvent<HTMLObjectElement>) => {
+    console.log('PDF object loaded');
+    
+    // Delay setting loading to false to ensure content is rendered
+    setTimeout(() => {
+      setIframeLoading(false);
+      setIframeError(null);
+      setRetryCount(0);
+    }, 500);
+  };
+
+  const handleObjectError = (event: React.SyntheticEvent<HTMLObjectElement>) => {
+    console.error('PDF object error:', event);
+    setIframeError('Failed to load PDF preview. You can try opening it directly in your browser.');
+    setIframeLoading(false);
+  };
+
   const handleIframeError = (event: React.SyntheticEvent<HTMLIFrameElement>) => {
     console.error('iframe error:', event);
     setIframeError('Failed to load file preview');
@@ -544,16 +538,16 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
     setIframeError(null);
     setRetryCount(prev => prev + 1);
     
-    // Force iframe reload by updating the URL with a timestamp
+    // Add a timestamp to force reload
     const timestamp = new Date().getTime();
     const url = new URL(presentation.url, window.location.origin);
     url.searchParams.set('t', timestamp.toString());
     
-    // Update the iframe src
-    const iframe = document.querySelector('iframe');
-    if (iframe) {
-      iframe.src = url.toString();
-    }
+    // Update the presentation URL
+    setPresentation(prev => {
+      if (!prev) return null;
+      return { ...prev, url: url.toString() };
+    });
   }, [presentation, retryCount]);
 
   return (
@@ -582,6 +576,7 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
             <div className="flex flex-col items-center justify-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
               <p className="mt-4 text-gray-600">Loading your file...</p>
+              <p className="mt-2 text-xs text-gray-500">URL: {presentation.url}</p>
             </div>
           )}
 
@@ -591,7 +586,30 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
             </div>
           )}
 
-          {!iframeLoading && (
+          {iframeError && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              <p>{iframeError}</p>
+              <p className="text-sm mt-2">URL: {presentation.url}</p>
+              <div className="mt-4 flex gap-2">
+                <a 
+                  href={presentation.url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Open in Browser
+                </a>
+                <button
+                  onClick={retryLoad}
+                  className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!iframeLoading && !iframeError && (
             <div className="flex-grow border rounded-lg overflow-hidden">
               {presentation.url.endsWith('.pdf') ? (
                 <div className="w-full h-full relative">
@@ -599,9 +617,11 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                     data={presentation.url}
                     type="application/pdf"
                     className="w-full h-full"
+                    onLoad={handleObjectLoad}
+                    onError={handleObjectError}
                   >
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 p-4">
-                      <p className="mb-4 text-gray-700">Unable to display PDF directly.</p>
+                      <p className="mb-4 text-gray-700">Your browser cannot display this PDF directly.</p>
                       <div className="flex gap-2">
                         <a 
                           href={presentation.url} 
@@ -609,14 +629,15 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                           rel="noopener noreferrer"
                           className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                         >
-                          Open PDF
+                          Open in New Tab
                         </a>
-                        <button
-                          onClick={() => window.open(presentation.url, '_blank')}
+                        <a 
+                          href={presentation.url} 
+                          download={`presentation-${new Date().toISOString().split('T')[0]}.pdf`}
                           className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
                         >
-                          Download
-                        </button>
+                          Download PDF
+                        </a>
                       </div>
                     </div>
                   </object>
