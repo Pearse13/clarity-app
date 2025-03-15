@@ -15,6 +15,7 @@ interface UploadResponse {
   document_id?: string; // Optional document_id field
   apiUrl?: string; // Optional API URL as fallback
   useDirectViewer?: boolean;
+  possibleUrls?: string[];
 }
 
 interface PresentationViewerProps {
@@ -315,20 +316,33 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
           if (file.type === 'application/pdf' && responseData.document_id) {
             console.log('PDF file uploaded, displaying immediately without waiting for processing');
             
-            // Construct the most reliable URL for the PDF
-            // Try the uploads directory first, which is more likely to have the file immediately
+            // Get the document ID
             const docId = responseData.document_id;
-            const directPdfUrl = `${apiUrl}/static/uploads/${docId}.pdf`;
-            console.log('Using direct PDF URL:', directPdfUrl);
             
-            // Create response object with the direct URL
+            // Try multiple possible locations for the PDF
+            const possibleUrls = [
+              // Try the original file in the presentations directory
+              `${apiUrl}/static/presentations/${docId}/original.pdf`,
+              // Try the uploads directory
+              `${apiUrl}/static/uploads/${docId}.pdf`,
+              // Try with the document name
+              `${apiUrl}/static/presentations/${docId}/${file.name.replace(/\s+/g, '_')}`,
+              // Try the document.pdf format
+              `${apiUrl}/static/presentations/${docId}/document.pdf`,
+              // Try the presentation.pdf format
+              `${apiUrl}/static/presentations/${docId}/presentation.pdf`
+            ];
+            
+            console.log('Will try these PDF URLs in sequence:', possibleUrls);
+            
+            // Create response object with the URLs to try
             const directResponse: UploadResponse = {
               id: docId,
-              url: directPdfUrl,
+              url: possibleUrls[0], // Start with the first URL
               filename: file.name,
               document_id: docId,
-              // Store alternative URLs as fallbacks
-              apiUrl: `${apiUrl}/static/presentations/${docId}/original.pdf`
+              // Store all URLs to try
+              possibleUrls: possibleUrls
             };
             
             // Set progress to 100% to indicate we're done
@@ -649,6 +663,23 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
     const docId = presentation.document_id || presentation.url.split('/').slice(-2)[0]; // Extract document ID from URL or use document_id if available
     const fileName = presentation.filename.replace(/\s+/g, '_'); // Replace spaces with underscores
     
+    // If we have possibleUrls, use those first
+    if (presentation.possibleUrls && presentation.possibleUrls.length > 0) {
+      // Try the next URL in the sequence
+      const currentUrlIndex = presentation.possibleUrls.indexOf(presentation.url);
+      const nextIndex = (currentUrlIndex + 1) % presentation.possibleUrls.length;
+      const nextUrl = presentation.possibleUrls[nextIndex];
+      
+      console.log(`Retry ${retryCount + 1}: Trying URL ${nextIndex + 1}/${presentation.possibleUrls.length}: ${nextUrl}`);
+      
+      // Update the presentation URL
+      setPresentation(prev => {
+        if (!prev) return null;
+        return { ...prev, url: nextUrl };
+      });
+      return;
+    }
+    
     // If this is the last retry attempt, try fetching the PDF as a data URL
     if (retryCount === 2) {
       console.log('Last retry attempt, trying to fetch PDF as data URL');
@@ -876,8 +907,25 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                 setIframeLoading(false);
               }}
               onError={() => {
-                console.log('PDF failed to load, trying data URL approach');
-                // Try to fetch as data URL
+                console.log('PDF failed to load, trying next URL in sequence');
+                
+                // Try the next URL in the sequence if available
+                if (presentation.possibleUrls && presentation.possibleUrls.length > 1) {
+                  const currentUrlIndex = presentation.possibleUrls.indexOf(presentation.url);
+                  if (currentUrlIndex >= 0 && currentUrlIndex < presentation.possibleUrls.length - 1) {
+                    const nextUrl = presentation.possibleUrls[currentUrlIndex + 1];
+                    console.log(`Trying next URL (${currentUrlIndex + 2}/${presentation.possibleUrls.length}): ${nextUrl}`);
+                    
+                    setPresentation(prev => {
+                      if (!prev) return null;
+                      return { ...prev, url: nextUrl };
+                    });
+                    return;
+                  }
+                }
+                
+                // If we've tried all URLs or no possibleUrls are available, try the data URL approach
+                console.log('All URLs failed, trying data URL approach');
                 fetchPdfAsDataUrl(presentation.url).then(dataUrl => {
                   if (dataUrl) {
                     setPresentation(prev => {
