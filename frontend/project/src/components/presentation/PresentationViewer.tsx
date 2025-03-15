@@ -34,7 +34,7 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
   const [iframeLoading, setIframeLoading] = useState(false);
   const [iframeError, setIframeError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
-  const [fileInputRef] = useState<React.RefObject<HTMLInputElement>>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Clean up selected text by removing CSS and unwanted content
   const cleanSelectedText = (text: string): string => {
