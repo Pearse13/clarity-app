@@ -37,7 +37,6 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
   const [iframeError, setIframeError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const [viewerType, setViewerType] = useState<'iframe' | 'embed'>('iframe');
 
   // Check if the backend API is accessible
   useEffect(() => {
@@ -315,22 +314,18 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
           if (file.type === 'application/pdf' && responseData.document_id) {
             console.log('PDF file uploaded, displaying immediately without waiting for processing');
             
-            // Construct direct URLs to try for the PDF
-            const directPdfUrls = [
-              `${apiUrl}/static/uploads/${responseData.document_id}.pdf`,
-              `${apiUrl}/static/presentations/${responseData.document_id}/original.pdf`,
-              `${apiUrl}/static/presentations/${responseData.document_id}/${file.name.replace(/\s+/g, '_')}`
-            ];
-            
-            console.log('Will try these direct PDF URLs:', directPdfUrls);
+            // Construct the most reliable URL for the PDF
+            // The original file is most likely to be available immediately
+            const directPdfUrl = `${apiUrl}/static/uploads/${responseData.document_id}.pdf`;
+            console.log('Using direct PDF URL:', directPdfUrl);
             
             // Create response object with the direct URL
             const directResponse: UploadResponse = {
               id: responseData.document_id,
-              url: directPdfUrls[0], // Try the first URL
+              url: directPdfUrl,
               filename: file.name,
               document_id: responseData.document_id,
-              apiUrl: directPdfUrls[1] // Store the second URL as a fallback
+              apiUrl: directPdfUrl
             };
             
             // Set progress to 100% to indicate we're done
@@ -747,13 +742,6 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
     }
   };
 
-  // Function to toggle viewer type
-  const toggleViewerType = useCallback(() => {
-    setViewerType(prev => prev === 'iframe' ? 'embed' : 'iframe');
-    setIframeLoading(true);
-    setIframeError(null);
-  }, []);
-
   return (
     <div className="h-full">
       {presentation ? (
@@ -780,30 +768,6 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
             <div className="flex flex-col items-center justify-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
               <p className="mt-4 text-gray-600">Loading your file...</p>
-              <p className="mt-2 text-xs text-gray-500">URL: {presentation.url}</p>
-              <div className="mt-4 flex gap-2">
-                <button
-                  onClick={openInNewTab}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                >
-                  Open in New Tab
-                </button>
-                {presentation.apiUrl && (
-                  <button
-                    onClick={tryApiUrl}
-                    className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-                  >
-                    Try API URL
-                  </button>
-                )}
-                <a 
-                  href={presentation.url} 
-                  download={`presentation-${new Date().toISOString().split('T')[0]}.pdf`}
-                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                >
-                  Download
-                </a>
-              </div>
             </div>
           )}
 
@@ -817,7 +781,7 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
               <p>{iframeError}</p>
               <p className="text-sm mt-2">The file was uploaded successfully, but there was an issue displaying it in the browser.</p>
-              <div className="mt-4 flex gap-2">
+              <div className="mt-4">
                 <button
                   onClick={retryLoad}
                   className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2"
@@ -825,51 +789,23 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                   <RefreshCw className="w-4 h-4" />
                   Try Again
                 </button>
-                <a 
-                  href={presentation.url} 
-                  download={`presentation-${new Date().toISOString().split('T')[0]}.pdf`}
-                  className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
-                >
-                  Download File
-                </a>
               </div>
             </div>
           )}
 
           {!iframeLoading && !iframeError && (
             <div className="flex-grow border rounded-lg overflow-hidden">
-              {viewerType === 'iframe' ? (
-                <iframe
-                  src={presentation.url}
-                  className="w-full h-full"
-                  title="Presentation Viewer"
-                  onLoad={handleIframeLoadWithCheck}
-                  onError={handleIframeError}
-                  style={{ pointerEvents: 'all' }}
-                  referrerPolicy="origin"
-                  allow="fullscreen"
-                  loading="lazy"
-                ></iframe>
-              ) : (
-                <embed
-                  src={presentation.url}
-                  type="application/pdf"
-                  className="w-full h-full"
-                  title="PDF Viewer"
-                />
-              )}
-            </div>
-          )}
-
-          {/* Viewer type toggle button */}
-          {!iframeLoading && !iframeError && (
-            <div className="mt-2 flex justify-end">
-              <button
-                onClick={toggleViewerType}
-                className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+              {/* Use object tag for PDF display - better native support */}
+              <object
+                data={presentation.url}
+                type="application/pdf"
+                className="w-full h-full"
+                title="PDF Viewer"
+                onLoad={handleObjectLoad}
+                onError={handleObjectError}
               >
-                Switch to {viewerType === 'iframe' ? 'Embed' : 'IFrame'} Viewer
-              </button>
+                <p>Your browser does not support PDF viewing. Please use a modern browser.</p>
+              </object>
             </div>
           )}
         </div>
