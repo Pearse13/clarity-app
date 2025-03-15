@@ -315,17 +315,19 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
             console.log('PDF file uploaded, displaying immediately without waiting for processing');
             
             // Construct the most reliable URL for the PDF
-            // The original file is most likely to be available immediately
-            const directPdfUrl = `${apiUrl}/static/uploads/${responseData.document_id}.pdf`;
+            // Try a different URL format that might work better with the backend storage
+            const docId = responseData.document_id;
+            const directPdfUrl = `${apiUrl}/static/presentations/${docId}/original.pdf`;
             console.log('Using direct PDF URL:', directPdfUrl);
             
             // Create response object with the direct URL
             const directResponse: UploadResponse = {
-              id: responseData.document_id,
+              id: docId,
               url: directPdfUrl,
               filename: file.name,
-              document_id: responseData.document_id,
-              apiUrl: directPdfUrl
+              document_id: docId,
+              // Store alternative URLs as fallbacks
+              apiUrl: `${apiUrl}/static/uploads/${docId}.pdf`
             };
             
             // Set progress to 100% to indicate we're done
@@ -601,14 +603,42 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
     }
   };
 
-  const retryLoad = useCallback(() => {
+  // Function to fetch the PDF as a blob and create a data URL
+  const fetchPdfAsDataUrl = async (url: string): Promise<string | null> => {
+    try {
+      console.log('Fetching PDF as data URL from:', url);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/pdf',
+          'Origin': window.location.origin
+        },
+        mode: 'cors'
+      });
+      
+      if (!response.ok) {
+        console.error('Failed to fetch PDF:', response.status);
+        return null;
+      }
+      
+      const blob = await response.blob();
+      const dataUrl = URL.createObjectURL(blob);
+      console.log('Created data URL for PDF:', dataUrl);
+      return dataUrl;
+    } catch (err) {
+      console.error('Error fetching PDF as data URL:', err);
+      return null;
+    }
+  };
+
+  const retryLoad = useCallback(async () => {
     if (!presentation || retryCount >= 3) {
-      setIframeError('Failed to load file preview after multiple attempts');
+      setIframeError('Failed to load PDF preview after multiple attempts');
       setIframeLoading(false);
       return;
     }
     
-    console.log('Retrying iframe load...');
+    console.log('Retrying PDF load...');
     setIframeLoading(true);
     setIframeError(null);
     setRetryCount(prev => prev + 1);
@@ -617,6 +647,36 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
     const apiUrl = 'https://clarity-backend-production.up.railway.app';
     const docId = presentation.document_id || presentation.url.split('/').slice(-2)[0]; // Extract document ID from URL or use document_id if available
     const fileName = presentation.filename.replace(/\s+/g, '_'); // Replace spaces with underscores
+    
+    // If this is the last retry attempt, try fetching the PDF as a data URL
+    if (retryCount === 2) {
+      console.log('Last retry attempt, trying to fetch PDF as data URL');
+      
+      // Try all possible URLs
+      const urlsToTry = [
+        presentation.url,
+        presentation.apiUrl || '',
+        `${apiUrl}/static/presentations/${docId}/original.pdf`,
+        `${apiUrl}/static/uploads/${docId}.pdf`,
+        `${apiUrl}/static/presentations/${docId}/${fileName}`
+      ].filter(Boolean); // Remove empty strings
+      
+      for (const url of urlsToTry) {
+        const dataUrl = await fetchPdfAsDataUrl(url);
+        if (dataUrl) {
+          console.log('Successfully fetched PDF as data URL');
+          setPresentation(prev => {
+            if (!prev) return null;
+            return { ...prev, url: dataUrl };
+          });
+          return;
+        }
+      }
+      
+      setIframeError('Failed to load PDF. Please try again later.');
+      setIframeLoading(false);
+      return;
+    }
     
     // Create an array of URLs to try
     const urlsToTry = [
@@ -639,7 +699,7 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
       if (!prev) return null;
       return { ...prev, url: newUrl };
     });
-  }, [presentation, retryCount]);
+  }, [presentation, retryCount, fetchPdfAsDataUrl]);
 
   // Add a function to handle iframe load with URL checking
   const handleIframeLoadWithCheck = useCallback(async (event: React.SyntheticEvent<HTMLIFrameElement>) => {
@@ -795,17 +855,26 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
 
           {!iframeLoading && !iframeError && (
             <div className="flex-grow border rounded-lg overflow-hidden">
-              {/* Use object tag for PDF display - better native support */}
-              <object
-                data={presentation.url}
-                type="application/pdf"
+              {/* Use iframe for PDF display - often has better browser support */}
+              <iframe
+                src={presentation.url}
                 className="w-full h-full"
                 title="PDF Viewer"
-                onLoad={handleObjectLoad}
-                onError={handleObjectError}
-              >
-                <p>Your browser does not support PDF viewing. Please use a modern browser.</p>
-              </object>
+                style={{ border: 'none', width: '100%', height: '100%' }}
+                onLoad={() => {
+                  console.log('PDF iframe loaded successfully');
+                  setIframeLoading(false);
+                  setIframeError(null);
+                  setRetryCount(0);
+                }}
+                onError={(e) => {
+                  console.error('PDF iframe error:', e);
+                  setIframeError('Failed to load PDF preview. Trying alternative method...');
+                  if (retryCount < 3) {
+                    retryLoad();
+                  }
+                }}
+              />
             </div>
           )}
         </div>
