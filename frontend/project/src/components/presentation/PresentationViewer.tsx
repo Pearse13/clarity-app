@@ -286,7 +286,6 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
               'Accept': 'application/json',
               'Origin': window.location.origin
             },
-            credentials: 'include',
             mode: 'cors'
           });
 
@@ -335,7 +334,6 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                     'Accept': 'application/json',
                     'Origin': window.location.origin
                   },
-                  credentials: 'include',
                   mode: 'cors'
                 });
                 
