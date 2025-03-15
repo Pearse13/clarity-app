@@ -4,7 +4,7 @@ import uuid
 import shutil
 import os
 import asyncio
-from typing import Optional
+from typing import Optional, Dict, Any
 from fastapi import UploadFile, HTTPException
 import logging
 from threading import Thread
@@ -15,8 +15,10 @@ import psutil
 import atexit
 from datetime import datetime, timedelta
 import json
+import traceback
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 class ProcessMonitor:
     def __init__(self):
@@ -91,39 +93,19 @@ def send_enter_key(process):
 
 class PresentationService:
     def __init__(self):
-        # Use backend/data directory for consistency with main.py
-        backend_dir = Path(__file__).parent.parent.parent.absolute()
-        backend_data_dir = backend_dir / "data"
-        self.temp_dir = backend_data_dir / "temp"
-        self.output_dir = backend_data_dir / "static" / "presentations"
+        # Use relative paths for Railway compatibility
+        self.data_dir = Path("data")
+        self.temp_dir = self.data_dir / "temp"
+        self.documents_dir = self.data_dir / "documents"
         
+        # Ensure directories exist
+        for directory in [self.data_dir, self.temp_dir, self.documents_dir]:
+            directory.mkdir(parents=True, exist_ok=True)
+            
         # Log directory paths for debugging
-        logger.info(f"PresentationService - Backend directory: {backend_dir}")
-        logger.info(f"PresentationService - Data directory: {backend_data_dir}")
-        logger.info(f"PresentationService - Temp directory: {self.temp_dir}")
-        logger.info(f"PresentationService - Output directory: {self.output_dir}")
-        
-        # Ensure directories exist with proper permissions
-        for directory in [self.temp_dir, self.output_dir]:
-            try:
-                # Create directory if it doesn't exist
-                directory.mkdir(parents=True, exist_ok=True)
-                logger.info(f"Ensuring directory exists: {directory}")
-                
-                # Ensure directory is writable by creating and removing a test file
-                test_file = directory / ".test_write"
-                try:
-                    with open(test_file, 'w') as f:
-                        f.write('test')
-                    test_file.unlink()
-                    logger.info(f"Directory {directory} is writable")
-                except Exception as e:
-                    logger.error(f"Directory {directory} is not writable: {e}")
-                    raise Exception(f"Directory {directory} is not writable: {e}")
-                
-            except Exception as e:
-                logger.error(f"Failed to setup directory {directory}: {e}")
-                raise Exception(f"Failed to setup directory {directory}: {e}")
+        logger.info(f"Data directory: {self.data_dir.absolute()}")
+        logger.info(f"Temp directory: {self.temp_dir.absolute()}")
+        logger.info(f"Documents directory: {self.documents_dir.absolute()}")
         
         # Set LibreOffice path based on operating system
         if os.name == 'nt':  # Windows
@@ -149,28 +131,7 @@ class PresentationService:
                 self.soffice_path = Path("/usr/bin/soffice")
         
         logger.info(f"Using LibreOffice at: {self.soffice_path}")
-        self._verify_libreoffice()
-    
-    def _verify_libreoffice(self):
-        """Verify LibreOffice is installed and accessible"""
-        try:
-            logger.info("Starting LibreOffice verification...")
-            
-            # Check if executable exists
-            soffice_path = Path(self.soffice_path)
-            if not soffice_path.exists():
-                raise Exception(f"LibreOffice not found at: {self.soffice_path}")
-            
-            # Check if file is executable
-            if not os.access(str(soffice_path), os.X_OK):
-                raise Exception(f"LibreOffice at {self.soffice_path} is not executable")
-            
-            logger.info("LibreOffice verification successful")
-            
-        except Exception as e:
-            logger.error(f"LibreOffice verification failed: {str(e)}")
-            raise Exception(f"LibreOffice is not properly installed: {str(e)}")
-    
+
     async def _ensure_libreoffice_ready(self):
         """Ensure LibreOffice is in a good state before conversion"""
         try:
@@ -196,6 +157,179 @@ class PresentationService:
                 status_code=500,
                 detail=f"Failed to prepare LibreOffice for conversion: {str(e)}"
             )
+
+    async def process_presentation(self, input_path: str, output_dir: str, doc_id: str) -> Dict[str, Any]:
+        """Process a presentation file and convert it to HTML"""
+        try:
+            input_path_obj = Path(input_path)
+            output_dir_obj = Path(output_dir)
+            
+            # Ensure output directory exists
+            output_dir_obj.mkdir(parents=True, exist_ok=True)
+            
+            # Update status to processing
+            self._update_status(output_dir_obj, {
+                "document_id": doc_id,
+                "status": "processing",
+                "progress": 10,
+                "message": "Starting conversion process"
+            })
+            
+            # Get file extension
+            file_ext = input_path_obj.suffix.lower()
+            
+            # Determine file type and conversion method
+            if file_ext in ['.ppt', '.pptx']:
+                result = await self._convert_powerpoint(input_path_obj, output_dir_obj, doc_id)
+            elif file_ext in ['.doc', '.docx']:
+                # Placeholder for Word conversion
+                result = {
+                    "document_id": doc_id,
+                    "status": "error",
+                    "error": "Word document conversion not yet implemented"
+                }
+            elif file_ext == '.pdf':
+                # Placeholder for PDF processing
+                result = {
+                    "document_id": doc_id,
+                    "status": "error",
+                    "error": "PDF processing not yet implemented"
+                }
+            else:
+                raise ValueError(f"Unsupported file type: {file_ext}")
+            
+            # Clean up temp file
+            if input_path_obj.exists():
+                try:
+                    input_path_obj.unlink()
+                    logger.info(f"Deleted temp file: {input_path_obj}")
+                except Exception as e:
+                    logger.error(f"Failed to delete temp file: {str(e)}")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error processing presentation: {str(e)}")
+            logger.error(f"Stack trace: {''.join(traceback.format_exception(*sys.exc_info()))}")
+            
+            # Update status to error
+            try:
+                output_dir_obj = Path(output_dir)
+                self._update_status(output_dir_obj, {
+                    "document_id": doc_id,
+                    "status": "error",
+                    "error": str(e),
+                    "message": "Conversion failed"
+                })
+            except Exception as status_error:
+                logger.error(f"Failed to update error status: {str(status_error)}")
+            
+            return {
+                "document_id": doc_id,
+                "status": "error",
+                "error": str(e)
+            }
+    
+    def _update_status(self, output_dir: Path, status_data: Dict[str, Any]) -> None:
+        """Update the status file with the latest status"""
+        try:
+            status_file = output_dir / "status.json"
+            with open(status_file, "w") as f:
+                json.dump(status_data, f)
+            logger.debug(f"Updated status: {status_data}")
+        except Exception as e:
+            logger.error(f"Failed to update status: {str(e)}")
+    
+    async def _convert_powerpoint(self, input_path: Path, output_dir: Path, doc_id: str) -> Dict[str, Any]:
+        """Convert PowerPoint to HTML using LibreOffice"""
+        try:
+            # Update status
+            self._update_status(output_dir, {
+                "document_id": doc_id,
+                "status": "processing",
+                "progress": 30,
+                "message": "Converting PowerPoint to HTML"
+            })
+            
+            # Create HTML output path
+            html_output = output_dir / "index.html"
+            
+            # Log paths for debugging
+            logger.debug(f"Input path: {input_path.absolute()}")
+            logger.debug(f"Output directory: {output_dir.absolute()}")
+            logger.debug(f"HTML output path: {html_output.absolute()}")
+            
+            # Check if input file exists
+            if not input_path.exists():
+                raise FileNotFoundError(f"Input file not found: {input_path}")
+            
+            # Check if input file is empty
+            if input_path.stat().st_size == 0:
+                raise ValueError(f"Input file is empty: {input_path}")
+            
+            # Convert to HTML using LibreOffice
+            cmd = [
+                "soffice",
+                "--headless",
+                "--convert-to",
+                "html",
+                "--outdir",
+                str(output_dir),
+                str(input_path)
+            ]
+            
+            logger.info(f"Running command: {' '.join(cmd)}")
+            
+            # Execute the command
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE
+            )
+            
+            # Start a thread to send Enter key presses to handle any dialogs
+            Thread(target=send_enter_key, args=(process,), daemon=True).start()
+            
+            # Wait for process to complete with timeout
+            try:
+                stdout, stderr = process.communicate(timeout=120)
+                logger.debug(f"Command output: {stdout.decode() if stdout else ''}")
+                logger.debug(f"Command error: {stderr.decode() if stderr else ''}")
+            except subprocess.TimeoutExpired:
+                process.kill()
+                logger.error("Command timed out after 120 seconds")
+                raise TimeoutError("Conversion process timed out")
+            
+            # Check if process was successful
+            if process.returncode != 0:
+                logger.error(f"Command failed with return code {process.returncode}")
+                raise RuntimeError(f"Conversion failed: {stderr.decode() if stderr else 'Unknown error'}")
+            
+            # Check if output file exists
+            output_files = list(output_dir.glob("*.html"))
+            if not output_files:
+                raise FileNotFoundError("No HTML files were generated")
+            
+            # Rename the output file to index.html if needed
+            if output_files[0].name != "index.html":
+                output_files[0].rename(html_output)
+            
+            # Update status to completed
+            result = {
+                "document_id": doc_id,
+                "status": "completed",
+                "progress": 100,
+                "url": f"/documents/{doc_id}/index.html",
+                "message": "Conversion completed successfully"
+            }
+            
+            self._update_status(output_dir, result)
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error converting PowerPoint: {str(e)}")
+            raise
 
     def _clean_html_content(self, content: str | Path) -> str:
         """Clean up the HTML content to make it iframe-friendly"""
@@ -419,7 +553,7 @@ class PresentationService:
         # Create unique working directory with short name
         presentation_id = str(uuid.uuid4())[:8]
         work_dir = self.temp_dir / presentation_id
-        output_dir = self.output_dir / presentation_id
+        output_dir = self.documents_dir / presentation_id
         
         try:
             # Create directories with proper permissions check
@@ -543,14 +677,14 @@ class PresentationService:
                 html_file.write_text(cleaned_content, encoding='utf-8')
                 
                 # Return the relative path for frontend
-                relative_path = html_file.relative_to(self.output_dir.parent)
+                relative_path = html_file.relative_to(self.documents_dir.parent)
                 url_path = str(relative_path).replace('\\', '/')
                 
-                logger.info(f"Successfully converted file. URL path: /static/{url_path}")
+                logger.info(f"Successfully converted file. URL path: /documents/{url_path}")
                 
                 return {
                     "status": "success",
-                    "url": f"/static/{url_path}"
+                    "url": f"/documents/{url_path}"
                 }
                 
             except HTTPException:
@@ -640,8 +774,8 @@ class PresentationService:
             logger.error(f"Error converting to PDF: {str(e)}")
             return False, f"Error converting to PDF: {str(e)}"
 
-    async def process_presentation(self, input_path: str, output_dir: str, doc_id: str):
-        """Process presentation in background"""
+    async def process_presentation_legacy(self, input_path: str, output_dir: str, doc_id: str):
+        """Process presentation in background (legacy method)"""
         try:
             # Update status to processing
             with open(f"{output_dir}/status.json", "w") as f:

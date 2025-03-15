@@ -10,6 +10,7 @@ import sys
 import traceback
 import uuid
 import json
+import os
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)  # Ensure debug logging is enabled
@@ -29,6 +30,20 @@ SUPPORTED_FILE_TYPES = {
 }
 
 CHUNK_SIZE = 1024 * 1024  # 1MB chunks
+
+# Ensure data directories exist
+def ensure_directories():
+    """Ensure all required directories exist"""
+    data_dir = Path("data")
+    temp_dir = data_dir / "temp"
+    documents_dir = data_dir / "documents"
+    
+    for directory in [data_dir, temp_dir, documents_dir]:
+        directory.mkdir(parents=True, exist_ok=True)
+        logger.debug(f"Ensured directory exists: {directory}")
+
+# Call this at module initialization
+ensure_directories()
 
 @router.post("/upload")
 async def upload_presentation(
@@ -76,16 +91,47 @@ async def upload_presentation(
         # Generate unique ID
         doc_id = str(uuid.uuid4())
         
-        # Create directories
+        # Ensure directories exist
+        ensure_directories()
+        
+        # Create directories for this document
         temp_dir = Path("data/temp")
         output_dir = Path(f"data/documents/{doc_id}")
         temp_dir.mkdir(parents=True, exist_ok=True)
         output_dir.mkdir(parents=True, exist_ok=True)
         
-        # Save uploaded file
+        # Log directory permissions and existence
+        logger.debug(f"Temp directory exists: {temp_dir.exists()}, writable: {os.access(str(temp_dir), os.W_OK)}")
+        logger.debug(f"Output directory exists: {output_dir.exists()}, writable: {os.access(str(output_dir), os.W_OK)}")
+        
+        # Save uploaded file with error handling
         input_path = temp_dir / f"{doc_id}{file_ext}"
-        with open(input_path, "wb") as buffer:
-            buffer.write(await file.read())
+        try:
+            # Read file content first to avoid potential streaming issues
+            file_content = await file.read()
+            
+            # Write to file
+            with open(input_path, "wb") as buffer:
+                buffer.write(file_content)
+                
+            # Verify file was written correctly
+            if not input_path.exists() or input_path.stat().st_size == 0:
+                raise IOError(f"File was not written correctly to {input_path}")
+                
+            logger.info(f"File saved to {input_path}, size: {input_path.stat().st_size} bytes")
+        except Exception as e:
+            logger.error(f"Error saving file: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to save uploaded file: {str(e)}")
+        
+        # Create initial status file
+        status_file = output_dir / "status.json"
+        with open(status_file, "w") as f:
+            json.dump({
+                "document_id": doc_id,
+                "status": "processing",
+                "progress": 0,
+                "filename": file.filename
+            }, f)
         
         logger.info(f"File saved to {input_path}, starting processing")
         

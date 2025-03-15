@@ -7,6 +7,9 @@ interface UploadResponse {
   filename: string;
 }
 
+// API base URL - use environment variable or fallback to Railway URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://clarity-backend-production.up.railway.app';
+
 function App() {
   const [selectedOption, setSelectedOption] = useState<'understand' | 'chat' | 'create'>('understand');
   const [uploading, setUploading] = useState(false);
@@ -20,9 +23,9 @@ function App() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
-    if (!file.name.toLowerCase().match(/\.(ppt|pptx)$/)) {
-      setError('Please select a PowerPoint file (.ppt or .pptx)');
+    // Validate file type - update to support all document types
+    if (!file.name.toLowerCase().match(/\.(ppt|pptx|doc|docx|pdf)$/)) {
+      setError('Please select a supported file (.ppt, .pptx, .doc, .docx, .pdf)');
       return;
     }
 
@@ -38,12 +41,16 @@ function App() {
       console.log('Starting file upload...', {
         filename: file.name,
         size: file.size,
-        type: file.type
+        type: file.type,
+        apiUrl: `${API_BASE_URL}/api/presentations/upload`
       });
 
-      const response = await fetch('/api/presentations/upload', {
+      // Use the full API URL instead of a relative path
+      const response = await fetch(`${API_BASE_URL}/api/presentations/upload`, {
         method: 'POST',
         body: formData,
+        // Add credentials if needed for authentication
+        // credentials: 'include',
       });
 
       console.log('Response status:', response.status);
@@ -65,8 +72,44 @@ function App() {
       const data = JSON.parse(responseText);
       console.log('Parsed response data:', data);
 
-      setPresentation(data);
-      setIframeLoading(true);
+      // Update presentation state with the correct URL
+      if (data.document_id) {
+        // Check if there's a specific file URL in the response
+        let fileUrl = '';
+        
+        // For PDF files, use the direct PDF URL
+        if (file.name.toLowerCase().endsWith('.pdf')) {
+          // Try different URL patterns for PDF files
+          // First, try the documents directory (preferred)
+          fileUrl = `${API_BASE_URL}/documents/${data.document_id}/presentation.pdf`;
+          
+          // Check if there's a files object with a PDF path
+          if (data.files && data.files.pdf) {
+            // Make sure we have the full URL
+            if (data.files.pdf.startsWith('/')) {
+              fileUrl = `${API_BASE_URL}${data.files.pdf}`;
+            } else {
+              fileUrl = data.files.pdf;
+            }
+          }
+          
+          console.log('Using PDF URL:', fileUrl);
+        } else {
+          // For other file types, use the index.html
+          fileUrl = `${API_BASE_URL}/api/presentations/files/${data.document_id}/index.html`;
+        }
+        
+        console.log('Using file URL:', fileUrl);
+        
+        setPresentation({
+          id: data.document_id,
+          url: fileUrl,
+          filename: file.name
+        });
+        setIframeLoading(true);
+      } else {
+        throw new Error('Invalid response format from server');
+      }
       
     } catch (err) {
       console.error('Upload error:', err);
@@ -76,14 +119,14 @@ function App() {
     }
   };
 
-  const handleIframeLoad = (event: React.SyntheticEvent<HTMLIFrameElement>) => {
+  const handleIframeLoad = (event: React.SyntheticEvent<HTMLElement>) => {
     console.log('iframe loaded');
     setIframeLoading(false);
     setIframeError(null);
     setRetryCount(0);
   };
 
-  const handleIframeError = (event: React.SyntheticEvent<HTMLIFrameElement>) => {
+  const handleIframeError = (event: React.SyntheticEvent<HTMLElement>) => {
     console.error('iframe error:', event);
     setIframeError('Failed to load presentation preview');
     setIframeLoading(false);
@@ -158,16 +201,35 @@ function App() {
                 </div>
               </div>
             )}
-            <iframe
-              src={presentation.url}
-              className={`w-full h-[calc(100%-60px)] border-0 rounded-xl shadow-sm bg-white ${
-                iframeLoading ? 'hidden' : ''
-              }`}
-              title={presentation.filename}
-              sandbox="allow-same-origin allow-scripts"
-              onLoad={handleIframeLoad}
-              onError={handleIframeError}
-            />
+            {/* Use object tag for PDFs and iframe for other file types */}
+            {presentation.filename.toLowerCase().endsWith('.pdf') ? (
+              <object
+                data={presentation.url}
+                type="application/pdf"
+                className={`w-full h-[calc(100%-60px)] border-0 rounded-xl shadow-sm bg-white ${
+                  iframeLoading ? 'hidden' : ''
+                }`}
+                onLoad={handleIframeLoad}
+                onError={handleIframeError}
+              >
+                <div className="w-full h-full flex items-center justify-center">
+                  <p className="text-gray-500">
+                    Unable to display PDF. <a href={presentation.url} target="_blank" rel="noopener noreferrer" className="text-blue-600">Download</a> instead.
+                  </p>
+                </div>
+              </object>
+            ) : (
+              <iframe
+                src={presentation.url}
+                className={`w-full h-[calc(100%-60px)] border-0 rounded-xl shadow-sm bg-white ${
+                  iframeLoading ? 'hidden' : ''
+                }`}
+                title={presentation.filename}
+                sandbox="allow-same-origin allow-scripts"
+                onLoad={handleIframeLoad}
+                onError={handleIframeError}
+              />
+            )}
           </div>
         ) : (
           // Upload Area
@@ -188,18 +250,18 @@ function App() {
               <Upload className="w-8 h-8 text-blue-600 stroke-[1.5]" />
             )}
             <span className="text-[15px] text-gray-900 font-medium tracking-tight">
-              {uploading ? 'Uploading...' : 'Upload PowerPoint'}
+              {uploading ? 'Uploading...' : 'Upload Document'}
             </span>
             {error && (
               <p className="text-sm text-red-500 text-center">{error}</p>
             )}
             <p className="text-xs text-gray-500">
-              PowerPoint files only (.ppt, .pptx)
+              Supported files: PowerPoint (.ppt, .pptx), PDF (.pdf)
             </p>
             <input 
               id="file-upload" 
               type="file"
-              accept=".ppt,.pptx"
+              accept=".ppt,.pptx,.pdf"
               className="hidden" 
               onChange={handleFileUpload}
               disabled={uploading}

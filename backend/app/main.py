@@ -43,95 +43,40 @@ def create_app() -> FastAPI:
         version="1.0.0"
     )
     
-    # Configure CORS
+    # Configure CORS with more permissive settings for development
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins,
+        allow_origins=["*"],  # Allow all origins temporarily for debugging
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["*"]
     )
-
-    # Add middleware for security headers
-    @app.middleware("http")
-    async def add_security_headers(request: Request, call_next):
-        response = await call_next(request)
-        
-        # Get environment
-        environment = os.getenv("ENVIRONMENT", "development")
-        
-        # In production, allow all origins
-        if environment == "production":
-            # For production, allow all origins
-            origin = request.headers.get("Origin")
-            if origin:
-                response.headers["Access-Control-Allow-Origin"] = origin
-                response.headers["Access-Control-Allow-Credentials"] = "true"
-                response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-                response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-API-Key"
-            
-            # Set security headers for production
-            response.headers["X-Frame-Options"] = "ALLOW-FROM *"
-            response.headers["Content-Security-Policy"] = "frame-ancestors *"
-            
-        # For development environment
-        elif request.url.hostname in ['localhost', '127.0.0.1']:
-            response.headers["X-Frame-Options"] = "ALLOW-FROM http://localhost:5174 http://localhost:8000"
-            # Add more permissive CSP for static files
-            if request.url.path.startswith('/static/'):
-                response.headers["Content-Security-Policy"] = (
-                    "default-src 'self' 'unsafe-inline' http://localhost:* data:; "
-                    "style-src 'self' 'unsafe-inline'; "
-                    "script-src 'self' 'unsafe-inline'; "
-                    "frame-ancestors http://localhost:5174 http://localhost:8000; "
-                    "img-src 'self' data: blob:; "
-                    "font-src 'self' data:; "
-                    "object-src 'none'"
-                )
-                response.headers["Access-Control-Allow-Origin"] = "http://localhost:5174"
-                # Remove the DENY header for static files
-                if "X-Frame-Options" in response.headers:
-                    del response.headers["X-Frame-Options"]
-            else:
-                response.headers["Content-Security-Policy"] = "frame-ancestors http://localhost:5174 http://localhost:8000"
-        else:
-            response.headers["X-Frame-Options"] = "SAMEORIGIN"
-            response.headers["Content-Security-Policy"] = "frame-ancestors 'self'"
-        return response
-
-    # Set up data directories using absolute paths
-    backend_dir = Path(__file__).parent.parent.parent.absolute()
-    backend_data_dir = backend_dir / "backend" / "data"
-    static_dir = backend_data_dir / "static"
-    temp_dir = backend_data_dir / "temp"
-    presentations_dir = static_dir / "presentations"
     
-    # Create directories if they don't exist (don't clean existing ones)
-    for dir_path in [static_dir, temp_dir, presentations_dir]:
-        dir_path.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Ensuring directory exists: {dir_path}")
+    # Add security middleware
+    app.add_middleware(SecurityMiddleware)
     
-    # Mount static files directory with HTML support
-    app.mount("/static", StaticFiles(directory=str(static_dir), html=True), name="static")
+    # Create data directories if they don't exist
+    data_dir = Path("data")
+    static_dir = data_dir / "static"
+    documents_dir = data_dir / "documents"
+    temp_dir = data_dir / "temp"
     
-    # Log directory paths for debugging
-    logger.info(f"Backend directory: {backend_dir}")
-    logger.info(f"Static directory: {static_dir}")
-    logger.info(f"Static directory exists: {static_dir.exists()}")
-    logger.info(f"Static directory contents: {list(static_dir.glob('**/*'))}")
+    for directory in [data_dir, static_dir, documents_dir, temp_dir]:
+        directory.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Ensured directory exists: {directory}")
+    
+    # Mount static files directory
+    app.mount("/static", StaticFiles(directory="data/static"), name="static")
+    
+    # Mount documents directory for direct file access
+    app.mount("/documents", StaticFiles(directory="data/documents"), name="documents")
     
     # Include routers
     app.include_router(presentations.router)
     
-    # Add security middleware
-    app.add_middleware(SecurityMiddleware)
-
-    # Initialize rate limiter
-    rate_limiter = RateLimiter()
-    
     return app
 
-# Create FastAPI app
 app = create_app()
 
 # Add global exception handler

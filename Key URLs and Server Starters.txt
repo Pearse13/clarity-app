@@ -1,0 +1,55 @@
+cd clarity-app && cd backend && python run_server.py
+
+cd clarity-app && cd frontend/project && npm run dev
+
+Essential URLs for the Clarity Project
+Backend URLs
+Backend API Base URL
+URL: https://clarity-backend-production.up.railway.app
+Used for: All API requests from the frontend
+Environment Variable: VITE_API_BASE_URL and VITE_PRODUCTION_API_URL
+Backend Health Check
+URL: https://clarity-backend-production.up.railway.app/health
+Used for: Verifying the backend is running correctly
+Returns: Status information about the backend services
+Backend API Documentation
+URL: https://clarity-backend-production.up.railway.app/docs
+Used for: Viewing the FastAPI auto-generated documentation
+Helpful for: Understanding available endpoints and request formats
+API Endpoints
+Text Transformation Endpoint
+URL: https://clarity-backend-production.up.railway.app/api/transform
+Method: POST
+Used for: Transforming text using OpenAI
+Request Format: JSON with text, transformationType, and level
+Presentation Upload Endpoint
+URL: https://clarity-backend-production.up.railway.app/api/presentations/upload
+Method: POST
+Used for: Uploading and converting presentations/documents
+Request Format: Multipart form data with file
+Static Files
+URL: https://clarity-backend-production.up.railway.app/static/
+Used for: Accessing converted documents and other static files
+Example: https://clarity-backend-production.up.railway.app/static/presentations/{id}/file.html
+Frontend URLs (When Deployed)
+Frontend Application (when you deploy to Vercel or similar)
+URL: Will be provided by your hosting service (e.g., https://clarity-app.vercel.app)
+Used for: Accessing the web application
+Environment Setup: Will need to point to the backend URL
+Development URLs
+Local Frontend Development
+URL: http://localhost:5174 (or similar port)
+Used for: Local development of the frontend
+Local Backend Development
+URL: http://localhost:8000
+Used for: Local development of the backend
+Management URLs
+Railway Dashboard
+URL: https://railway.app/dashboard
+Used for: Managing your backend deployment
+Features: Logs, environment variables, deployments
+GitHub Repository
+URL: https://github.com/Pearse13/clarity-app
+Used for: Source code management
+Features: Code, commits, pull requests
+These URLs are essential for your project's development, deployment, and operation. Make sure to keep them organized and use the appropriate environment variables to manage them in your code.
