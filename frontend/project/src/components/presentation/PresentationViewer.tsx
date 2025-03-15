@@ -339,8 +339,22 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                     const fileKeys = Object.keys(statusData.files);
                     if (fileKeys.length > 0) {
                       const firstFileKey = fileKeys[0];
-                      documentUrl = statusData.files[firstFileKey].url || `/static/presentations/${statusData.document_id}/${firstFileKey}`;
-                      console.log('Using file URL:', documentUrl);
+                      // Use the path provided in the response if available
+                      documentUrl = statusData.files[firstFileKey];
+                      // If it's a string, use it directly
+                      if (typeof documentUrl === 'string') {
+                        console.log('Using file URL from string:', documentUrl);
+                      } 
+                      // If it's an object with a url property, use that
+                      else if (documentUrl && typeof documentUrl === 'object' && 'url' in documentUrl) {
+                        documentUrl = documentUrl.url;
+                        console.log('Using file URL from object:', documentUrl);
+                      }
+                      // Fallback to constructing a path
+                      else {
+                        documentUrl = `/static/presentations/${statusData.document_id}/${firstFileKey}`;
+                        console.log('Using file URL from fallback path:', documentUrl);
+                      }
                     }
                   }
                   
