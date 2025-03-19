@@ -294,8 +294,12 @@ class PresentationService:
             # Wait for process to complete with timeout
             try:
                 stdout, stderr = process.communicate(timeout=120)
-                logger.debug(f"Command output: {stdout.decode() if stdout else ''}")
-                logger.debug(f"Command error: {stderr.decode() if stderr else ''}")
+                stdout_str = stdout.decode() if stdout else ''
+                stderr_str = stderr.decode() if stderr else ''
+                
+                # Log output for debugging
+                logger.debug(f"Command output: {stdout_str}")
+                logger.debug(f"Command error: {stderr_str}")
             except subprocess.TimeoutExpired:
                 process.kill()
                 logger.error("Command timed out after 120 seconds")
@@ -303,12 +307,22 @@ class PresentationService:
             
             # Check if process was successful
             if process.returncode != 0:
-                logger.error(f"Command failed with return code {process.returncode}")
-                raise RuntimeError(f"Conversion failed: {stderr.decode() if stderr else 'Unknown error'}")
+                # Filter out known benign warnings
+                real_errors = [line for line in stderr_str.splitlines() 
+                             if line and not line.startswith('libpng warning: iCCP')]
+                
+                if real_errors:
+                    logger.error(f"Command failed with return code {process.returncode}")
+                    logger.error(f"Errors: {real_errors}")
+                    raise RuntimeError(f"Conversion failed: {'; '.join(real_errors)}")
+                else:
+                    # If only benign warnings, log but continue
+                    logger.warning(f"Process completed with warnings: {stderr_str}")
             
-            # Check if output file exists
+            # Check if output file exists and is valid
             output_files = list(output_dir.glob("*.html"))
             if not output_files:
+                logger.error("No output files generated despite successful return code")
                 raise FileNotFoundError("No HTML files were generated")
             
             # Rename the output file to index.html if needed

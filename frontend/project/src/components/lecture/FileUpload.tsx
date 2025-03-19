@@ -146,12 +146,18 @@ Note: This is a smart sample of the document optimized for GPT-4 analysis. The s
         }
       }
       
+      // Handle Word documents
+      if (file.type === 'application/msword' || 
+          file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        url = URL.createObjectURL(file);
+        // Create a simple preview message
+        preview = `Word document loaded: ${file.name}\nSize: ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+      }
+      
       // Handle PowerPoint files
       if (file.type === 'application/vnd.ms-powerpoint' || 
           file.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
-        // Create a URL for the PowerPoint file
         url = URL.createObjectURL(file);
-        // Create a simple preview message
         preview = `PowerPoint file loaded: ${file.name}\nSize: ${(file.size / 1024 / 1024).toFixed(2)} MB`;
       }
 

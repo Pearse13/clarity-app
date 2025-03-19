@@ -244,4 +244,23 @@ async def startup_event():
     logger.info("Starting application...")
     backend_data_dir = Path(__file__).parent.parent.parent / "backend" / "data"
     logger.info(f"Data directory: {backend_data_dir}")
-    logger.info("CORS enabled for: http://localhost:5174") 
+    logger.info("CORS enabled for: http://localhost:5174")
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Ensure upload directory exists
+upload_dir = Path(settings.upload_dir)
+upload_dir.mkdir(parents=True, exist_ok=True)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory=settings.upload_dir), name="static")
+
+# Include routers
+app.include_router(presentations.router) 

@@ -4,6 +4,7 @@ import { useFiles } from '../../contexts/FileContext';
 import { UploadedFile } from '../../contexts/FileContext';
 import { ocrService } from '../../services/ocr';
 import mammoth from 'mammoth';
+import LoadingSpinner from '../LoadingSpinner';
 
 // Add CSS classes to enforce consistent layout with strict height limits
 const CONTAINER_CLASSES = "h-full flex flex-col";
@@ -18,6 +19,37 @@ interface OcrProgress {
   status: string;
   progress: number;
 }
+
+const PowerPointViewer: React.FC<{ file: UploadedFile }> = ({ file }) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Get and validate the public URL for the file
+  const fileUrl = file.url || '';
+  if (!file.url) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-red-500">Error: No URL available for this file</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-full">
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-50">
+          <LoadingSpinner />
+        </div>
+      )}
+      <iframe
+        src={`https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`}
+        className="w-full h-full border-0"
+        onLoad={() => setIsLoading(false)}
+        style={{ pointerEvents: 'auto' }}
+      />
+    </div>
+  );
+};
 
 const FileViewer: React.FC<FileViewerProps> = ({ onAddToTransform }) => {
   const { files, removeFile } = useFiles();
@@ -108,11 +140,49 @@ const FileViewer: React.FC<FileViewerProps> = ({ onAddToTransform }) => {
     if (selectedText.length > 0) {
       console.log(`Text selected (${selectedText.length} chars)`);
       setSelectedText(selectedText);
+      
+      // Show visual feedback for selection
+      const range = selection?.getRangeAt(0);
+      if (range) {
+        // Remove any existing highlights
+        document.querySelectorAll('.text-highlight').forEach(el => {
+          const parent = el.parentNode;
+          if (parent) {
+            parent.replaceChild(document.createTextNode(el.textContent || ''), el);
+          }
+        });
+
+        // Create highlight span
+        const span = document.createElement('span');
+        span.className = 'text-highlight';
+        range.surroundContents(span);
+      }
+
+      // Send to transformer
       if (onAddToTransform) {
         onAddToTransform(selectedText);
       }
     }
   };
+
+  // Add CSS for highlight effect
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .text-highlight {
+        background-color: rgba(59, 130, 246, 0.2);
+        border-radius: 2px;
+        transition: background-color 0.2s ease;
+      }
+      .text-highlight:hover {
+        background-color: rgba(59, 130, 246, 0.3);
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
   
   const handleOcr = async () => {
     if (!currentFile?.url) return;
@@ -241,110 +311,13 @@ const FileViewer: React.FC<FileViewerProps> = ({ onAddToTransform }) => {
     }
   };
 
-  const renderPowerPointViewer = (file: UploadedFile) => {
-    const [isLoading, setIsLoading] = useState(true);
-    const containerRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-      const loadPowerPoint = async () => {
-        try {
-          setIsLoading(true);
-          
-          if (containerRef.current) {
-            // For PowerPoint files, we need to use Microsoft's Office Online Viewer
-            // This requires a publicly accessible URL, so we use the blob URL
-            const blobUrl = URL.createObjectURL(file.file);
-            
-            containerRef.current.innerHTML = `
-              <div class="w-full h-full flex flex-col">
-                <div class="flex items-center justify-between bg-gray-100 p-2 text-xs">
-                  <span class="text-gray-600">PowerPoint Viewer</span>
-                  <a 
-                    href="${blobUrl}" 
-                    download="${file.name}"
-                    class="text-blue-600 hover:text-blue-800"
-                  >
-                    Download
-                  </a>
-                </div>
-                <div class="flex-1 bg-white">
-                  <iframe 
-                    src="https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(blobUrl)}"
-                    width="100%" 
-                    height="100%" 
-                    frameborder="0"
-                    class="w-full h-full border-0"
-                  >
-                    This is an embedded <a target="_blank" href="https://office.com">Microsoft Office</a> presentation.
-                  </iframe>
-                </div>
-              </div>
-            `;
-          }
-          
-          setIsLoading(false);
-        } catch (error) {
-          console.error('Error loading PowerPoint:', error);
-          setIsLoading(false);
-          
-          // If there's an error, show a fallback message
-          if (containerRef.current) {
-            containerRef.current.innerHTML = `
-              <div class="p-6 text-center">
-                <div class="text-red-500 mb-4">Unable to display PowerPoint</div>
-                <p class="mb-4 text-sm text-gray-600">
-                  Microsoft's Office Online Viewer requires a publicly accessible URL.
-                  Local blob URLs may not work. You can download the file to view it.
-                </p>
-                <a 
-                  href="${file.url}" 
-                  download="${file.name}"
-                  class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                >
-                  Download to View
-                </a>
-              </div>
-            `;
-          }
-        }
-      };
-      
-      loadPowerPoint();
-      
-      // Cleanup function
-      return () => {
-        if (containerRef.current) {
-          containerRef.current.innerHTML = '';
-        }
-      };
-    }, [file]);
-
-    return (
-      <div className={CONTAINER_CLASSES}>
-        <div className={HEADER_CLASSES}>
-          <h3 className="text-sm font-semibold text-gray-800">{file.name}</h3>
-        </div>
-        <div className={CONTENT_CLASSES}>
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="animate-spin text-blue-600 mr-2">↻</div>
-              <span className="text-sm text-gray-600">Loading presentation...</span>
-            </div>
-          ) : (
-            <div ref={containerRef} className="w-full h-full"></div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const renderFilePreview = () => {
+  const renderContent = () => {
     if (!currentFile) return null;
 
-    // PowerPoint specific rendering
+    // Handle PowerPoint files
     if (currentFile.type === 'application/vnd.ms-powerpoint' || 
         currentFile.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
-      return renderPowerPointViewer(currentFile);
+      return <PowerPointViewer file={currentFile} />;
     }
 
     if (currentFile.progress !== 100) {
@@ -609,7 +582,7 @@ const FileViewer: React.FC<FileViewerProps> = ({ onAddToTransform }) => {
 
       {/* File Preview Area */}
       <div className="flex-1 min-h-0 bg-gray-50 p-4 h-full">
-        {renderFilePreview()}
+        {renderContent()}
       </div>
     </div>
   );
