@@ -28,6 +28,22 @@ interface PresentationViewerProps {
   onTextSelect?: (text: string) => void;
 }
 
+interface ViewerUrls {
+  office: string;
+  google: string;
+}
+
+interface FileStatusResponse {
+  document_id: string;
+  status: 'ready' | 'processing' | 'error';
+  error?: string;
+  filename?: string;
+  type?: string;
+  original_path?: string;
+  url?: string;
+  check_status_url?: string;
+}
+
 const SUPPORTED_FILE_TYPES = {
   '.ppt': 'PowerPoint',
   '.pptx': 'PowerPoint',
@@ -46,6 +62,9 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
   const [retryCount, setRetryCount] = useState(0);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [viewerUrls, setViewerUrls] = useState<ViewerUrls>({ office: '', google: '' });
+  const [activeViewer, setActiveViewer] = useState<'office' | 'google'>('office');
+  const apiUrl = process.env.VITE_PRODUCTION_API_URL || 'https://clarity-backend-production.up.railway.app';
 
   // Check if the backend API is accessible
   useEffect(() => {
@@ -265,7 +284,6 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
       setUploadProgress(0);
       setError(null);
       setIframeError(null);
-      setRetryCount(0);
 
       const formData = new FormData();
       formData.append('file', file);
@@ -276,385 +294,73 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
         type: file.type
       });
 
-      // Add retry logic for connection issues
-      const maxRetries = 3;
-      let retryCount = 0;
-      let lastError = null;
+      // Use the production API URL
+      const apiUrl = 'https://clarity-backend-production.up.railway.app';
+      const response = await fetch(`${apiUrl}/api/presentations/upload`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json',
+          'Origin': window.location.origin
+        },
+        mode: 'cors'
+      });
 
-      while (retryCount < maxRetries) {
-        try {
-          // Force using the production URL
-          const apiUrl = 'https://clarity-backend-production.up.railway.app';
-          console.log('Using API URL for upload:', apiUrl);
-          
-          const response = await fetch(`${apiUrl}/api/presentations/upload`, {
-            method: 'POST',
-            body: formData,
-            headers: {
-              'Accept': 'application/json',
-              'Origin': window.location.origin
-            },
-            mode: 'cors'
-          });
-
-          console.log('Response status:', response.status);
-          console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
-          const responseText = await response.text();
-          console.log('Raw response:', responseText);
-
-          let responseData;
-          try {
-            responseData = JSON.parse(responseText);
-          } catch (e) {
-            console.error('Error parsing JSON response:', e);
-            throw new Error(`Invalid JSON response: ${responseText}`);
-          }
-
-          if (!response.ok) {
-            throw new Error(responseData.detail || 'Failed to upload file');
-          }
-
-          if (responseData.error) {
-            throw new Error(responseData.error);
-          }
-
-          // For PDFs, display immediately without waiting for processing
-          if (file.type === 'application/pdf' && responseData.document_id) {
-            console.log('PDF file uploaded, displaying immediately without waiting for processing');
-            
-            // Get the document ID
-            const docId = responseData.document_id;
-            
-            // Set progress to 100% to indicate upload is complete
-            setUploadProgress(100);
-            
-            // Create a data URL directly from the file
-            const dataUrl = URL.createObjectURL(file);
-            console.log('Created data URL from original file:', dataUrl);
-            
-            // For PDF files, display immediately
-            const response: UploadResponse = {
-              id: docId,
-              document_id: docId,
-              status: 'ready' as const,
-              url: dataUrl,
-              filename: file.name,
-              type: 'PDF',
-              apiUrl: dataUrl
-            };
-            
-            setPresentation(response);
-            setIframeLoading(false);
-            
-            console.log('PDF displayed directly from original file');
-            return; // Exit the upload function
-          }
-          
-          // For PowerPoint files, use Office Online Viewer
-          if (file.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
-              file.type === 'application/vnd.ms-powerpoint') {
-            console.log('PowerPoint file uploaded, handling response:', responseData);
-
-            // Start polling for status
-            if (responseData.check_status_url) {
-              const statusUrl = `${apiUrl}${responseData.check_status_url}`;
-              console.log('Starting status polling for PowerPoint file:', statusUrl);
-              await startPolling(statusUrl);
-              return;
-            }
-
-            // If no status URL, try direct access (fallback)
-            const docId = responseData.document_id;
-            if (!docId) {
-              throw new Error('No document ID received from server');
-            }
-
-            // Wait a moment to ensure file is saved
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            // Construct direct file URL
-            const directUrl = `${apiUrl}/api/presentations/file/${docId}`;
-            
-            // Test if the file is accessible
-            try {
-              const fileCheck = await fetch(directUrl);
-              if (!fileCheck.ok) {
-                throw new Error(`File not accessible: ${fileCheck.status}`);
-              }
-              console.log('PowerPoint file is accessible');
-            } catch (error) {
-              console.error('Error accessing PowerPoint file:', error);
-              throw new Error('PowerPoint file is not accessible. Please try again.');
-            }
-
-            // Create viewer URLs
-            const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(directUrl)}`;
-            const googleDocsViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(directUrl)}&embedded=true`;
-
-            console.log('Office Online Viewer URL:', officeViewerUrl);
-            console.log('Google Docs Viewer URL:', googleDocsViewerUrl);
-
-            // Create response object with viewer URLs
-            const presentationData: UploadResponse = {
-              id: docId,
-              document_id: docId,
-              status: 'ready' as const,
-              url: officeViewerUrl,
-              filename: file.name,
-              type: 'PowerPoint',
-              alternativeUrl: googleDocsViewerUrl,
-              isPowerPoint: true,
-              apiUrl: directUrl
-            };
-
-            // Set the presentation data
-            setUploadProgress(100);
-            setPresentation(presentationData);
-            setIframeLoading(true);
-            console.log('PowerPoint file ready for display');
-            return;
-          }
-
-          // Check if we need to poll for status
-          if (responseData.status === "processing" && responseData.check_status_url) {
-            console.log('Document is processing, checking status...');
-            
-            // Poll for status until complete or max attempts reached
-            let statusCheckCount = 0;
-            const maxStatusChecks = 10;
-            
-            while (statusCheckCount < maxStatusChecks) {
-              console.log(`Status check attempt ${statusCheckCount + 1} of ${maxStatusChecks}`);
-              
-              // Wait before checking status
-              await new Promise(resolve => setTimeout(resolve, 2000));
-              
-              // Check document status
-              try {
-                const statusResponse = await fetch(`${apiUrl}${responseData.check_status_url}`, {
-                  method: 'GET',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Origin': window.location.origin
-                  },
-                  mode: 'cors'
-                });
-                
-                console.log('Status check response status:', statusResponse.status);
-                console.log('Status check response headers:', Object.fromEntries(statusResponse.headers.entries()));
-                
-                if (!statusResponse.ok) {
-                  console.error('Status check failed with status:', statusResponse.status);
-                  throw new Error(`Status check failed with status: ${statusResponse.status}`);
-                }
-                
-                const statusText = await statusResponse.text();
-                console.log('Status check raw response:', statusText);
-                
-                let statusData;
-                try {
-                  statusData = JSON.parse(statusText);
-                } catch (e) {
-                  console.error('Error parsing status JSON response:', e);
-                  throw new Error(`Invalid JSON in status response: ${statusText}`);
-                }
-                
-                console.log('Status check response:', statusData);
-                
-                // Check if document is complete (handle both 'complete' and 'completed' status)
-                if ((statusData.status === "complete" || statusData.status === "completed") && 
-                    (statusData.url || (statusData.files && Object.keys(statusData.files).length > 0))) {
-                  // Document is ready
-                  console.log('Document processing complete');
-                  
-                  // Get URL from response (either direct url or from files object)
-                  let documentUrl = statusData.url;
-                  
-                  // If no direct URL but files are available, use the first file
-                  if (!documentUrl && statusData.files) {
-                    const fileKeys = Object.keys(statusData.files);
-                    if (fileKeys.length > 0) {
-                      const firstFileKey = fileKeys[0];
-                      // Use the path provided in the response if available
-                      documentUrl = statusData.files[firstFileKey];
-                      // If it's a string, use it directly
-                      if (typeof documentUrl === 'string') {
-                        console.log('Using file URL from string:', documentUrl);
-                      } 
-                      // If it's an object with a url property, use that
-                      else if (documentUrl && typeof documentUrl === 'object' && 'url' in documentUrl) {
-                        documentUrl = documentUrl.url;
-                        console.log('Using file URL from object:', documentUrl);
-                      }
-                      // Fallback to constructing a path
-                      else {
-                        documentUrl = `/static/presentations/${statusData.document_id}/${firstFileKey}`;
-                        console.log('Using file URL from fallback path:', documentUrl);
-                      }
-                    }
-                  }
-                  
-                  if (!documentUrl) {
-                    throw new Error('No document URL found in response');
-                  }
-                  
-                  // Try the static file path first, as it's more likely to work
-                  const fullUrl = `${apiUrl}/static/presentations/${statusData.document_id}/presentation.pdf`;
-                  console.log('Using static file path:', fullUrl);
-                  
-                  // Store the API URL as a fallback
-                  const apiEndpointUrl = documentUrl.startsWith('http') 
-                    ? documentUrl 
-                    : `${apiUrl}${documentUrl}`;
-                  console.log('API endpoint URL (fallback):', apiEndpointUrl);
-                  
-                  // Set the URL in the response data
-                  responseData.url = fullUrl;
-                  responseData.apiUrl = apiEndpointUrl; // Store the API URL as a fallback
-                  
-                  // Store the document_id for future use
-                  responseData.document_id = statusData.document_id;
-                  
-                  // Set progress to 100% when processing is complete
-                  setUploadProgress(100);
-                  setPresentation(responseData);
-                  setIframeLoading(true);
-                  return; // Success, exit the retry loop
-                } else if (statusData.status === "error") {
-                  throw new Error(statusData.error || 'Error processing document');
-                } else if (statusCheckCount >= 5 && statusData.status === "processing") {
-                  // If we've checked 5+ times and it's still processing, try to display the PDF directly
-                  console.log('Processing taking too long, attempting to display PDF directly');
-                  
-                  // For PDFs, we can try to display the original file directly
-                  if (file.type === 'application/pdf') {
-                    console.log('File is a PDF, attempting to display original file');
-                    
-                    // Construct a direct URL to the uploaded PDF
-                    const directPdfUrl = `${apiUrl}/static/uploads/${statusData.document_id}.pdf`;
-                    console.log('Using direct PDF URL:', directPdfUrl);
-                    
-                    // Create a new response object with the direct URL
-                    const directResponse: UploadResponse = {
-                      id: statusData.document_id,
-                      document_id: statusData.document_id,
-                      status: 'ready' as const,
-                      url: directPdfUrl,
-                      filename: file.name,
-                      type: 'PDF',
-                      apiUrl: directPdfUrl
-                    };
-                    
-                    // Set progress to 100% to indicate we're done waiting
-                    setUploadProgress(100);
-                    setPresentation(directResponse);
-                    setIframeLoading(true);
-                    
-                    // Add a warning message
-                    console.warn('Document processing is taking longer than expected. Displaying original PDF file.');
-                    
-                    return; // Exit the retry loop
-                  }
-                }
-              } catch (statusErr) {
-                console.error('Error checking document status:', statusErr);
-                
-                // Fallback: Try to construct a URL directly based on document_id
-                console.log('Status check failed, trying fallback URL construction');
-                
-                // Wait a bit to give the backend time to process
-                await new Promise(resolve => setTimeout(resolve, 5000));
-                
-                // Construct a fallback URL
-                const fallbackUrl = `${apiUrl}/static/presentations/${responseData.document_id}/document.pdf`;
-                console.log('Using fallback URL:', fallbackUrl);
-                
-                // Set the URL and continue
-                responseData.url = fallbackUrl;
-                setUploadProgress(100);
-                setPresentation(responseData);
-                setIframeLoading(true);
-                return; // Exit the retry loop
-              }
-              
-              statusCheckCount++;
-            }
-            
-            throw new Error('Document processing timed out');
-          } else if (responseData.url) {
-            // Direct URL available (no processing needed)
-            console.log('Parsed response data:', responseData);
-
-            // Construct full URL for the presentation
-            const fullUrl = `${apiUrl}${responseData.url}`;
-            console.log('Full URL:', fullUrl);
-            responseData.url = fullUrl;
-
-            // Set progress to 100% when upload is actually complete
-            setUploadProgress(100);
-            setPresentation(responseData);
-            setIframeLoading(true);
-            return; // Success, exit the retry loop
-          } else {
-            throw new Error('No URL or status check URL returned from server');
-          }
-        } catch (err) {
-          lastError = err;
-          retryCount++;
-          if (retryCount < maxRetries) {
-            console.log(`Retry attempt ${retryCount} of ${maxRetries}`);
-            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // Exponential backoff
-          }
-        }
+      console.log('Upload response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Upload failed: ${errorText}`);
       }
 
-      // If we get here, all retries failed
-      // For PDFs, try a last-resort fallback to display the original file
-      if (file.type === 'application/pdf') {
-        console.log('All retries failed, attempting to display original PDF as last resort');
+      const responseData = await response.json();
+      console.log('Upload response:', responseData);
+
+      if (!responseData.document_id) {
+        throw new Error('No document ID received from server');
+      }
+
+      // Handle PowerPoint files
+      if (file.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
+          file.type === 'application/vnd.ms-powerpoint') {
         
-        try {
-          // Get the API URL
-          const apiUrl = 'https://clarity-backend-production.up.railway.app';
-          
-          // Create a document ID from the filename if we don't have one
-          const documentId = file.name.replace(/\s+/g, '-').toLowerCase();
-          
-          // Construct possible URLs for the original PDF
-          const directPdfUrl = `${apiUrl}/static/uploads/${documentId}.pdf`;
-          
-          console.log('Using direct PDF URL as fallback:', directPdfUrl);
-          
-          // Create a new response object
-          const fallbackResponse: UploadResponse = {
-            id: documentId,
-            document_id: documentId,
-            status: 'ready' as const,
-            url: directPdfUrl,
+        console.log('PowerPoint file uploaded, setting up viewer...');
+        
+        // Set up PowerPoint viewing with the response data
+        await setupPowerPointViewing({
+            document_id: responseData.document_id,
+            status: 'ready',
             filename: file.name,
-            type: 'PDF',
-            apiUrl: directPdfUrl
-          };
-          
-          // Set progress to 100% to indicate we're done waiting
-          setUploadProgress(100);
-          setPresentation(fallbackResponse);
-          setIframeLoading(true);
-          
-          // Add a warning message
-          console.warn('Document processing failed. Attempting to display original PDF file as fallback.');
-          
-          return; // Exit with our best attempt
-        } catch (fallbackErr) {
-          console.error('Fallback attempt failed:', fallbackErr);
-          // Continue to throw the original error
-        }
+            type: 'PowerPoint'
+        });
+        
+        return;
       }
-      
-      throw lastError;
-      
+
+      // Handle PDF files
+      if (file.type === 'application/pdf') {
+        console.log('PDF file uploaded, displaying directly');
+        
+        const docId = responseData.document_id;
+        const filename = `${docId}.pdf`;
+        const pdfUrl = `${apiUrl}/api/presentations/documents/${docId}/${filename}`;
+        
+        const presentationData: UploadResponse = {
+          id: docId,
+          document_id: docId,
+          status: 'ready',
+          url: pdfUrl,
+          filename: file.name,
+          type: 'PDF',
+          apiUrl: pdfUrl
+        };
+
+        setUploadProgress(100);
+        setPresentation(presentationData);
+        setIframeLoading(true);
+        return;
+      }
+
     } catch (err) {
       console.error('Upload error:', err);
       setError(err instanceof Error ? err.message : 'Failed to upload file. Please try again.');
@@ -795,7 +501,7 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
       // Set a timeout to show a download option if the PowerPoint viewer takes too long to load
       timeoutId = setTimeout(() => {
         console.log('PowerPoint viewer taking too long to load, showing download option');
-        setIframeError('The PowerPoint viewer is taking longer than expected to load. You can download the file directly.');
+        setIframeError('The PowerPoint viewer is taking longer than expected. The file may be too large or temporarily unavailable.');
       }, 15000); // 15 seconds timeout
     }
     
@@ -812,111 +518,34 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
     const maxAttempts = 30; // 30 attempts * 2 seconds = 1 minute maximum wait
     
     const poll = async () => {
-        try {
-            const response = await fetch(statusUrl);
-            const statusData = await response.json();
-            console.log('Polling response:', statusData);
-            
-            if ((statusData.status === 'ready' || statusData.status === 'completed') && statusData.url) {
-                // Stop polling
-                if (pollingInterval) {
-                    clearInterval(pollingInterval);
-                    setPollingInterval(null);
-                }
-                
-                // Construct full URL if it's a relative path
-                const apiUrl = 'https://clarity-backend-production.up.railway.app';
-                const fullUrl = statusData.url.startsWith('http') ? statusData.url : `${apiUrl}${statusData.url}`;
-                
-                // For PowerPoint files that have been converted to HTML
-                if (statusData.url.endsWith('index.html')) {
-                    console.log('Using converted HTML presentation:', fullUrl);
-                    const presentationData: UploadResponse = {
-                        id: statusData.document_id,
-                        document_id: statusData.document_id,
-                        status: 'ready' as const,
-                        url: fullUrl,
-                        filename: statusData.filename || 'presentation.html',
-                        type: 'HTML',
-                        isPowerPoint: false
-                    };
-                    setPresentation(presentationData);
-                    setIframeLoading(true);
-                    return;
-                }
-                
-                // For original PowerPoint files
-                const docId = statusData.document_id;
-                const directUrl = `${apiUrl}/api/presentations/documents/${docId}/${docId}.pptx`;
-                console.log('Using direct PowerPoint URL:', directUrl);
-                
-                // Create viewer URLs
-                const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(directUrl)}`;
-                const googleDocsViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(directUrl)}&embedded=true`;
-                
-                console.log('Created viewer URLs:', {
-                    office: officeViewerUrl,
-                    google: googleDocsViewerUrl
-                });
-                
-                // Set presentation data
-                const presentationData: UploadResponse = {
-                    id: docId,
-                    document_id: docId,
-                    status: 'ready' as const,
-                    url: officeViewerUrl,
-                    filename: statusData.filename || 'presentation.pptx',
-                    type: 'PowerPoint',
-                    alternativeUrl: googleDocsViewerUrl,
-                    isPowerPoint: true,
-                    apiUrl: directUrl
-                };
-                
-                setPresentation(presentationData);
-                setIframeLoading(true);
-                console.log('PowerPoint viewer setup complete');
-                
-            } else if (statusData.status === 'error') {
-                console.log('Conversion failed, falling back to direct PowerPoint viewing');
-                
-                // Stop polling
-                if (pollingInterval) {
-                    clearInterval(pollingInterval);
-                    setPollingInterval(null);
-                }
-                
-                // Set up direct PowerPoint viewing
-                setupPowerPointViewing(statusData.document_id);
-                
-            } else if (attempts >= maxAttempts) {
-                // Timeout after max attempts
-                if (pollingInterval) {
-                    clearInterval(pollingInterval);
-                    setPollingInterval(null);
-                }
-                throw new Error('Processing timed out');
-            }
-            
-            attempts++;
-        } catch (error) {
-            console.error('Polling error:', error);
-            
-            // Stop polling
-            if (pollingInterval) {
-                clearInterval(pollingInterval);
-                setPollingInterval(null);
-            }
-            
-            // Extract document_id from the status URL
-            const docId = statusUrl.split('/').pop();
-            if (!docId) {
-                setError('Failed to process file');
-                return;
-            }
-            
-            // Set up direct PowerPoint viewing
-            setupPowerPointViewing(docId);
+      try {
+        const response = await fetch(statusUrl);
+        const responseData: FileStatusResponse = await response.json();
+        console.log('Polling response:', responseData);
+
+        if (responseData.status === 'ready') {
+          console.log('File is ready, stopping polling');
+          if (pollingInterval) clearInterval(pollingInterval);
+          await setupPowerPointViewing(responseData);
+          return;
         }
+
+        if (responseData.status === 'error') {
+          console.error('Processing error:', responseData.error);
+          if (pollingInterval) clearInterval(pollingInterval);
+          throw new Error(responseData.error || 'Processing failed');
+        }
+
+        attempts++;
+        if (attempts >= maxAttempts) {
+          if (pollingInterval) clearInterval(pollingInterval);
+          throw new Error('Processing timed out');
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+        if (pollingInterval) clearInterval(pollingInterval);
+        throw error;
+      }
     };
     
     // Start polling every 2 seconds
@@ -928,97 +557,117 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
     
     // Cleanup on unmount
     return () => {
-        if (pollingInterval) {
-            clearInterval(pollingInterval);
-            setPollingInterval(null);
-        }
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+        setPollingInterval(null);
+      }
     };
-}, [pollingInterval]);
+  }, [pollingInterval]);
 
-// Add new function to handle PowerPoint viewing setup
-const setupPowerPointViewing = useCallback(async (docId: string) => {
+  const checkFileAccess = async (docId: string, maxRetries = 10): Promise<boolean> => {
     try {
-        const apiUrl = 'https://clarity-backend-production.up.railway.app';
+        const fileUrl = `${apiUrl}/api/presentations/documents/${docId}/${docId}.pptx`;
+        console.log('Checking file access at:', fileUrl);
         
-        // Try different possible file paths
-        const possiblePaths = [
-            `/api/presentations/documents/${docId}/${docId}.pptx`,
-            `/api/presentations/documents/${docId}/presentation.pptx`,
-            `/api/presentations/file/${docId}`
-        ];
-        
-        let accessibleUrl = null;
-        
-        const checkFileAccess = async (url: string, timeout = 5000): Promise<boolean> => {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), timeout);
-                
-                const response = await fetch(url, {
+                console.log(`File access check attempt ${attempt}/${maxRetries}`);
+                const response = await fetch(fileUrl, {
                     method: 'GET',
                     headers: {
                         'Accept': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-                        'Origin': window.location.origin
+                        'Origin': window.location.origin,
+                        'Range': 'bytes=0-0'  // Request only the first byte to check accessibility
                     },
-                    mode: 'cors',
-                    signal: controller.signal
+                    mode: 'cors'
                 });
                 
-                clearTimeout(timeoutId);
-                return response.ok;
+                if (response.ok || response.status === 206) {  // 206 is Partial Content response
+                    console.log('File is accessible');
+                    return true;
+                }
+                
+                console.log(`File not accessible (status: ${response.status})`);
+                
+                // If not accessible, wait before retry
+                if (attempt < maxRetries) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
             } catch (err) {
-                console.log('File access check failed:', err);
-                return false;
+                console.log(`Attempt ${attempt} failed:`, err);
+                if (attempt < maxRetries) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
             }
+        }
+        
+        console.log('File access check failed after all retries');
+        return false;
+    } catch (err) {
+        console.log('File access check failed:', err);
+        return false;
+    }
+};
+
+  const setupPowerPointViewing = async (fileData: FileStatusResponse) => {
+    try {
+        console.log('Setting up PowerPoint viewing...');
+        setIframeLoading(true);
+        setIframeError(null);
+        
+        // Construct the direct file URL
+        const fileUrl = `${apiUrl}/api/presentations/documents/${fileData.document_id}/${fileData.document_id}.pptx`;
+        console.log('File URL:', fileUrl);
+
+        // Create Office Online Viewer URL with additional parameters for better reliability
+        const encodedFileUrl = encodeURIComponent(fileUrl);
+        const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodedFileUrl}&wdStartOn=1&wdEmbedCode=0&wdAr=1.3333&wdPrint=0&wdModified=${Date.now()}`;
+
+        console.log('Created Office viewer URL:', officeViewerUrl);
+
+        // Set the viewer URLs
+        setViewerUrls({
+            office: officeViewerUrl,
+            google: ''
+        });
+
+        // Set active viewer
+        setActiveViewer('office');
+
+        // Create presentation data
+        const presentationData: UploadResponse = {
+            id: fileData.document_id,
+            document_id: fileData.document_id,
+            status: 'ready',
+            url: officeViewerUrl,
+            filename: fileData.filename || 'presentation.pptx',
+            type: 'PowerPoint',
+            isPowerPoint: true,
+            apiUrl: fileUrl
         };
 
-        // Try each path until we find one that works
-        for (const path of possiblePaths) {
-            console.log('Checking file access at:', apiUrl + path);
-            const isAccessible = await checkFileAccess(apiUrl + path);
-            if (isAccessible) {
-                accessibleUrl = apiUrl + path;
-                console.log('Found accessible file at:', accessibleUrl);
-                break;
-            }
-        }
-        
-        if (!accessibleUrl) {
-            throw new Error('PowerPoint file not accessible at any expected location');
-        }
-        
-        // Create viewer URLs
-        const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(accessibleUrl)}`;
-        const googleDocsViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(accessibleUrl)}&embedded=true`;
-        
-        console.log('Created viewer URLs:', {
-            office: officeViewerUrl,
-            google: googleDocsViewerUrl
-        });
-        
-        // Set presentation data
-        const presentationData: UploadResponse = {
-            id: docId,
-            document_id: docId,
-            status: 'ready' as const,
-            url: officeViewerUrl,
-            filename: 'presentation.pptx',
-            type: 'PowerPoint',
-            alternativeUrl: googleDocsViewerUrl,
-            isPowerPoint: true,
-            apiUrl: accessibleUrl
-        };
-        
+        // Set the presentation data
         setPresentation(presentationData);
-        setIframeLoading(true);
         console.log('PowerPoint viewer setup complete');
-        
+
+        // Start a timeout to check if the viewer loads
+        const timeoutId = setTimeout(() => {
+            const iframe = document.querySelector('iframe');
+            if (iframe && !iframe.contentWindow?.document?.body) {
+                console.log('Viewer failed to load within timeout');
+                setIframeError('The PowerPoint viewer is taking longer than expected. Please try refreshing the page.');
+                setIframeLoading(false);
+            }
+        }, 30000); // 30 second timeout
+
+        return () => clearTimeout(timeoutId);
     } catch (error) {
         console.error('Error setting up PowerPoint viewing:', error);
-        setError('Failed to access PowerPoint file. Please try again.');
         setIframeLoading(false);
+        setIframeError('Failed to set up PowerPoint viewer. Please try refreshing the page.');
+        throw error;
     }
-}, []);
+};
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -1036,7 +685,9 @@ const setupPowerPointViewing = useCallback(async (docId: string) => {
         // Presentation Viewer
         <div className="flex flex-col h-full">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Presentation Viewer</h2>
+            <h2 className="text-xl font-semibold">
+              {presentation.filename}
+            </h2>
             <div className="flex space-x-2">
               <button
                 onClick={() => {
@@ -1072,63 +723,39 @@ const setupPowerPointViewing = useCallback(async (docId: string) => {
               <div className="mt-4 flex space-x-2">
                 <button
                   onClick={retryLoad}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2"
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                 >
                   <RefreshCw className="w-4 h-4" />
-                  Try Again
+                  Refresh Viewer
                 </button>
-                
-                {presentation?.isPowerPoint && presentation?.alternativeUrl && (
-                  <button
-                    onClick={() => {
-                      // Switch to the alternative viewer
-                      console.log('Switching to alternative viewer');
-                      setIframeLoading(true);
-                      setIframeError(null);
-                      
-                      // Swap the URLs
-                      setPresentation(prev => {
-                        if (!prev) return null;
-                        return {
-                          ...prev,
-                          url: prev.alternativeUrl || prev.url,
-                          alternativeUrl: prev.url
-                        };
-                      });
-                    }}
-                    className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
-                  >
-                    Try Alternative Viewer
-                  </button>
-                )}
-                
-                {presentation?.isPowerPoint && (
-                  <button
-                    onClick={() => {
-                      // Create a direct download link for the PowerPoint file
-                      const apiUrl = 'https://clarity-backend-production.up.railway.app';
-                      const downloadUrl = `${apiUrl}/api/presentations/file/${presentation.document_id}`;
-                      window.open(downloadUrl, '_blank');
-                    }}
-                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                  >
-                    Download PowerPoint
-                  </button>
-                )}
               </div>
             </div>
           )}
 
           {!iframeLoading && !iframeError && (
-            <div className="flex-grow border rounded-lg overflow-hidden">
+            <div className="flex-grow border rounded-lg overflow-hidden bg-white">
               {presentation.isPowerPoint ? (
-                // For PowerPoint files, use Office Online Viewer
                 <div className="w-full h-full flex flex-col">
-                  <div className="flex-grow relative">
+                  <div className="flex-grow relative min-h-[600px] bg-gray-50">
+                    {iframeLoading && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 z-10">
+                            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                            <p className="mt-4 text-gray-600">Loading PowerPoint presentation...</p>
+                            <p className="mt-2 text-sm text-gray-500">This may take a few moments for large files</p>
+                            <button
+                                onClick={retryLoad}
+                                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2"
+                            >
+                                <RefreshCw className="w-4 h-4" />
+                                Refresh Viewer
+                            </button>
+                        </div>
+                    )}
                     <iframe
-                      src={presentation.url}
+                      key={viewerUrls.office + Date.now()} // Force iframe refresh
+                      src={viewerUrls.office}
                       className="w-full h-full absolute inset-0"
-                      style={{ minHeight: '600px', border: 'none' }}
+                      style={{ border: 'none' }}
                       onLoad={() => {
                         console.log('PowerPoint viewer loaded successfully');
                         setIframeLoading(false);
@@ -1136,15 +763,8 @@ const setupPowerPointViewing = useCallback(async (docId: string) => {
                       }}
                       onError={(e) => {
                         console.error('PowerPoint viewer failed to load:', e);
-                        setIframeError('Failed to load PowerPoint. Trying alternative viewer...');
-                        // Automatically try alternative viewer
-                        if (presentation.alternativeUrl) {
-                          setPresentation(prev => ({
-                            ...prev!,
-                            url: prev!.alternativeUrl!,
-                            alternativeUrl: prev!.url
-                          }));
-                        }
+                        setIframeError('Failed to load PowerPoint. Please try refreshing the page.');
+                        setIframeLoading(false);
                       }}
                       allow="fullscreen"
                       title="PowerPoint Presentation"
@@ -1155,8 +775,7 @@ const setupPowerPointViewing = useCallback(async (docId: string) => {
                 // For PDFs, use direct embed
                 <iframe
                   src={presentation.url}
-                  className="w-full h-full"
-                  style={{ width: '100%', height: '100%', minHeight: '500px' }}
+                  className="w-full h-full min-h-[600px]"
                   onLoad={() => {
                     console.log('PDF loaded successfully');
                     setIframeLoading(false);

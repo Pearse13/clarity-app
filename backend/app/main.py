@@ -72,6 +72,13 @@ def create_app() -> FastAPI:
     # Mount documents directory for direct file access
     app.mount("/documents", StaticFiles(directory="data/documents"), name="documents")
     
+    # Mount the uploads directory for static file serving
+    # This needs to be before the router inclusion
+    upload_dir = Path("/app/app/data/uploads")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Upload directory initialized at: {upload_dir}")
+    app.mount("/api/presentations/documents", StaticFiles(directory=str(upload_dir), html=True), name="documents")
+    
     # Include routers
     app.include_router(presentations.router)
     
@@ -249,18 +256,16 @@ async def startup_event():
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Ensure upload directory exists
-upload_dir = Path(settings.upload_dir)
+upload_dir = Path("/app/app/data/uploads")
 upload_dir.mkdir(parents=True, exist_ok=True)
-
-# Mount static files
-app.mount("/static", StaticFiles(directory=settings.upload_dir), name="static")
+logger.info(f"Upload directory initialized at: {upload_dir}")
 
 # Include routers
 app.include_router(presentations.router) 

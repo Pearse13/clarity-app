@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     upload_dir: str = Field(
         default=os.getenv(
             "UPLOAD_DIR",
-            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "uploads")
+            "/app/app/data/uploads"  # Default to absolute path on Railway
         ),
         description="Upload directory path"
     )

@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 import tempfile
 import asyncio
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, Response
 import sys
 import traceback
 import uuid
@@ -95,23 +95,18 @@ async def upload_presentation(
         
         # Generate unique ID and create directories
         doc_id = str(uuid.uuid4())
-        upload_dir = Path(settings.upload_dir).resolve() / doc_id
+        upload_dir = Path("/app/app/data/uploads") / doc_id  # Use absolute path on Railway
         upload_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Created document directory at: {upload_dir.absolute()}")
         
-        # Save file with original name first
-        original_path = upload_dir / file.filename
+        # Save file with doc_id name only
+        doc_path = upload_dir / f"{doc_id}{file_ext}"
         try:
-            logger.info(f"Saving original file to: {original_path.absolute()}")
+            logger.info(f"Saving file to: {doc_path.absolute()}")
             content = await file.read()
-            with open(original_path, "wb") as f:
+            with open(doc_path, "wb") as f:
                 f.write(content)
-            logger.info(f"Original file saved successfully. Size: {len(content)} bytes")
-            
-            # Also save with doc_id name for consistency
-            doc_path = upload_dir / f"{doc_id}{file_ext}"
-            shutil.copy2(original_path, doc_path)
-            logger.info(f"File copied to: {doc_path.absolute()}")
+            logger.info(f"File saved successfully. Size: {len(content)} bytes")
             
             # Log directory contents after save
             logger.info("Directory contents after save:")
@@ -122,24 +117,22 @@ async def upload_presentation(
             logger.error(f"Error saving file: {str(e)}")
             raise HTTPException(status_code=500, detail="Failed to save file")
             
-        # For PowerPoint files, we'll return processing status first
+        # For PowerPoint files, return immediately with viewer URLs
         if SUPPORTED_FILE_TYPES[file_ext] == 'PowerPoint':
-            # Ensure both files exist
-            if not original_path.exists() or not doc_path.exists():
-                logger.error(f"Files not found after save: {original_path}, {doc_path}")
-                raise HTTPException(status_code=500, detail="Files not found after save")
+            if not doc_path.exists():
+                logger.error(f"File not found after save: {doc_path}")
+                raise HTTPException(status_code=500, detail="File not found after save")
 
-            logger.info(f"PowerPoint files saved successfully at: {original_path} and {doc_path}")
+            logger.info(f"PowerPoint file saved successfully at: {doc_path}")
             
-            # Create status file for tracking
+            # Create status file
             status_file = upload_dir / "status.json"
             status_data = {
                 "document_id": doc_id,
-                "status": "ready",  # Set to ready immediately since we're not converting
+                "status": "ready",
                 "filename": file.filename,
                 "type": SUPPORTED_FILE_TYPES[file_ext],
-                "original_path": str(original_path.absolute()),
-                "doc_path": str(doc_path.absolute())
+                "file_path": str(doc_path)
             }
             
             with open(status_file, "w") as f:
@@ -147,30 +140,33 @@ async def upload_presentation(
             
             logger.info(f"Status file created at: {status_file}")
             
-            # Return processing status
             return JSONResponse(content={
                 "document_id": doc_id,
                 "status": "ready",
-                "check_status_url": f"/api/presentations/status/{doc_id}"
+                "filename": file.filename
             })
             
-        # For other file types, process as before
-        status_file = upload_dir / "status.json"
-        with open(status_file, "w") as f:
-            json.dump({
-                "document_id": doc_id,
-                "status": "processing",
-                "progress": 0,
-                "filename": file.filename,
-                "type": SUPPORTED_FILE_TYPES[file_ext]
-            }, f)
+        # For PDF files, return immediately
+        if SUPPORTED_FILE_TYPES[file_ext] == 'PDF':
+            if not doc_path.exists():
+                logger.error(f"File not found after save: {doc_path}")
+                raise HTTPException(status_code=500, detail="File not found after save")
+
+            logger.info(f"PDF file saved successfully at: {doc_path}")
             
+            return JSONResponse(content={
+                "document_id": doc_id,
+                "status": "ready",
+                "filename": file.filename
+            })
+            
+        # Return for unsupported file types
         return JSONResponse(content={
             "document_id": doc_id,
-            "status": "processing",
-            "check_status_url": f"/api/presentations/status/{doc_id}"
+            "status": "error",
+            "detail": f"Unsupported file type: {file_ext}"
         })
-        
+            
     except HTTPException:
         raise
     except Exception as e:
@@ -222,55 +218,74 @@ async def get_document_file(doc_id: str, filename: str):
     try:
         logger.debug(f"Attempting to retrieve document: {doc_id}/{filename}")
         
-        # Get the upload directory
-        upload_dir = Path(settings.upload_dir) / doc_id
+        # Get the upload directory using absolute path
+        upload_dir = Path("/app/app/data/uploads") / doc_id
+        logger.debug(f"Looking for file in: {upload_dir}")
         
-        # Try different possible filenames
-        possible_files = [
-            upload_dir / filename,  # Try the requested filename
-            upload_dir / f"{doc_id}.pptx",  # Try doc_id.pptx
-            upload_dir / f"{doc_id}.ppt",   # Try doc_id.ppt
-            upload_dir / "presentation.pptx", # Try presentation.pptx
-            *list(upload_dir.glob("*.ppt*")) # Try any PowerPoint file
-        ]
-        
-        file_path = None
-        for possible_file in possible_files:
-            if possible_file.exists():
-                file_path = possible_file
-                logger.debug(f"Found file at: {file_path}")
-                break
+        # Try to find the exact file first
+        file_path = upload_dir / filename
+        if not file_path.exists():
+            # If exact file not found, try to find any file with matching extension
+            logger.debug(f"Exact file not found, searching for files with matching extension")
+            matching_files = list(upload_dir.glob(f"*.{filename.split('.')[-1]}"))
+            if matching_files:
+                file_path = matching_files[0]
+                logger.debug(f"Found matching file: {file_path}")
+            else:
+                logger.error(f"No matching files found in {upload_dir}")
+                raise HTTPException(status_code=404, detail="File not found")
                 
-        if not file_path:
-            logger.error(f"No PowerPoint file found in {upload_dir}")
-            raise HTTPException(status_code=404, detail="File not found")
-            
+        logger.debug(f"Found file at: {file_path}")
+        
+        # Verify file exists and is readable
+        try:
+            with open(file_path, 'rb') as f:
+                f.read(1)  # Try to read 1 byte to verify file is accessible
+            logger.debug("File is readable")
+        except Exception as e:
+            logger.error(f"File exists but is not readable: {e}")
+            raise HTTPException(status_code=500, detail="File is not accessible")
+                
         # Determine content type
-        content_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-        if str(file_path).endswith(".ppt"):
+        content_type = None
+        if file_path.suffix.lower() in ['.pptx']:
+            content_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        elif file_path.suffix.lower() in ['.ppt']:
             content_type = "application/vnd.ms-powerpoint"
+        elif file_path.suffix.lower() in ['.pdf']:
+            content_type = "application/pdf"
             
-        # Return file with CORS headers
+        if not content_type:
+            content_type = "application/octet-stream"
+            
+        logger.debug(f"Determined content type: {content_type}")
+            
+        # Return file with headers optimized for Office Online Viewer
         headers = {
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
             "Access-Control-Allow-Headers": "*",
-            "Content-Disposition": f'inline; filename="{file_path.name}"',
-            "Cache-Control": "no-cache"
+            "Access-Control-Expose-Headers": "Content-Length, Content-Range",
+            "Content-Type": content_type,
+            "Content-Disposition": "attachment; filename=" + file_path.name,
+            "Cache-Control": "public, max-age=3600",
+            "X-Content-Type-Options": "nosniff",
+            "Accept-Ranges": "bytes"
         }
         
-        logger.debug(f"Serving file with content type: {content_type}")
+        logger.debug(f"Serving file with headers: {headers}")
         return FileResponse(
             path=file_path,
             media_type=content_type,
-            filename=file_path.name,
-            headers=headers
+            headers=headers,
+            filename=file_path.name
         )
         
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error retrieving file: {str(e)}")
+        logger.error(f"Stack trace: {''.join(traceback.format_exception(*sys.exc_info()))}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.options("/documents/{doc_id}/{filename}")
@@ -284,39 +299,104 @@ async def options_document_file(doc_id: str, filename: str):
     }
     return JSONResponse(content={}, headers=headers)
 
+@router.head("/documents/{doc_id}/{filename}")
+async def head_document_file(doc_id: str, filename: str):
+    """Handle HEAD requests for document files"""
+    try:
+        logger.debug(f"HEAD request for document: {doc_id}/{filename}")
+        
+        # Get the upload directory using absolute path
+        upload_dir = Path("/app/app/data/uploads") / doc_id
+        logger.debug(f"Looking for file in: {upload_dir}")
+        
+        # Try to find the exact file first
+        file_path = upload_dir / filename
+        if not file_path.exists():
+            # If exact file not found, try to find any file with matching extension
+            matching_files = list(upload_dir.glob(f"*.{filename.split('.')[-1]}"))
+            if matching_files:
+                file_path = matching_files[0]
+                logger.debug(f"Found matching file: {file_path}")
+            else:
+                logger.error(f"No matching files found in {upload_dir}")
+                raise HTTPException(status_code=404, detail="File not found")
+                
+        # Determine content type
+        content_type = None
+        if file_path.suffix.lower() in ['.pptx']:
+            content_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        elif file_path.suffix.lower() in ['.ppt']:
+            content_type = "application/vnd.ms-powerpoint"
+        elif file_path.suffix.lower() in ['.pdf']:
+            content_type = "application/pdf"
+            
+        if not content_type:
+            content_type = "application/octet-stream"
+            
+        # Return headers only for HEAD request
+        headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Content-Type": content_type,
+            "Content-Length": str(file_path.stat().st_size),
+            "Content-Disposition": "attachment",
+            "Cache-Control": "public, max-age=3600",
+            "X-Content-Type-Options": "nosniff",
+            "Accept-Ranges": "bytes"
+        }
+        
+        return Response(headers=headers)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error handling HEAD request: {str(e)}")
+        logger.error(f"Stack trace: {''.join(traceback.format_exception(*sys.exc_info()))}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/file/{doc_id}")
 async def get_presentation_file(doc_id: str):
     """Get the original presentation file"""
     try:
         logger.debug(f"Attempting to retrieve PowerPoint file for doc_id: {doc_id}")
         
-        # Look for the file in both possible locations
-        upload_dir = Path(settings.upload_dir) / doc_id
-        documents_dir = Path("data/documents") / doc_id
+        # Use the absolute path where files are actually stored
+        upload_dir = Path("/app/app/data/uploads") / doc_id
+        logger.debug(f"Looking for PowerPoint files in: {upload_dir}")
         
-        # Check both directories for PowerPoint files
+        # Check for PowerPoint files
         ppt_files = list(upload_dir.glob("*.ppt*"))
-        if not ppt_files:
-            ppt_files = list(documents_dir.glob("*.ppt*"))
             
         if not ppt_files:
-            logger.error(f"No PowerPoint file found in either {upload_dir} or {documents_dir}")
+            logger.error(f"No PowerPoint file found in {upload_dir}")
             raise HTTPException(status_code=404, detail="PowerPoint file not found")
             
         file_path = ppt_files[0]
         logger.debug(f"Found PowerPoint file at: {file_path}")
         
+        # Verify file exists and is readable
+        try:
+            with open(file_path, 'rb') as f:
+                f.read(1)  # Try to read 1 byte to verify file is accessible
+            logger.debug("File is readable")
+        except Exception as e:
+            logger.error(f"File exists but is not readable: {e}")
+            raise HTTPException(status_code=500, detail="File is not accessible")
+        
         # Determine content type based on extension
         content_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation" \
             if file_path.suffix == ".pptx" else "application/vnd.ms-powerpoint"
             
-        # Return file as response with proper content type and CORS headers
+        # Return file with proper headers
         headers = {
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "GET, OPTIONS",
             "Access-Control-Allow-Headers": "*",
             "Content-Disposition": f'inline; filename="{file_path.name}"',
-            "Cache-Control": "no-cache"
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
         }
         
         logger.debug(f"Serving file with content type: {content_type}")
@@ -331,6 +411,7 @@ async def get_presentation_file(doc_id: str):
         raise
     except Exception as e:
         logger.error(f"Error retrieving PowerPoint file: {str(e)}")
+        logger.error(f"Stack trace: {''.join(traceback.format_exception(*sys.exc_info()))}")
         raise HTTPException(status_code=500, detail=f"Failed to retrieve PowerPoint file: {str(e)}")
 
 @router.options("/file/{doc_id}")
