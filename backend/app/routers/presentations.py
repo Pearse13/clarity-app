@@ -24,7 +24,9 @@ router = APIRouter(prefix="/api/presentations", tags=["presentations"])
 presentation_service = PresentationService()
 
 # Initialize CloudConvert
+logger.debug(f"Configuring CloudConvert with API key present: {bool(settings.cloudconvert_api_key)}")
 cloudconvert.configure(api_key=settings.cloudconvert_api_key)
+logger.debug("CloudConvert configured successfully")
 
 SUPPORTED_FILE_TYPES = {
     '.ppt': 'PowerPoint',
@@ -99,7 +101,7 @@ async def upload_presentation(
         
         # Generate unique ID and create directories
         doc_id = str(uuid.uuid4())
-        upload_dir = Path("app/static/uploads") / doc_id
+        upload_dir = Path(settings.upload_dir) / doc_id
         upload_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Created document directory at: {upload_dir.absolute()}")
         
@@ -264,7 +266,7 @@ async def get_document_file(doc_id: str, filename: str):
         logger.debug(f"Attempting to retrieve document: {doc_id}/{filename}")
         
         # Get the upload directory using absolute path
-        upload_dir = Path("/app/app/data/uploads") / doc_id
+        upload_dir = Path(settings.upload_dir) / doc_id
         logger.debug(f"Looking for file in: {upload_dir}")
         
         # Try to find the exact file first
@@ -351,7 +353,7 @@ async def head_document_file(doc_id: str, filename: str):
         logger.debug(f"HEAD request for document: {doc_id}/{filename}")
         
         # Get the upload directory using absolute path
-        upload_dir = Path("/app/app/data/uploads") / doc_id
+        upload_dir = Path(settings.upload_dir) / doc_id
         logger.debug(f"Looking for file in: {upload_dir}")
         
         # Try to find the exact file first
