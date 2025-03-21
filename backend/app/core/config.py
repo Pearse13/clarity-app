@@ -1,5 +1,5 @@
 """Application configuration."""
-from typing import List, Optional
+from typing import List, Optional, Union, TypeVar, Any, Dict
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, DirectoryPath, computed_field
 import os
@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
+
+T = TypeVar('T')
 
 class Settings(BaseSettings):
     """Application settings."""
@@ -19,15 +21,16 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         validate_assignment=True,
         use_enum_values=True,
-        protected_namespaces=('model_', 'settings_')
+        protected_namespaces=('model_', 'settings_'),
+        extra='allow'  # Allow extra fields
     )
     
     # Environment
-    environment: str = Field(default=os.getenv("ENVIRONMENT", "development"), description="Current environment")
-    debug: bool = False
+    environment: str = Field(default="development")
+    debug: bool = Field(default=False)
     
     # Base URLs
-    public_url: str = Field(default=os.getenv("PUBLIC_URL", "http://localhost:8000"), description="Public URL for file access")
+    public_url: str = Field(default=os.getenv("PUBLIC_URL", "http://localhost:8000"))
     
     # CORS settings
     cors_origins: List[str] = Field(
@@ -44,22 +47,10 @@ class Settings(BaseSettings):
     )
     
     # File storage settings
-    upload_dir: str = Field(
-        default=os.getenv(
-            "UPLOAD_DIR",
-            "app/static/uploads"  # Changed to be under static directory
-        ),
-        description="Upload directory path"
-    )
-    temp_dir: str = Field(
-        default=os.getenv(
-            "TEMP_DIR",
-            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "temp")
-        ),
-        description="Temporary directory path"
-    )
-    documents_dir: str = "app/data/documents"
-    max_file_size: int = Field(default=20 * 1024 * 1024, description="Maximum file size in bytes")  # 20MB
+    upload_dir: str = Field(default="app/static/uploads")
+    temp_dir: str = Field(default="app/data/temp")
+    documents_dir: str = Field(default="app/data/documents")
+    max_file_size: int = Field(default=20 * 1024 * 1024)  # 20MB
     
     # OpenAI settings
     openai_api_key: Optional[str] = Field(default=os.getenv("OPENAI_API_KEY"), description="OpenAI API key")
@@ -99,11 +90,8 @@ class Settings(BaseSettings):
         description="Rate limit window in milliseconds"
     )
     
-    # CloudConvert API key
-    cloudconvert_api_key: Optional[str] = Field(
-        default=os.getenv("CLOUDCONVERT_API_KEY"),
-        description="CloudConvert API key for document conversion"
-    )
+    # CloudConvert settings
+    cloudconvert_api_key: Optional[str] = Field(default=os.getenv("CLOUDCONVERT_API_KEY"))
     
     def __init__(self, **data):
         super().__init__(**data)
@@ -126,6 +114,15 @@ class Settings(BaseSettings):
     def temp_path(self) -> Path:
         """Get the temp directory as a Path object."""
         return Path(self.temp_dir)
+
+    @property
+    def documents_path(self) -> Path:
+        """Get the documents directory as a Path object."""
+        return Path(self.documents_dir)
+
+    def get_setting(self, name: str, default: T = None) -> T:
+        """Get a setting by name with proper type casting."""
+        return getattr(self, name, default)
 
 # Initialize settings
 settings = Settings() 

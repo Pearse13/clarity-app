@@ -13,6 +13,7 @@ import json
 import os
 from ..core.config import settings
 import cloudconvert
+from typing import Optional, cast
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)  # Ensure debug logging is enabled
@@ -24,14 +25,26 @@ router = APIRouter(prefix="/api/presentations", tags=["presentations"])
 presentation_service = PresentationService()
 
 # Initialize CloudConvert
-try:
-    logger.debug(f"Configuring CloudConvert with API key present: {bool(settings.cloudconvert_api_key)}")
-    logger.debug(f"CloudConvert API key length: {len(settings.cloudconvert_api_key) if settings.cloudconvert_api_key else 0}")
-    cloudconvert.configure(api_key=settings.cloudconvert_api_key)
-    logger.debug("CloudConvert configured successfully")
-except Exception as e:
-    logger.error(f"Failed to configure CloudConvert: {str(e)}")
-    logger.error(f"Stack trace: {''.join(traceback.format_exception(*sys.exc_info()))}")
+def init_cloudconvert() -> Optional[str]:
+    """Initialize CloudConvert with API key from settings."""
+    try:
+        # Access the API key directly from settings
+        api_key: Optional[str] = settings.cloudconvert_api_key
+        if not api_key:
+            logger.warning("CloudConvert API key not found in settings")
+            return None
+            
+        logger.debug(f"Configuring CloudConvert with API key (length: {len(api_key)})")
+        cloudconvert.configure(api_key=api_key)
+        logger.debug("CloudConvert configured successfully")
+        return api_key
+    except Exception as e:
+        logger.error(f"Failed to configure CloudConvert: {str(e)}")
+        logger.error(f"Stack trace: {''.join(traceback.format_exception(*sys.exc_info()))}")
+        return None
+
+# Initialize CloudConvert on module load
+cloudconvert_api_key = init_cloudconvert()
 
 SUPPORTED_FILE_TYPES = {
     '.ppt': 'PowerPoint',
@@ -232,7 +245,7 @@ async def upload_presentation(
             "status": "error",
             "detail": f"Unsupported file type: {file_ext}"
         })
-            
+        
     except HTTPException:
         raise
     except Exception as e:
@@ -299,8 +312,8 @@ async def get_document_file(doc_id: str, filename: str):
                 logger.debug(f"Found matching file: {file_path}")
             else:
                 logger.error(f"No matching files found in {upload_dir}")
-                raise HTTPException(status_code=404, detail="File not found")
-                
+            raise HTTPException(status_code=404, detail="File not found")
+            
         logger.debug(f"Found file at: {file_path}")
         
         # Verify file exists and is readable

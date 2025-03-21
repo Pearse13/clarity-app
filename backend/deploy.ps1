@@ -3,7 +3,7 @@ Get-Content .env.production | ForEach-Object {
     $line = $_.Trim()
     if ($line -and !$line.StartsWith("#")) {
         $key, $value = $line.Split('=', 2)
-        $env:$key = $value
+        Set-Item -Path "env:$key" -Value $value
     }
 }
 
