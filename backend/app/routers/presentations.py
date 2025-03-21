@@ -24,9 +24,14 @@ router = APIRouter(prefix="/api/presentations", tags=["presentations"])
 presentation_service = PresentationService()
 
 # Initialize CloudConvert
-logger.debug(f"Configuring CloudConvert with API key present: {bool(settings.cloudconvert_api_key)}")
-cloudconvert.configure(api_key=settings.cloudconvert_api_key)
-logger.debug("CloudConvert configured successfully")
+try:
+    logger.debug(f"Configuring CloudConvert with API key present: {bool(settings.cloudconvert_api_key)}")
+    logger.debug(f"CloudConvert API key length: {len(settings.cloudconvert_api_key) if settings.cloudconvert_api_key else 0}")
+    cloudconvert.configure(api_key=settings.cloudconvert_api_key)
+    logger.debug("CloudConvert configured successfully")
+except Exception as e:
+    logger.error(f"Failed to configure CloudConvert: {str(e)}")
+    logger.error(f"Stack trace: {''.join(traceback.format_exception(*sys.exc_info()))}")
 
 SUPPORTED_FILE_TYPES = {
     '.ppt': 'PowerPoint',
@@ -133,6 +138,11 @@ async def upload_presentation(
                 
             try:
                 # Convert to PDF using CloudConvert
+                logger.info("Starting PowerPoint to PDF conversion with CloudConvert")
+                # Define pdf_path before using it
+                pdf_path = upload_dir / f"{doc_id}.pdf"
+                logger.debug(f"PDF will be saved to: {pdf_path}")
+                
                 job = cloudconvert.Job.create(payload={
                     "tasks": {
                         "import-file": {
@@ -150,18 +160,27 @@ async def upload_presentation(
                         }
                     }
                 })
+                logger.info(f"CloudConvert job created with ID: {job['id']}")
                 
                 # Upload file for conversion
+                logger.info("Uploading file to CloudConvert")
                 upload_task = next(task for task in job["tasks"] if task["name"] == "import-file")
+                logger.debug(f"Upload task ID: {upload_task['id']}")
                 cloudconvert.Task.upload(file_name=str(original_path), task=upload_task)
+                logger.info("File uploaded successfully")
                 
                 # Wait for conversion
+                logger.info("Waiting for conversion to complete")
                 job = cloudconvert.Job.wait(id=job["id"])
+                logger.info("Conversion completed")
+                
                 export_task = next(task for task in job["tasks"] if task["operation"] == "export/url")
+                logger.debug(f"Export task ID: {export_task['id']}")
                 
                 # Download converted PDF
-                pdf_path = upload_dir / f"{doc_id}.pdf"
+                logger.info(f"Downloading converted PDF to: {pdf_path}")
                 cloudconvert.download(url=export_task["result"]["files"][0]["url"], filename=pdf_path)
+                logger.info("PDF downloaded successfully")
                 
                 # Create status file
                 status_file = upload_dir / "status.json"

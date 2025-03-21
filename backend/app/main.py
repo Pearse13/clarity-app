@@ -5,7 +5,7 @@ from pathlib import Path
 import logging
 import os
 import shutil
-from .routers import presentations
+from .routers import presentations, text_transformer
 from .models import TransformRequest, TransformResponse, TransformationType
 from .services.openai_service import transform_text_with_gpt, call_openai_api
 from pydantic import BaseModel
@@ -81,6 +81,7 @@ def create_app() -> FastAPI:
     
     # Include routers
     app.include_router(presentations.router)
+    app.include_router(text_transformer.router)
     
     return app
 
@@ -252,6 +253,11 @@ async def startup_event():
     backend_data_dir = Path(__file__).parent.parent.parent / "backend" / "data"
     logger.info(f"Data directory: {backend_data_dir}")
     logger.info("CORS enabled for: http://localhost:5174")
+    logger.info("Creating necessary directories...")
+    for directory in [settings.upload_dir, settings.temp_dir, settings.documents_dir]:
+        path = Path(directory)
+        path.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Created directory: {path}")
 
 # Configure CORS
 app.add_middleware(
@@ -268,4 +274,5 @@ upload_dir.mkdir(parents=True, exist_ok=True)
 logger.info(f"Upload directory initialized at: {upload_dir}")
 
 # Include routers
-app.include_router(presentations.router) 
+app.include_router(presentations.router)
+app.include_router(text_transformer.router)

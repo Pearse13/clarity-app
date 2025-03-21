@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     
     # Environment
     environment: str = Field(default=os.getenv("ENVIRONMENT", "development"), description="Current environment")
+    debug: bool = False
     
     # Base URLs
     public_url: str = Field(default=os.getenv("PUBLIC_URL", "http://localhost:8000"), description="Public URL for file access")
@@ -57,6 +58,7 @@ class Settings(BaseSettings):
         ),
         description="Temporary directory path"
     )
+    documents_dir: str = "app/data/documents"
     max_file_size: int = Field(default=20 * 1024 * 1024, description="Maximum file size in bytes")  # 20MB
     
     # OpenAI settings
