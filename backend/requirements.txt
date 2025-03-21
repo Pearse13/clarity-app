@@ -26,4 +26,4 @@ boto3==1.29.3
 sentry-sdk
 psutil>=5.9.0
 python-multipart==0.0.7
-cloudconvert-python>=3.0.0
+cloudconvert-python==3.0.0
