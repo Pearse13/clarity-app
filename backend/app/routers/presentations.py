@@ -12,6 +12,7 @@ import uuid
 import json
 import os
 from ..core.config import settings
+import cloudconvert
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)  # Ensure debug logging is enabled
@@ -21,6 +22,9 @@ router = APIRouter(prefix="/api/presentations", tags=["presentations"])
 
 # Initialize presentation service
 presentation_service = PresentationService()
+
+# Initialize CloudConvert
+cloudconvert.configure(api_key=settings.cloudconvert_api_key)
 
 SUPPORTED_FILE_TYPES = {
     '.ppt': 'PowerPoint',
@@ -95,7 +99,7 @@ async def upload_presentation(
         
         # Generate unique ID and create directories
         doc_id = str(uuid.uuid4())
-        upload_dir = Path("/app/app/data/uploads") / doc_id  # Use absolute path on Railway
+        upload_dir = Path("app/static/uploads") / doc_id
         upload_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Created document directory at: {upload_dir.absolute()}")
         
@@ -117,34 +121,75 @@ async def upload_presentation(
             logger.error(f"Error saving file: {str(e)}")
             raise HTTPException(status_code=500, detail="Failed to save file")
             
-        # For PowerPoint files, return immediately with viewer URLs
+        # For PowerPoint files, convert to PDF
         if SUPPORTED_FILE_TYPES[file_ext] == 'PowerPoint':
-            if not doc_path.exists():
-                logger.error(f"File not found after save: {doc_path}")
-                raise HTTPException(status_code=500, detail="File not found after save")
-
-            logger.info(f"PowerPoint file saved successfully at: {doc_path}")
-            
-            # Create status file
-            status_file = upload_dir / "status.json"
-            status_data = {
-                "document_id": doc_id,
-                "status": "ready",
-                "filename": file.filename,
-                "type": SUPPORTED_FILE_TYPES[file_ext],
-                "file_path": str(doc_path)
-            }
-            
-            with open(status_file, "w") as f:
-                json.dump(status_data, f)
-            
-            logger.info(f"Status file created at: {status_file}")
-            
-            return JSONResponse(content={
-                "document_id": doc_id,
-                "status": "ready",
-                "filename": file.filename
-            })
+            # Save original file
+            original_path = upload_dir / f"{doc_id}{file_ext}"
+            content = await file.read()
+            with open(original_path, "wb") as f:
+                f.write(content)
+                
+            try:
+                # Convert to PDF using CloudConvert
+                job = cloudconvert.Job.create(payload={
+                    "tasks": {
+                        "import-file": {
+                            "operation": "import/upload"
+                        },
+                        "convert-file": {
+                            "operation": "convert",
+                            "input": ["import-file"],
+                            "output_format": "pdf",
+                            "engine": "office"
+                        },
+                        "export-file": {
+                            "operation": "export/url",
+                            "input": ["convert-file"]
+                        }
+                    }
+                })
+                
+                # Upload file for conversion
+                upload_task = next(task for task in job["tasks"] if task["name"] == "import-file")
+                cloudconvert.Task.upload(file_name=str(original_path), task=upload_task)
+                
+                # Wait for conversion
+                job = cloudconvert.Job.wait(id=job["id"])
+                export_task = next(task for task in job["tasks"] if task["operation"] == "export/url")
+                
+                # Download converted PDF
+                pdf_path = upload_dir / f"{doc_id}.pdf"
+                cloudconvert.download(url=export_task["result"]["files"][0]["url"], filename=pdf_path)
+                
+                # Create status file
+                status_file = upload_dir / "status.json"
+                status_data = {
+                    "document_id": doc_id,
+                    "status": "ready",
+                    "filename": file.filename,
+                    "type": "PDF",  # Treat as PDF after conversion
+                    "original_type": "PowerPoint",
+                    "file_path": str(pdf_path)
+                }
+                
+                with open(status_file, "w") as f:
+                    json.dump(status_data, f)
+                
+                # Return PDF URL for viewing
+                base_url = str(request.base_url).rstrip('/')
+                pdf_url = f"{base_url}/static/uploads/{doc_id}/{doc_id}.pdf"
+                
+                return JSONResponse(content={
+                    "document_id": doc_id,
+                    "status": "ready",
+                    "filename": file.filename,
+                    "file_url": pdf_url,
+                    "original_url": f"{base_url}/static/uploads/{doc_id}/{doc_id}{file_ext}"
+                })
+                
+            except Exception as e:
+                logger.error(f"Conversion failed: {str(e)}")
+                raise HTTPException(status_code=500, detail="Failed to convert PowerPoint to PDF")
             
         # For PDF files, return immediately
         if SUPPORTED_FILE_TYPES[file_ext] == 'PDF':

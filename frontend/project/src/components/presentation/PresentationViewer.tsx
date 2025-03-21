@@ -42,6 +42,7 @@ interface FileStatusResponse {
   original_path?: string;
   url?: string;
   check_status_url?: string;
+  file_url?: string;  // Optional since older responses might not have it
 }
 
 const SUPPORTED_FILE_TYPES = {
@@ -615,8 +616,8 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
         setIframeLoading(true);
         setIframeError(null);
         
-        // Construct the direct file URL
-        const fileUrl = `${apiUrl}/api/presentations/documents/${fileData.document_id}/${fileData.document_id}.pptx`;
+        // Use the direct file URL from the upload response
+        const fileUrl = fileData.file_url || `${apiUrl}/api/presentations/documents/${fileData.document_id}/${fileData.document_id}.pptx`;
         console.log('File URL:', fileUrl);
 
         // Create Office Online Viewer URL with additional parameters for better reliability

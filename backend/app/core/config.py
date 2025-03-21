@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     upload_dir: str = Field(
         default=os.getenv(
             "UPLOAD_DIR",
-            "/app/app/data/uploads"  # Default to absolute path on Railway
+            "app/static/uploads"  # Changed to be under static directory
         ),
         description="Upload directory path"
     )
@@ -95,6 +95,11 @@ class Settings(BaseSettings):
     rate_limit_window_ms: int = Field(
         default=int(os.getenv("RATE_LIMIT_WINDOW_MS", "60000")),
         description="Rate limit window in milliseconds"
+    )
+    
+    # CloudConvert API key
+    cloudconvert_api_key: str = Field(
+        default="eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIxIiwianRpIjoiMzJiOGU0YTViMWViNDUyYzA1ODg0ODFjNTkxOGFkMmIyMGQ3YzdhODdhOWMzZTBiM2Q1YWY4NzMzNjg4NGQxNzI0OTczMzY2OTdkMzAzNTMiLCJpYXQiOjE3NDI1Njg3NjEuMDExNDAzLCJuYmYiOjE3NDI1Njg3NjEuMDExNDA0LCJleHAiOjQ4OTgyNDIzNjEuMDA1NTM1LCJzdWIiOiI3MTQwNTY3NCIsInNjb3BlcyI6WyJ0YXNrLnJlYWQiLCJ0YXNrLndyaXRlIl19.mgYVRfvltwxppGKKJFk9SHRMyEToYOCu7WKiLuBVwGEc0X6SLX9Zan2n8cqFlFOqKFTa4kIaNjIYLrHNbx1lz1tJbgXWI-GgneNXBZ8Il79RdqAUdM190-nUXh0GjApXpY6JCdgu2neNCy2WoI1lZ61Yv0sjUkh5goUT9G5vAlNCWK-434jq2xKwhU34bOFPA4lH4slQaKY_2JfHWPeVMVktJZkrIyv8FLoan-ig_iTp2-POW6qZ_Xfh1v90mhAqhjP31zZsMQaRTsufd8kpP2pB1575lVVi7SbWbJ4p-0n7Xrujno4JJws8NUMMrJijaviROaZ7ljDOi0oGiXqgaJZygO0vB0ejbSd7hAgAHTAfN7P7RePAs7qiZ9G1YfFbBhbqkrvUo321gGKFVPLx0zJjpdp-ZoDv0fHebHmlzZm3uci8CFAb1cyIs8sSf_oq4yrJ99_0ysg-yNMUAMI7912ycjXnWDX4WBOKo20ZiAQK2N0KiB0lF3gqbgTgQjPeMBLL3WLHsJsS3XMtoPKPL-mbuY0e0LC1C5Ql5dNA2Nuybc-roXKsGfCaikAHKJ4NaB0kCSTxY2boLfaLkjWrQqQkmOxVxgWig0eUQEvNiM3NzGshd1DUi6NlyHsMi3xj_6iydipiyVNRDCCdtrv8f-aHMKUDVzLVS3zzTQa0jwI"
     )
     
     def __init__(self, **data):
