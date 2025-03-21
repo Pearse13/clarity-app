@@ -149,14 +149,19 @@ async def upload_presentation(
             with open(original_path, "wb") as f:
                 f.write(content)
                 
+            logger.info(f"PowerPoint file saved to {original_path} with size {len(content)} bytes")
+                
             try:
                 # Convert to PDF using CloudConvert
                 logger.info("Starting PowerPoint to PDF conversion with CloudConvert")
+                logger.info(f"CloudConvert API key is set: {bool(cloudconvert_api_key)}")
                 # Define pdf_path before using it
                 pdf_path = upload_dir / f"{doc_id}.pdf"
                 logger.debug(f"PDF will be saved to: {pdf_path}")
                 
-                job = cloudconvert.Job.create(payload={
+                # Create job with detailed logging
+                logger.info("Creating CloudConvert job")
+                job_payload = {
                     "tasks": {
                         "import-file": {
                             "operation": "import/upload"
@@ -172,28 +177,69 @@ async def upload_presentation(
                             "input": ["convert-file"]
                         }
                     }
-                })
-                logger.info(f"CloudConvert job created with ID: {job['id']}")
+                }
+                
+                logger.info(f"Job payload: {job_payload}")
+                
+                try:
+                    job = cloudconvert.Job.create(payload=job_payload)
+                    logger.info(f"CloudConvert job created with ID: {job['id']}")
+                    logger.info(f"Job details: {job}")
+                except Exception as e:
+                    logger.error(f"Failed to create CloudConvert job: {str(e)}")
+                    logger.error(f"Exception details: {traceback.format_exc()}")
+                    raise HTTPException(status_code=500, detail=f"Failed to create CloudConvert job: {str(e)}")
                 
                 # Upload file for conversion
                 logger.info("Uploading file to CloudConvert")
                 upload_task = next(task for task in job["tasks"] if task["name"] == "import-file")
                 logger.debug(f"Upload task ID: {upload_task['id']}")
-                cloudconvert.Task.upload(file_name=str(original_path), task=upload_task)
-                logger.info("File uploaded successfully")
+                
+                try:
+                    cloudconvert.Task.upload(file_name=str(original_path), task=upload_task)
+                    logger.info("File uploaded successfully")
+                except Exception as e:
+                    logger.error(f"Failed to upload file to CloudConvert: {str(e)}")
+                    logger.error(f"Exception details: {traceback.format_exc()}")
+                    raise HTTPException(status_code=500, detail=f"Failed to upload file to CloudConvert: {str(e)}")
                 
                 # Wait for conversion
                 logger.info("Waiting for conversion to complete")
-                job = cloudconvert.Job.wait(id=job["id"])
-                logger.info("Conversion completed")
+                try:
+                    job = cloudconvert.Job.wait(id=job["id"])
+                    logger.info("Conversion completed")
+                    logger.info(f"Job status: {job}")
+                except Exception as e:
+                    logger.error(f"Conversion process failed: {str(e)}")
+                    logger.error(f"Exception details: {traceback.format_exc()}")
+                    raise HTTPException(status_code=500, detail=f"Conversion process failed: {str(e)}")
                 
-                export_task = next(task for task in job["tasks"] if task["operation"] == "export/url")
-                logger.debug(f"Export task ID: {export_task['id']}")
-                
-                # Download converted PDF
-                logger.info(f"Downloading converted PDF to: {pdf_path}")
-                cloudconvert.download(url=export_task["result"]["files"][0]["url"], filename=pdf_path)
-                logger.info("PDF downloaded successfully")
+                try:
+                    export_task = next(task for task in job["tasks"] if task["operation"] == "export/url")
+                    logger.debug(f"Export task ID: {export_task['id']}")
+                    logger.debug(f"Export task result: {export_task.get('result', {})}")
+                    
+                    # Check if export task has files
+                    if not export_task.get("result", {}).get("files"):
+                        logger.error("Export task has no files in result")
+                        raise HTTPException(status_code=500, detail="Export task has no files in result")
+                    
+                    # Download converted PDF
+                    logger.info(f"Downloading converted PDF to: {pdf_path}")
+                    cloudconvert.download(url=export_task["result"]["files"][0]["url"], filename=pdf_path)
+                    logger.info("PDF downloaded successfully")
+                    
+                    # Verify file was downloaded
+                    if not pdf_path.exists():
+                        logger.error("PDF file was not downloaded properly")
+                        raise HTTPException(status_code=500, detail="PDF file was not downloaded properly")
+                    
+                    logger.info(f"PDF file size: {pdf_path.stat().st_size} bytes")
+                    
+                except Exception as e:
+                    logger.error(f"Failed to download converted PDF: {str(e)}")
+                    logger.error(f"Exception details: {traceback.format_exc()}")
+                    raise HTTPException(status_code=500, detail=f"Failed to download PDF: {str(e)}")
                 
                 # Create status file
                 status_file = upload_dir / "status.json"
@@ -221,9 +267,12 @@ async def upload_presentation(
                     "original_url": f"{base_url}/static/uploads/{doc_id}/{doc_id}{file_ext}"
                 })
                 
+            except HTTPException:
+                raise
             except Exception as e:
                 logger.error(f"Conversion failed: {str(e)}")
-                raise HTTPException(status_code=500, detail="Failed to convert PowerPoint to PDF")
+                logger.error(f"Exception details: {traceback.format_exc()}")
+                raise HTTPException(status_code=500, detail=f"Failed to convert PowerPoint to PDF: {str(e)}")
             
         # For PDF files, return immediately
         if SUPPORTED_FILE_TYPES[file_ext] == 'PDF':
@@ -502,4 +551,49 @@ async def options_presentation_file(doc_id: str):
         "Access-Control-Allow-Headers": "*",
         "Access-Control-Max-Age": "86400",  # 24 hours
     }
-    return JSONResponse(content={}, headers=headers) 
+    return JSONResponse(content={}, headers=headers)
+
+@router.get("/test-cloudconvert")
+async def test_cloudconvert():
+    """Test CloudConvert API connection"""
+    try:
+        # Check if API key is set
+        if not cloudconvert_api_key:
+            return JSONResponse(
+                status_code=400,
+                content={"status": "error", "detail": "CloudConvert API key not configured"}
+            )
+        
+        # Try to create a simple job to test the API connection
+        logger.info("Testing CloudConvert API connection")
+        try:
+            # Create a simple test job
+            test_job = cloudconvert.Job.create(payload={
+                "tasks": {
+                    'ping-task': {
+                        'operation': 'ping'
+                    }
+                }
+            })
+            
+            logger.info(f"CloudConvert test job created: {test_job}")
+            return JSONResponse(
+                content={
+                    "status": "success", 
+                    "message": "CloudConvert connection successful",
+                    "job": test_job
+                }
+            )
+        except Exception as e:
+            logger.error(f"CloudConvert API test failed: {str(e)}")
+            logger.error(f"Exception details: {traceback.format_exc()}")
+            return JSONResponse(
+                status_code=500,
+                content={"status": "error", "detail": f"CloudConvert API error: {str(e)}"}
+            )
+    except Exception as e:
+        logger.error(f"Unexpected error testing CloudConvert: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "detail": f"Unexpected error: {str(e)}"}
+        ) 
