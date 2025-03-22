@@ -296,20 +296,20 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
       });
 
       // Use the production API URL
-      const apiUrl = 'https://clarity-backend-production.up.railway.app';
-      const response = await fetch(`${apiUrl}/api/presentations/upload`, {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Accept': 'application/json',
-          'Origin': window.location.origin
-        },
-        mode: 'cors'
-      });
+          const apiUrl = 'https://clarity-backend-production.up.railway.app';
+          const response = await fetch(`${apiUrl}/api/presentations/upload`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'Accept': 'application/json',
+              'Origin': window.location.origin
+            },
+            mode: 'cors'
+          });
 
       console.log('Upload response status:', response.status);
-      
-      if (!response.ok) {
+
+          if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Upload failed: ${errorText}`);
       }
@@ -328,18 +328,13 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
         console.log('PowerPoint file uploaded, setting up viewer...');
         
         // Set up PowerPoint viewing with the response data
-        await setupPowerPointViewing({
-            document_id: responseData.document_id,
-            status: 'ready',
-            filename: file.name,
-            type: 'PowerPoint'
-        });
+        await setupPowerPointViewing(responseData);
         
         return;
       }
 
       // Handle PDF files
-      if (file.type === 'application/pdf') {
+                  if (file.type === 'application/pdf') {
         console.log('PDF file uploaded, displaying directly');
         
         const docId = responseData.document_id;
@@ -351,17 +346,17 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
           document_id: docId,
           status: 'ready',
           url: pdfUrl,
-          filename: file.name,
+                      filename: file.name,
           type: 'PDF',
           apiUrl: pdfUrl
-        };
-
-        setUploadProgress(100);
+                    };
+                    
+                    setUploadProgress(100);
         setPresentation(presentationData);
-        setIframeLoading(true);
+                    setIframeLoading(true);
         return;
       }
-
+      
     } catch (err) {
       console.error('Upload error:', err);
       setError(err instanceof Error ? err.message : 'Failed to upload file. Please try again.');
@@ -616,8 +611,12 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
         setIframeLoading(true);
         setIframeError(null);
         
-        // Use the direct file URL from the upload response
-        const fileUrl = fileData.file_url || `${apiUrl}/api/presentations/documents/${fileData.document_id}/${fileData.document_id}.pptx`;
+        // Use the direct file URL from the upload response without modification
+        if (!fileData.file_url) {
+            throw new Error('No file URL provided in the response');
+        }
+        
+        const fileUrl = fileData.file_url;
         console.log('File URL:', fileUrl);
 
         // Create Office Online Viewer URL with additional parameters for better reliability

@@ -163,112 +163,31 @@ async def upload_presentation(
                 f.write(content)
                 
             logger.info(f"PowerPoint file saved to {original_path} with size {len(content)} bytes")
-                
-            try:
-                # Define pdf_path before using it
-                pdf_path = upload_dir / f"{doc_id}.pdf"
-                logger.debug(f"PDF will be saved to: {pdf_path}")
-                
-                # Use LibreOffice to convert PowerPoint to PDF
-                logger.info("Starting PowerPoint to PDF conversion with LibreOffice")
-                
-                # Platform-specific command
-                if os.name == 'nt':  # Windows
-                    cmd = [
-                        'C:\\Program Files\\LibreOffice\\program\\soffice.exe',
-                        '--headless', 
-                        '--convert-to', 
-                        'pdf',
-                        '--outdir', 
-                        str(upload_dir), 
-                        str(original_path)
-                    ]
-                else:  # Linux (Railway)
-                    cmd = [
-                        'libreoffice', 
-                        '--headless', 
-                        '--convert-to', 
-                        'pdf',
-                        '--outdir', 
-                        str(upload_dir), 
-                        str(original_path)
-                    ]
-                
-                # Log the command for debugging
-                logger.info(f"Running LibreOffice command: {' '.join(cmd)}")
-                
-                # Run conversion process
-                try:
-                    process = await asyncio.create_subprocess_exec(
-                        *cmd,
-                        stdout=asyncio.subprocess.PIPE,
-                        stderr=asyncio.subprocess.PIPE
-                    )
-                    
-                    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=120)
-                    
-                    if process.returncode != 0:
-                        logger.error(f"LibreOffice conversion failed: {stderr.decode()}")
-                        raise HTTPException(status_code=500, detail=f"LibreOffice conversion failed: {stderr.decode()}")
-                    
-                    logger.info(f"LibreOffice stdout: {stdout.decode()}")
-                    logger.info(f"LibreOffice stderr: {stderr.decode()}")
-                    
-                    # Check if PDF was actually created (might have a different name)
-                    if not pdf_path.exists():
-                        # Try to find any PDF file in the directory
-                        pdf_files = list(upload_dir.glob("*.pdf"))
-                        if pdf_files:
-                            # Rename the first PDF file to our expected name
-                            shutil.move(pdf_files[0], pdf_path)
-                            logger.info(f"Renamed {pdf_files[0]} to {pdf_path}")
-                        else:
-                            logger.error("No PDF file was created during conversion")
-                            raise HTTPException(status_code=500, detail="No PDF file was created during conversion")
-                    
-                    logger.info(f"PDF created successfully at: {pdf_path}")
-                    logger.info(f"PDF file size: {pdf_path.stat().st_size} bytes")
-                    
-                except asyncio.TimeoutError:
-                    logger.error("LibreOffice conversion timed out")
-                    raise HTTPException(status_code=500, detail="LibreOffice conversion timed out")
-                except Exception as e:
-                    logger.error(f"Error during LibreOffice conversion: {str(e)}")
-                    logger.error(f"Exception details: {traceback.format_exc()}")
-                    raise HTTPException(status_code=500, detail=f"Error during LibreOffice conversion: {str(e)}")
-                
-                # Create status file
-                status_file = upload_dir / "status.json"
-                status_data = {
-                    "document_id": doc_id,
-                    "status": "ready",
-                    "filename": file.filename,
-                    "type": "PDF",  # Treat as PDF after conversion
-                    "original_type": "PowerPoint",
-                    "file_path": str(pdf_path)
-                }
-                
-                with open(status_file, "w") as f:
-                    json.dump(status_data, f)
-                
-                # Return PDF URL for viewing
-                base_url = str(request.base_url).rstrip('/')
-                pdf_url = f"{base_url}/api/presentations/documents/{doc_id}/{doc_id}.pdf"
-                
-                return JSONResponse(content={
-                    "document_id": doc_id,
-                    "status": "ready",
-                    "filename": file.filename,
-                    "file_url": pdf_url,
-                    "original_url": f"{base_url}/api/presentations/documents/{doc_id}/{doc_id}{file_ext}"
-                })
-                
-            except HTTPException:
-                raise
-            except Exception as e:
-                logger.error(f"Conversion failed: {str(e)}")
-                logger.error(f"Exception details: {traceback.format_exc()}")
-                raise HTTPException(status_code=500, detail=f"Failed to convert PowerPoint to PDF: {str(e)}")
+            
+            # Create status file for the original PowerPoint
+            status_file = upload_dir / "status.json"
+            status_data = {
+                "document_id": doc_id,
+                "status": "ready",
+                "filename": file.filename,
+                "type": "PowerPoint",
+                "file_path": str(original_path)
+            }
+            
+            with open(status_file, "w") as f:
+                json.dump(status_data, f)
+            
+            # Return PowerPoint URL for viewing with Office Online Viewer
+            base_url = str(request.base_url).rstrip('/')
+            ppt_url = f"{base_url}/api/presentations/documents/{doc_id}/{doc_id}{file_ext}"
+            
+            return JSONResponse(content={
+                "document_id": doc_id,
+                "status": "ready",
+                "filename": file.filename,
+                "file_url": ppt_url,
+                "original_url": ppt_url
+            })
             
         # For PDF files, return immediately
         if SUPPORTED_FILE_TYPES[file_ext] == 'PDF':
@@ -278,10 +197,29 @@ async def upload_presentation(
 
             logger.info(f"PDF file saved successfully at: {doc_path}")
             
+            # Create status file for PDF
+            status_file = upload_dir / "status.json"
+            status_data = {
+                "document_id": doc_id,
+                "status": "ready",
+                "filename": file.filename,
+                "type": "PDF",
+                "file_path": str(doc_path)
+            }
+            
+            with open(status_file, "w") as f:
+                json.dump(status_data, f)
+                
+            # Return PDF URL for viewing
+            base_url = str(request.base_url).rstrip('/')
+            pdf_url = f"{base_url}/api/presentations/documents/{doc_id}/{doc_id}{file_ext}"
+            
             return JSONResponse(content={
                 "document_id": doc_id,
                 "status": "ready",
-                "filename": file.filename
+                "filename": file.filename,
+                "file_url": pdf_url,
+                "original_url": pdf_url
             })
             
         # Return for unsupported file types
