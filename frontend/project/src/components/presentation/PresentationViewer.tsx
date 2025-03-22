@@ -11,25 +11,26 @@ console.log('Environment variables:', {
   VITE_PRODUCTION_API_URL: import.meta.env.VITE_PRODUCTION_API_URL
 });
 
-interface UploadResponse {
+// Type definitions
+type PresentationViewerProps = {
+  onTextSelect: (text: string) => void;
+};
+
+type UploadResponse = {
   id: string;
-  document_id?: string;
+  document_id: string;
   status: 'ready' | 'processing' | 'error';
   url: string;
   filename: string;
   type: string;
+  apiUrl?: string; // Original API URL for PDFs
   alternativeUrl?: string;
   error?: string;
   check_status_url?: string;
-  apiUrl?: string;
   isPowerPoint?: boolean;
   useDirectViewer?: boolean;
   possibleUrls?: string[];
-}
-
-interface PresentationViewerProps {
-  onTextSelect?: (text: string) => void;
-}
+};
 
 interface ViewerUrls {
   office: string;
@@ -882,15 +883,16 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                       <button onClick={zoomIn} className="p-1 rounded text-gray-700 hover:bg-gray-200">
                         <ZoomIn className="w-5 h-5" />
                       </button>
-                      <a 
-                        href={presentation.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="p-1 rounded text-gray-700 hover:bg-gray-200 ml-4"
-                        title="Download PDF"
-                      >
-                        <Download className="w-5 h-5" />
-                      </a>
+                      {presentation.apiUrl && (
+                        <a 
+                          href={presentation.apiUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="ml-4 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                        >
+                          Open in New Tab
+                        </a>
+                      )}
                     </div>
                   </div>
                   
