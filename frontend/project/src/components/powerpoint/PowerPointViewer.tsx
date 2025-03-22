@@ -19,7 +19,10 @@ export const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ url, apiUrl,
   const getOfficeViewerUrl = () => {
     if (!apiUrl) return url;
     
-    const encodedFileUrl = encodeURIComponent(apiUrl);
+    // Make sure we use HTTPS URLs for Office Online Viewer
+    const secureApiUrl = apiUrl.replace('http://', 'https://');
+    
+    const encodedFileUrl = encodeURIComponent(secureApiUrl);
     return `https://view.officeapps.live.com/op/embed.aspx?src=${encodedFileUrl}&wdStartOn=1&wdEmbedCode=0&wdAr=1.3333&wdPrint=0&wdModified=${Date.now()}`;
   };
   
@@ -32,9 +35,12 @@ export const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ url, apiUrl,
   
   // Log URLs for debugging
   useEffect(() => {
+    // Make sure we use HTTPS URLs
+    const secureApiUrl = apiUrl ? apiUrl.replace('http://', 'https://') : '';
+    
     console.log('PowerPointViewer mounted with URLs:', { 
       viewerUrl: url, 
-      directUrl: apiUrl,
+      directUrl: secureApiUrl || apiUrl,
       officeUrl: getOfficeViewerUrl()
     });
     
@@ -78,7 +84,7 @@ export const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ url, apiUrl,
             
             {apiUrl && (
               <a 
-                href={apiUrl}
+                href={apiUrl.replace('http://', 'https://')}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center justify-center"
@@ -115,7 +121,7 @@ export const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ url, apiUrl,
       {apiUrl && (
         <div className="p-2 bg-gray-100 mt-2 rounded flex justify-center">
           <a 
-            href={apiUrl}
+            href={apiUrl.replace('http://', 'https://')}
             target="_blank"
             rel="noopener noreferrer"
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center"

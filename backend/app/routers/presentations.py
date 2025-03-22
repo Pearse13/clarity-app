@@ -180,6 +180,10 @@ async def upload_presentation(
             
             # Return PowerPoint URL for viewing with Office Online Viewer
             base_url = str(request.base_url).rstrip('/')
+            # Ensure we use HTTPS for the URL
+            if base_url.startswith('http://'):
+                base_url = base_url.replace('http://', 'https://')
+                
             ppt_url = f"{base_url}/api/presentations/documents/{doc_id}/{doc_id}{file_ext}"
             
             return JSONResponse(content={
@@ -213,6 +217,10 @@ async def upload_presentation(
                 
             # Return PDF URL for viewing
             base_url = str(request.base_url).rstrip('/')
+            # Ensure we use HTTPS for the URL
+            if base_url.startswith('http://'):
+                base_url = base_url.replace('http://', 'https://')
+                
             pdf_url = f"{base_url}/api/presentations/documents/{doc_id}/{doc_id}{file_ext}"
             
             return JSONResponse(content={
