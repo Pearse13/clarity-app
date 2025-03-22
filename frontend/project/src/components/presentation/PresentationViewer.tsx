@@ -360,37 +360,25 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
         const pdfUrl = responseData.file_url;
         console.log('PDF URL from response:', pdfUrl);
         
-        // Fetch the PDF and create a blob URL
+        // Create a proxy URL through our own backend to avoid CSP issues
         try {
           setIframeLoading(true);
-          console.log('Fetching PDF as blob...');
+          console.log('Setting up PDF via proxy...');
           
-          // Ensure we're using HTTPS for Railway URLs
-          const secureUrl = pdfUrl.replace('http://clarity-backend-production.up.railway.app', 'https://clarity-backend-production.up.railway.app');
-          console.log('Using secure URL:', secureUrl);
+          // Extract the filename from the URL
+          const urlParts = pdfUrl.split('/');
+          const docId = responseData.document_id;
+          const filename = urlParts[urlParts.length - 1];
           
-          const response = await fetch(secureUrl, {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/pdf',
-              'Origin': window.location.origin
-            },
-            mode: 'cors'
-          });
-          
-          if (!response.ok) {
-            throw new Error(`Failed to fetch PDF: ${response.status}`);
-          }
-          
-          const blob = await response.blob();
-          const blobUrl = URL.createObjectURL(blob);
-          console.log('Created blob URL for PDF:', blobUrl);
+          // Create a proxy URL that will be served by our backend
+          const proxyUrl = `${apiUrl}/api/presentations/proxy/pdf/${docId}/${filename}`;
+          console.log('Using proxy URL for PDF:', proxyUrl);
           
           const presentationData: UploadResponse = {
             id: responseData.document_id,
             document_id: responseData.document_id,
             status: 'ready',
-            url: blobUrl,
+            url: proxyUrl,
             filename: file.name,
             type: 'PDF',
             apiUrl: pdfUrl
@@ -400,9 +388,9 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
           setPresentation(presentationData);
           setIframeLoading(true); // Show loading until PDF renders
           
-          console.log('PDF display data set with blob URL:', presentationData);
+          console.log('PDF display data set with proxy URL:', presentationData);
         } catch (error) {
-          console.error('Error creating blob URL for PDF:', error);
+          console.error('Error setting up PDF proxy:', error);
           setError('Failed to process PDF file. Please try again.');
           setUploading(false);
         }

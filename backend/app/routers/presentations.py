@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 import tempfile
 import asyncio
-from fastapi.responses import JSONResponse, FileResponse, Response
+from fastapi.responses import JSONResponse, FileResponse, Response, StreamingResponse
 import sys
 import traceback
 import uuid
@@ -14,6 +14,7 @@ import os
 from ..core.config import settings
 import cloudconvert
 from typing import Optional, cast
+import httpx
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)  # Ensure debug logging is enabled
@@ -530,4 +531,49 @@ async def test_cloudconvert():
         return JSONResponse(
             status_code=500,
             content={"status": "error", "detail": f"Unexpected error: {str(e)}"}
-        ) 
+        )
+
+@router.get("/proxy/pdf/{doc_id}/{filename}")
+async def proxy_pdf_file(doc_id: str, filename: str, request: Request):
+    """Proxy PDF files to avoid CORS/CSP issues"""
+    try:
+        logger.debug(f"Proxying PDF file: {doc_id}/{filename}")
+        
+        # Get the upload directory
+        upload_dir = Path(settings.upload_dir) / doc_id
+        logger.debug(f"Looking for PDF file in: {upload_dir}")
+        
+        # Find the PDF file
+        pdf_path = upload_dir / filename
+        if not pdf_path.exists():
+            logger.error(f"PDF file not found: {pdf_path}")
+            raise HTTPException(status_code=404, detail="PDF file not found")
+        
+        # Return the file directly
+        logger.info(f"Serving PDF file through proxy: {pdf_path}")
+        return FileResponse(
+            path=pdf_path,
+            media_type="application/pdf",
+            filename=filename,
+            headers={
+                "Content-Disposition": f"inline; filename={filename}",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Cache-Control": "public, max-age=3600"
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error proxying PDF file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to proxy PDF file: {str(e)}")
+
+@router.options("/proxy/pdf/{doc_id}/{filename}")
+async def options_proxy_pdf(doc_id: str, filename: str):
+    """Handle OPTIONS requests for proxied PDF files"""
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "*",
+        "Cache-Control": "no-cache"
+    }
+    return JSONResponse(content={}, headers=headers) 
