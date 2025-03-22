@@ -922,13 +922,36 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                       }}
                       loading={
                         <div className="flex flex-col items-center justify-center h-full">
-                          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-                          <p className="mt-4 text-gray-600">Loading PDF...</p>
+                          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+                          <p className="mt-2 text-gray-600">Loading PDF document...</p>
+                          <p className="text-sm text-gray-500 mb-4">Large documents may take longer to load</p>
+                          {presentation.apiUrl && (
+                            <a 
+                              href={presentation.apiUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center"
+                            >
+                              <Download className="w-4 h-4 mr-2" />
+                              Download PDF directly
+                            </a>
+                          )}
                         </div>
                       }
                       error={
                         <div className="flex flex-col items-center justify-center h-full">
-                          <p className="text-red-500">Failed to load PDF document.</p>
+                          <p className="text-red-500 mb-2">Failed to load PDF document.</p>
+                          {presentation.apiUrl && (
+                            <a 
+                              href={presentation.apiUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center"
+                            >
+                              <Download className="w-4 h-4 mr-2" />
+                              Download PDF directly
+                            </a>
+                          )}
                         </div>
                       }
                     >
@@ -938,6 +961,11 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                         renderTextLayer={true}
                         renderAnnotationLayer={true}
                         className="shadow-lg mx-auto"
+                        loading={
+                          <div className="flex justify-center items-center h-[600px]">
+                            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                          </div>
+                        }
                       />
                     </Document>
                   </div>
