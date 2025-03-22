@@ -56,9 +56,11 @@ const SUPPORTED_FILE_TYPES = {
   '.pdf': 'PDF'
 };
 
-// Initialize PDF.js worker after the imports but before the component
-// Set the worker source to a CDN
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+// Initialize PDF.js worker - use blob instead of CDN to avoid CSP issues
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.js',
+  import.meta.url,
+).toString();
 
 export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
   const [uploading, setUploading] = useState(false);
@@ -309,20 +311,19 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
       });
 
       // Use the production API URL
-          const apiUrl = 'https://clarity-backend-production.up.railway.app';
-          const response = await fetch(`${apiUrl}/api/presentations/upload`, {
-            method: 'POST',
-            body: formData,
-            headers: {
-              'Accept': 'application/json',
-              'Origin': window.location.origin
-            },
-            mode: 'cors'
-          });
+      const response = await fetch(`${apiUrl}/api/presentations/upload`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json',
+          'Origin': window.location.origin
+        },
+        mode: 'cors'
+      });
 
       console.log('Upload response status:', response.status);
 
-          if (!response.ok) {
+      if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Upload failed: ${errorText}`);
       }
@@ -358,21 +359,47 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
         const pdfUrl = responseData.file_url;
         console.log('PDF URL from response:', pdfUrl);
         
-        const presentationData: UploadResponse = {
-          id: responseData.document_id,
-          document_id: responseData.document_id,
-          status: 'ready',
-          url: pdfUrl,
-          filename: file.name,
-          type: 'PDF',
-          apiUrl: pdfUrl
-        };
-        
-        setUploadProgress(100);
-        setPresentation(presentationData);
-        setIframeLoading(false); // Don't show loading for PDFs
-        
-        console.log('PDF display data set:', presentationData);
+        // Fetch the PDF and create a blob URL
+        try {
+          setIframeLoading(true);
+          console.log('Fetching PDF as blob...');
+          const response = await fetch(pdfUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/pdf',
+              'Origin': window.location.origin
+            },
+            mode: 'cors'
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch PDF: ${response.status}`);
+          }
+          
+          const blob = await response.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          console.log('Created blob URL for PDF:', blobUrl);
+          
+          const presentationData: UploadResponse = {
+            id: responseData.document_id,
+            document_id: responseData.document_id,
+            status: 'ready',
+            url: blobUrl,
+            filename: file.name,
+            type: 'PDF',
+            apiUrl: pdfUrl
+          };
+          
+          setUploadProgress(100);
+          setPresentation(presentationData);
+          setIframeLoading(true); // Show loading until PDF renders
+          
+          console.log('PDF display data set with blob URL:', presentationData);
+        } catch (error) {
+          console.error('Error creating blob URL for PDF:', error);
+          setError('Failed to process PDF file. Please try again.');
+          setUploading(false);
+        }
         return;
       }
       
@@ -720,6 +747,17 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
 
   const zoomIn = () => setScale(prev => Math.min(prev + 0.1, 2.0));
   const zoomOut = () => setScale(prev => Math.max(prev - 0.1, 0.5));
+
+  // Add cleanup for blob URLs in component unmount
+  useEffect(() => {
+    // Cleanup effect for blob URLs
+    return () => {
+      if (presentation?.url && presentation.url.startsWith('blob:')) {
+        console.log('Revoking blob URL:', presentation.url);
+        URL.revokeObjectURL(presentation.url);
+      }
+    };
+  }, [presentation?.url]);
 
   return (
     <div className="h-full">
