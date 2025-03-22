@@ -152,94 +152,77 @@ async def upload_presentation(
             logger.info(f"PowerPoint file saved to {original_path} with size {len(content)} bytes")
                 
             try:
-                # Convert to PDF using CloudConvert
-                logger.info("Starting PowerPoint to PDF conversion with CloudConvert")
-                logger.info(f"CloudConvert API key is set: {bool(cloudconvert_api_key)}")
                 # Define pdf_path before using it
                 pdf_path = upload_dir / f"{doc_id}.pdf"
                 logger.debug(f"PDF will be saved to: {pdf_path}")
                 
-                # Create job with detailed logging
-                logger.info("Creating CloudConvert job")
-                job_payload = {
-                    "tasks": {
-                        "import-file": {
-                            "operation": "import/upload"
-                        },
-                        "convert-file": {
-                            "operation": "convert",
-                            "input": ["import-file"],
-                            "output_format": "pdf",
-                            "engine": "office"
-                        },
-                        "export-file": {
-                            "operation": "export/url",
-                            "input": ["convert-file"]
-                        }
-                    }
-                }
+                # Use LibreOffice to convert PowerPoint to PDF
+                logger.info("Starting PowerPoint to PDF conversion with LibreOffice")
                 
-                logger.info(f"Job payload: {job_payload}")
+                # Platform-specific command
+                if os.name == 'nt':  # Windows
+                    cmd = [
+                        'C:\\Program Files\\LibreOffice\\program\\soffice.exe',
+                        '--headless', 
+                        '--convert-to', 
+                        'pdf',
+                        '--outdir', 
+                        str(upload_dir), 
+                        str(original_path)
+                    ]
+                else:  # Linux (Railway)
+                    cmd = [
+                        'libreoffice', 
+                        '--headless', 
+                        '--convert-to', 
+                        'pdf',
+                        '--outdir', 
+                        str(upload_dir), 
+                        str(original_path)
+                    ]
                 
+                # Log the command for debugging
+                logger.info(f"Running LibreOffice command: {' '.join(cmd)}")
+                
+                # Run conversion process
                 try:
-                    job = cloudconvert.Job.create(payload=job_payload)
-                    logger.info(f"CloudConvert job created with ID: {job['id']}")
-                    logger.info(f"Job details: {job}")
-                except Exception as e:
-                    logger.error(f"Failed to create CloudConvert job: {str(e)}")
-                    logger.error(f"Exception details: {traceback.format_exc()}")
-                    raise HTTPException(status_code=500, detail=f"Failed to create CloudConvert job: {str(e)}")
-                
-                # Upload file for conversion
-                logger.info("Uploading file to CloudConvert")
-                upload_task = next(task for task in job["tasks"] if task["name"] == "import-file")
-                logger.debug(f"Upload task ID: {upload_task['id']}")
-                
-                try:
-                    cloudconvert.Task.upload(file_name=str(original_path), task=upload_task)
-                    logger.info("File uploaded successfully")
-                except Exception as e:
-                    logger.error(f"Failed to upload file to CloudConvert: {str(e)}")
-                    logger.error(f"Exception details: {traceback.format_exc()}")
-                    raise HTTPException(status_code=500, detail=f"Failed to upload file to CloudConvert: {str(e)}")
-                
-                # Wait for conversion
-                logger.info("Waiting for conversion to complete")
-                try:
-                    job = cloudconvert.Job.wait(id=job["id"])
-                    logger.info("Conversion completed")
-                    logger.info(f"Job status: {job}")
-                except Exception as e:
-                    logger.error(f"Conversion process failed: {str(e)}")
-                    logger.error(f"Exception details: {traceback.format_exc()}")
-                    raise HTTPException(status_code=500, detail=f"Conversion process failed: {str(e)}")
-                
-                try:
-                    export_task = next(task for task in job["tasks"] if task["operation"] == "export/url")
-                    logger.debug(f"Export task ID: {export_task['id']}")
-                    logger.debug(f"Export task result: {export_task.get('result', {})}")
+                    process = await asyncio.create_subprocess_exec(
+                        *cmd,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE
+                    )
                     
-                    # Check if export task has files
-                    if not export_task.get("result", {}).get("files"):
-                        logger.error("Export task has no files in result")
-                        raise HTTPException(status_code=500, detail="Export task has no files in result")
+                    stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=120)
                     
-                    # Download converted PDF
-                    logger.info(f"Downloading converted PDF to: {pdf_path}")
-                    cloudconvert.download(url=export_task["result"]["files"][0]["url"], filename=pdf_path)
-                    logger.info("PDF downloaded successfully")
+                    if process.returncode != 0:
+                        logger.error(f"LibreOffice conversion failed: {stderr.decode()}")
+                        raise HTTPException(status_code=500, detail=f"LibreOffice conversion failed: {stderr.decode()}")
                     
-                    # Verify file was downloaded
+                    logger.info(f"LibreOffice stdout: {stdout.decode()}")
+                    logger.info(f"LibreOffice stderr: {stderr.decode()}")
+                    
+                    # Check if PDF was actually created (might have a different name)
                     if not pdf_path.exists():
-                        logger.error("PDF file was not downloaded properly")
-                        raise HTTPException(status_code=500, detail="PDF file was not downloaded properly")
+                        # Try to find any PDF file in the directory
+                        pdf_files = list(upload_dir.glob("*.pdf"))
+                        if pdf_files:
+                            # Rename the first PDF file to our expected name
+                            shutil.move(pdf_files[0], pdf_path)
+                            logger.info(f"Renamed {pdf_files[0]} to {pdf_path}")
+                        else:
+                            logger.error("No PDF file was created during conversion")
+                            raise HTTPException(status_code=500, detail="No PDF file was created during conversion")
                     
+                    logger.info(f"PDF created successfully at: {pdf_path}")
                     logger.info(f"PDF file size: {pdf_path.stat().st_size} bytes")
                     
+                except asyncio.TimeoutError:
+                    logger.error("LibreOffice conversion timed out")
+                    raise HTTPException(status_code=500, detail="LibreOffice conversion timed out")
                 except Exception as e:
-                    logger.error(f"Failed to download converted PDF: {str(e)}")
+                    logger.error(f"Error during LibreOffice conversion: {str(e)}")
                     logger.error(f"Exception details: {traceback.format_exc()}")
-                    raise HTTPException(status_code=500, detail=f"Failed to download PDF: {str(e)}")
+                    raise HTTPException(status_code=500, detail=f"Error during LibreOffice conversion: {str(e)}")
                 
                 # Create status file
                 status_file = upload_dir / "status.json"
