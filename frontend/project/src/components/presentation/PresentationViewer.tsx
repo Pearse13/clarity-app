@@ -312,19 +312,56 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
         throw new Error('No document ID received from server');
       }
 
-      // Handle PowerPoint files
+      // Handle PowerPoint files - now they may come back as converted PDFs
       if (file.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
           file.type === 'application/vnd.ms-powerpoint') {
         
-        console.log('PowerPoint file uploaded, setting up viewer...');
+        console.log('PowerPoint file uploaded, checking type...');
         
-        // Set up PowerPoint viewing with the response data
-        await setupPowerPointViewing(responseData);
-        
-        return;
+        // Check if it's been converted to PDF
+        if (responseData.type === 'PDF') {
+          console.log('PowerPoint converted to PDF, using PDF viewer');
+          
+          // Use the PDF viewer for the converted PowerPoint
+          if (!responseData.file_url) {
+            throw new Error('No file URL provided in the response for PDF');
+          }
+          
+          try {
+            setIframeLoading(true);
+            
+            const presentationData: UploadResponse = {
+              id: responseData.document_id,
+              document_id: responseData.document_id,
+              status: 'ready',
+              url: responseData.file_url,
+              filename: file.name,
+              type: 'PDF',
+              apiUrl: responseData.file_url,
+              isPowerPoint: false // Treat as PDF now
+            };
+            
+            setUploadProgress(100);
+            setPresentation(presentationData);
+            setIframeLoading(false);
+            
+            console.log('PowerPoint converted to PDF, viewer setup complete:', presentationData);
+            return;
+          } catch (error) {
+            console.error('Error setting up PDF viewer for converted PowerPoint:', error);
+            setError('Failed to process converted PowerPoint file. Please try again.');
+            setUploading(false);
+            return;
+          }
+        } else {
+          // Handle as regular PowerPoint
+          console.log('PowerPoint file uploaded, setting up PowerPoint viewer...');
+          await setupPowerPointViewing(responseData);
+          return;
+        }
       }
 
-      // Handle PDF files
+      // Handle PDF files - NO CHANGES to this section to preserve original PDF handling
       if (file.type === 'application/pdf') {
         console.log('PDF file uploaded, processing...');
         

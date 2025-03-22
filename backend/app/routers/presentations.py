@@ -15,6 +15,7 @@ from ..core.config import settings
 import cloudconvert
 from typing import Optional, cast
 import httpx
+import subprocess
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)  # Ensure debug logging is enabled
@@ -156,43 +157,113 @@ async def upload_presentation(
             raise HTTPException(status_code=500, detail="Failed to save file")
             
         # For PowerPoint files, convert to PDF
-        if SUPPORTED_FILE_TYPES[file_ext] == 'PowerPoint':
-            # Save original file
-            original_path = upload_dir / f"{doc_id}{file_ext}"
-            content = await file.read()
-            with open(original_path, "wb") as f:
-                f.write(content)
-                
-            logger.info(f"PowerPoint file saved to {original_path} with size {len(content)} bytes")
+        if SUPPORTED_FILE_TYPES[file_ext] in ['PowerPoint']:
+            if not doc_path.exists():
+                logger.error(f"File not found after save: {doc_path}")
+                raise HTTPException(status_code=500, detail="File not found after save")
+
+            logger.info(f"PowerPoint file saved successfully at: {doc_path}")
             
-            # Create status file for the original PowerPoint
+            # Create status file
             status_file = upload_dir / "status.json"
             status_data = {
                 "document_id": doc_id,
-                "status": "ready",
+                "status": "processing",
                 "filename": file.filename,
                 "type": "PowerPoint",
-                "file_path": str(original_path)
+                "file_path": str(doc_path)
             }
             
             with open(status_file, "w") as f:
                 json.dump(status_data, f)
-            
-            # Return PowerPoint URL for viewing with Office Online Viewer
-            base_url = str(request.base_url).rstrip('/')
-            # Ensure we use HTTPS for the URL
-            if base_url.startswith('http://'):
-                base_url = base_url.replace('http://', 'https://')
                 
-            ppt_url = f"{base_url}/api/presentations/documents/{doc_id}/{doc_id}{file_ext}"
-            
-            return JSONResponse(content={
-                "document_id": doc_id,
-                "status": "ready",
-                "filename": file.filename,
-                "file_url": ppt_url,
-                "original_url": ppt_url
-            })
+            # Convert PowerPoint to PDF using LibreOffice
+            try:
+                logger.info(f"Converting PowerPoint to PDF using LibreOffice: {doc_path}")
+                pdf_path = upload_dir / f"{doc_id}.pdf"
+                
+                # Convert using LibreOffice
+                # Use absolute paths for reliability
+                abs_doc_path = doc_path.absolute()
+                abs_output_dir = upload_dir.absolute()
+                
+                cmd = [
+                    "libreoffice", 
+                    "--headless", 
+                    "--convert-to", "pdf", 
+                    "--outdir", str(abs_output_dir),
+                    str(abs_doc_path)
+                ]
+                
+                logger.info(f"Running conversion command: {' '.join(cmd)}")
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE
+                )
+                stdout, stderr = process.communicate()
+                logger.info(f"Conversion output: {stdout.decode() if stdout else ''}")
+                
+                # Check if the conversion was successful
+                if process.returncode != 0:
+                    logger.error(f"Conversion error: {stderr.decode() if stderr else 'Unknown error'}")
+                    raise Exception(f"LibreOffice conversion failed: {stderr.decode() if stderr else 'Unknown error'}")
+                
+                # Check if the PDF was created
+                if not pdf_path.exists():
+                    logger.error(f"PDF not created after conversion: {pdf_path}")
+                    raise Exception("PDF not created after conversion")
+                    
+                logger.info(f"PowerPoint successfully converted to PDF: {pdf_path}")
+                
+                # Update the status file
+                status_data["status"] = "ready"
+                status_data["pdf_path"] = str(pdf_path)
+                with open(status_file, "w") as f:
+                    json.dump(status_data, f)
+                
+                # Return PDF URL for viewing
+                base_url = str(request.base_url).rstrip('/')
+                # Ensure we use HTTPS for the URL
+                if base_url.startswith('http://'):
+                    base_url = base_url.replace('http://', 'https://')
+                    
+                pdf_url = f"{base_url}/api/presentations/documents/{doc_id}/{doc_id}.pdf"
+                ppt_url = f"{base_url}/api/presentations/documents/{doc_id}/{doc_id}{file_ext}"
+                
+                return JSONResponse(content={
+                    "document_id": doc_id,
+                    "status": "ready",
+                    "filename": file.filename,
+                    "file_url": pdf_url,
+                    "original_url": ppt_url,
+                    "type": "PDF"
+                })
+                
+            except Exception as e:
+                logger.error(f"PowerPoint to PDF conversion failed: {str(e)}")
+                status_data["status"] = "error"
+                status_data["error"] = str(e)
+                with open(status_file, "w") as f:
+                    json.dump(status_data, f)
+                    
+                # Return PowerPoint URL as fallback
+                base_url = str(request.base_url).rstrip('/')
+                # Ensure we use HTTPS for the URL
+                if base_url.startswith('http://'):
+                    base_url = base_url.replace('http://', 'https://')
+                    
+                ppt_url = f"{base_url}/api/presentations/documents/{doc_id}/{doc_id}{file_ext}"
+                
+                return JSONResponse(content={
+                    "document_id": doc_id,
+                    "status": "error",
+                    "filename": file.filename,
+                    "file_url": ppt_url,
+                    "original_url": ppt_url,
+                    "error": f"PDF conversion failed: {str(e)}",
+                    "type": "PowerPoint"
+                })
             
         # For PDF files, return immediately
         if SUPPORTED_FILE_TYPES[file_ext] == 'PDF':
