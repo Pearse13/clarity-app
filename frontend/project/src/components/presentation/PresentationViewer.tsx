@@ -1,5 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Upload, AlertCircle, RefreshCw } from 'lucide-react';
+import { Upload, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, Download, ZoomIn, ZoomOut } from 'lucide-react';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
+import 'react-pdf/dist/esm/Page/TextLayer.css';
 
 // Debug log for environment variables
 console.log('Environment variables:', {
@@ -53,6 +56,10 @@ const SUPPORTED_FILE_TYPES = {
   '.pdf': 'PDF'
 };
 
+// Initialize PDF.js worker after the imports but before the component
+// Set the worker source to a CDN
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+
 export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -66,6 +73,12 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
   const [viewerUrls, setViewerUrls] = useState<ViewerUrls>({ office: '', google: '' });
   const [activeViewer, setActiveViewer] = useState<'office' | 'google'>('office');
   const apiUrl = process.env.VITE_PRODUCTION_API_URL || 'https://clarity-backend-production.up.railway.app';
+
+  // Add state for PDF viewing inside the component
+  const [numPages, setNumPages] = useState<number | null>(null);
+  const [pageNumber, setPageNumber] = useState<number>(1);
+  const [scale, setScale] = useState<number>(1);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   // Check if the backend API is accessible
   useEffect(() => {
@@ -685,6 +698,29 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
     };
   }, [pollingInterval]);
 
+  // Add functions for PDF navigation
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    setNumPages(numPages);
+    setPageNumber(1);
+    setPdfError(null);
+    setIframeLoading(false);
+    console.log('PDF document loaded successfully. Pages:', numPages);
+  };
+
+  const changePage = (offset: number) => {
+    if (!numPages) return;
+    const newPage = pageNumber + offset;
+    if (newPage >= 1 && newPage <= numPages) {
+      setPageNumber(newPage);
+    }
+  };
+
+  const previousPage = () => changePage(-1);
+  const nextPage = () => changePage(1);
+
+  const zoomIn = () => setScale(prev => Math.min(prev + 0.1, 2.0));
+  const zoomOut = () => setScale(prev => Math.max(prev - 0.1, 0.5));
+
   return (
     <div className="h-full">
       {presentation ? (
@@ -778,35 +814,99 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                   </div>
                 </div>
               ) : (
-                // For PDFs, use direct embed with PDF viewer
-                <div className="w-full h-full min-h-[600px] relative">
-                  {/* Use direct PDF embed with proper parameters */}
-                  <iframe
-                    src={`${presentation.url}#toolbar=1&navpanes=1&scrollbar=1`}
-                    className="w-full h-full border-none"
-                    onLoad={() => {
-                      console.log('PDF loaded successfully');
-                      console.log('PDF URL:', presentation.url);
-                      setIframeLoading(false);
-                    }}
-                    onError={(e) => {
-                      console.error('PDF failed to load:', e);
-                      setIframeError('Failed to load PDF. Please try again.');
-                      setIframeLoading(false);
-                    }}
-                    title="PDF Document"
-                  />
+                // For PDFs, use react-pdf viewer
+                <div className="w-full h-full min-h-[600px] relative flex flex-col">
+                  <div className="flex items-center justify-between mb-2 p-2 bg-gray-100 rounded">
+                    <div className="flex items-center space-x-2">
+                      <button 
+                        onClick={previousPage} 
+                        disabled={pageNumber <= 1}
+                        className={`p-1 rounded ${pageNumber <= 1 ? 'text-gray-400' : 'text-gray-700 hover:bg-gray-200'}`}
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <span className="text-sm">
+                        Page {pageNumber} of {numPages || '?'}
+                      </span>
+                      <button 
+                        onClick={nextPage} 
+                        disabled={pageNumber >= (numPages || 1)}
+                        className={`p-1 rounded ${pageNumber >= (numPages || 1) ? 'text-gray-400' : 'text-gray-700 hover:bg-gray-200'}`}
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button onClick={zoomOut} className="p-1 rounded text-gray-700 hover:bg-gray-200">
+                        <ZoomOut className="w-5 h-5" />
+                      </button>
+                      <span className="text-sm">{Math.round(scale * 100)}%</span>
+                      <button onClick={zoomIn} className="p-1 rounded text-gray-700 hover:bg-gray-200">
+                        <ZoomIn className="w-5 h-5" />
+                      </button>
+                      <a 
+                        href={presentation.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="p-1 rounded text-gray-700 hover:bg-gray-200 ml-4"
+                        title="Download PDF"
+                      >
+                        <Download className="w-5 h-5" />
+                      </a>
+                    </div>
+                  </div>
                   
-                  {/* Fallback link if iframe doesn't work */}
-                  <div className="absolute bottom-4 left-4 z-10">
-                    <a 
-                      href={presentation.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                  <div className="flex-grow overflow-auto flex justify-center bg-gray-100 rounded">
+                    {iframeLoading && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-10">
+                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                        <p className="mt-4 text-gray-600">Loading PDF document...</p>
+                      </div>
+                    )}
+                    
+                    {pdfError && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-10">
+                        <p className="text-red-500 mb-4">{pdfError}</p>
+                        <button
+                          onClick={() => {
+                            setPdfError(null);
+                            setIframeLoading(true);
+                          }}
+                          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                        >
+                          Retry
+                        </button>
+                      </div>
+                    )}
+                    
+                    <Document
+                      file={presentation.url}
+                      onLoadSuccess={onDocumentLoadSuccess}
+                      onLoadError={(error) => {
+                        console.error('Error loading PDF:', error);
+                        setPdfError('Failed to load PDF. Please check if the file is accessible.');
+                        setIframeLoading(false);
+                      }}
+                      loading={
+                        <div className="flex flex-col items-center justify-center h-full">
+                          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                          <p className="mt-4 text-gray-600">Loading PDF...</p>
+                        </div>
+                      }
+                      error={
+                        <div className="flex flex-col items-center justify-center h-full">
+                          <p className="text-red-500">Failed to load PDF document.</p>
+                        </div>
+                      }
                     >
-                      Open in New Tab
-                    </a>
+                      <Page 
+                        pageNumber={pageNumber} 
+                        scale={scale}
+                        renderTextLayer={true}
+                        renderAnnotationLayer={true}
+                        className="shadow-lg mx-auto"
+                      />
+                    </Document>
                   </div>
                 </div>
               )}
