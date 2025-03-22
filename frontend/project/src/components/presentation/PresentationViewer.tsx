@@ -334,26 +334,32 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
       }
 
       // Handle PDF files
-                  if (file.type === 'application/pdf') {
+      if (file.type === 'application/pdf') {
         console.log('PDF file uploaded, displaying directly');
         
-        const docId = responseData.document_id;
-        const filename = `${docId}.pdf`;
-        const pdfUrl = `${apiUrl}/api/presentations/documents/${docId}/${filename}`;
+        // Make sure we have a file URL in the response
+        if (!responseData.file_url) {
+          throw new Error('No file URL provided in the response for PDF');
+        }
+        
+        const pdfUrl = responseData.file_url;
+        console.log('PDF URL from response:', pdfUrl);
         
         const presentationData: UploadResponse = {
-          id: docId,
-          document_id: docId,
+          id: responseData.document_id,
+          document_id: responseData.document_id,
           status: 'ready',
           url: pdfUrl,
-                      filename: file.name,
+          filename: file.name,
           type: 'PDF',
           apiUrl: pdfUrl
-                    };
-                    
-                    setUploadProgress(100);
+        };
+        
+        setUploadProgress(100);
         setPresentation(presentationData);
-                    setIframeLoading(true);
+        setIframeLoading(false); // Don't show loading for PDFs
+        
+        console.log('PDF display data set:', presentationData);
         return;
       }
       
@@ -772,20 +778,37 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                   </div>
                 </div>
               ) : (
-                // For PDFs, use direct embed
-                <iframe
-                  src={presentation.url}
-                  className="w-full h-full min-h-[600px]"
-                  onLoad={() => {
-                    console.log('PDF loaded successfully');
-                    setIframeLoading(false);
-                  }}
-                  onError={() => {
-                    console.log('PDF failed to load');
-                    setIframeError('Failed to load PDF. Please try again.');
-                    setIframeLoading(false);
-                  }}
-                />
+                // For PDFs, use direct embed with PDF viewer
+                <div className="w-full h-full min-h-[600px] relative">
+                  {/* Use direct PDF embed with proper parameters */}
+                  <iframe
+                    src={`${presentation.url}#toolbar=1&navpanes=1&scrollbar=1`}
+                    className="w-full h-full border-none"
+                    onLoad={() => {
+                      console.log('PDF loaded successfully');
+                      console.log('PDF URL:', presentation.url);
+                      setIframeLoading(false);
+                    }}
+                    onError={(e) => {
+                      console.error('PDF failed to load:', e);
+                      setIframeError('Failed to load PDF. Please try again.');
+                      setIframeLoading(false);
+                    }}
+                    title="PDF Document"
+                  />
+                  
+                  {/* Fallback link if iframe doesn't work */}
+                  <div className="absolute bottom-4 left-4 z-10">
+                    <a 
+                      href={presentation.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                    >
+                      Open in New Tab
+                    </a>
+                  </div>
+                </div>
               )}
             </div>
           )}
