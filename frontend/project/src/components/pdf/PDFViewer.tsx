@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
 import { ChevronLeft, ChevronRight, Download, ZoomIn, ZoomOut } from 'lucide-react';
 
-// Initialize PDF.js worker with explicit version
-pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.js`;
+// Initialize PDF.js worker with a known working URL
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js`;
 
 export type PDFViewerProps = {
   url: string;
@@ -22,6 +22,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ url, apiUrl, filename }) =
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [viewerAttempt, setViewerAttempt] = useState<number>(1);
   const [useFallbackViewer, setUseFallbackViewer] = useState<boolean>(false);
+  const [iframeLoaded, setIframeLoaded] = useState<boolean>(false);
   
   // Use the direct PDF URL if available, otherwise use the Google Drive URL
   const pdfUrl = apiUrl || url;
@@ -77,7 +78,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ url, apiUrl, filename }) =
 
   const zoomIn = () => setScale(prev => Math.min(prev + 0.1, 2.0));
   const zoomOut = () => setScale(prev => Math.max(prev - 0.1, 0.5));
-
+ 
   const onDocumentLoadError = (error: Error) => {
     console.error('Error loading PDF:', error);
     
@@ -102,89 +103,47 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ url, apiUrl, filename }) =
     };
   }, [url]);
 
+  // When iframe loads successfully, clear any error messages
+  useEffect(() => {
+    if (iframeLoaded && useFallbackViewer) {
+      // Clear error message when iframe loads successfully
+      setPdfError(null);
+      setIsLoading(false);
+    }
+  }, [iframeLoaded, useFallbackViewer]);
+
   // Check if the URL is a Google Drive viewer URL
   const isGoogleDriveViewer = url.includes('docs.google.com/viewer');
 
   return (
-    <div className="w-full h-full min-h-[600px] relative flex flex-col">
-      {/* Navigation controls for non-Google Drive viewer */}
-      {!isGoogleDriveViewer && !useFallbackViewer && (
-        <div className="flex items-center justify-between mb-2 p-2 bg-gray-100 rounded">
-          <div className="flex items-center space-x-2">
-            <button 
-              onClick={previousPage} 
-              disabled={pageNumber <= 1}
-              className={`p-1 rounded ${pageNumber <= 1 ? 'text-gray-400' : 'text-gray-700 hover:bg-gray-200'}`}
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <span className="text-sm">
-              Page {pageNumber} of {numPages || '?'}
-            </span>
-            <button 
-              onClick={nextPage} 
-              disabled={pageNumber >= (numPages || 1)}
-              className={`p-1 rounded ${pageNumber >= (numPages || 1) ? 'text-gray-400' : 'text-gray-700 hover:bg-gray-200'}`}
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
-          <div className="flex items-center space-x-2">
-            <button onClick={zoomOut} className="p-1 rounded text-gray-700 hover:bg-gray-200">
-              <ZoomOut className="w-5 h-5" />
-            </button>
-            <span className="text-sm">{Math.round(scale * 100)}%</span>
-            <button onClick={zoomIn} className="p-1 rounded text-gray-700 hover:bg-gray-200">
-              <ZoomIn className="w-5 h-5" />
-            </button>
-            {apiUrl && (
-              <a 
-                href={apiUrl}
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="ml-4 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+    <div className="flex flex-col h-full">
+      {/* Error message */}
+      {pdfError && !iframeLoaded && (
+        <div className="bg-yellow-100 text-yellow-800 p-2 rounded mb-2">
+          {pdfError}
+          {useFallbackViewer && !iframeLoaded && (
+            <div className="mt-1">
+              <button 
+                onClick={() => window.location.reload()} 
+                className="underline text-blue-600 hover:text-blue-800"
               >
-                Open in New Tab
-              </a>
-            )}
-          </div>
+                Retry
+              </button>
+            </div>
+          )}
         </div>
       )}
       
-      {/* Google Drive viewer or notification for it */}
-      {isGoogleDriveViewer && (
-        <div className="p-2 bg-yellow-100 text-yellow-800 mb-2 rounded text-sm">
-          Using Google Drive viewer for compatibility.
+      {/* Loading indicator */}
+      {isLoading && !iframeLoaded && (
+        <div className="flex items-center justify-center p-4">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+          <span className="ml-2">Loading document...</span>
         </div>
       )}
       
-      {/* Main content area */}
-      <div className="flex-grow overflow-auto flex justify-center bg-gray-100 rounded">
-        {/* Loading indicator */}
-        {isLoading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-10">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-            <p className="mt-4 text-gray-600">Loading PDF document...</p>
-          </div>
-        )}
-        
-        {/* Error messaging */}
-        {pdfError && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-10">
-            <p className="text-red-500 mb-4">{pdfError}</p>
-            <button
-              onClick={() => {
-                setPdfError(null);
-                setIsLoading(true);
-              }}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Retry
-            </button>
-          </div>
-        )}
-        
-        {/* Different viewing options based on state */}
+      {/* PDF Viewer */}
+      <div className="flex-grow relative">
         {isGoogleDriveViewer ? (
           // Google Drive viewer
           <iframe
@@ -196,6 +155,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ url, apiUrl, filename }) =
             onLoad={() => {
               console.log('Google Drive PDF viewer loaded successfully');
               setIsLoading(false);
+              setIframeLoaded(true);
             }}
             onError={() => {
               console.error('Google Drive PDF viewer failed to load');
@@ -204,7 +164,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ url, apiUrl, filename }) =
               setIsLoading(false);
             }}
           />
-        ) : !useFallbackViewer ? (
+        ) : !useFallbackViewer ?
           // PDF.js viewer
           <Document
             file={pdfUrl}
@@ -215,55 +175,73 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ url, apiUrl, filename }) =
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
                 <p className="mt-2 text-gray-600">Loading PDF document...</p>
                 <p className="text-sm text-gray-500 mb-4">Large documents may take longer to load</p>
-                {apiUrl && (
-                  <a 
-                    href={apiUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download PDF directly
-                  </a>
-                )}
               </div>
             }
+            className="h-full flex justify-center"
             error={
               <div className="flex flex-col items-center justify-center h-full">
-                <p className="text-red-500 mb-2">Failed to load PDF document.</p>
-                {apiUrl && (
-                  <a 
-                    href={apiUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download PDF directly
-                  </a>
-                )}
+                <p className="text-red-500">Failed to load PDF</p>
+                <button 
+                  onClick={() => setViewerAttempt(prev => prev + 1)}
+                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Retry
+                </button>
               </div>
             }
           >
-            <Page 
-              pageNumber={pageNumber} 
-              scale={scale}
-              renderTextLayer={true}
-              renderAnnotationLayer={true}
-              className="shadow-lg mx-auto"
-              loading={
-                <div className="flex justify-center items-center h-[600px]">
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+            {numPages && (
+              <div className="flex flex-col items-center justify-center">
+                <div className="flex items-center justify-center mb-2">
+                  <button 
+                    onClick={previousPage} 
+                    disabled={pageNumber <= 1}
+                    className={`p-2 rounded ${pageNumber <= 1 ? 'text-gray-400' : 'text-blue-600 hover:bg-blue-100'}`}
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <span className="mx-2 text-sm">Page {pageNumber} of {numPages}</span>
+                  <button 
+                    onClick={nextPage} 
+                    disabled={pageNumber >= numPages}
+                    className={`p-2 rounded ${pageNumber >= numPages ? 'text-gray-400' : 'text-blue-600 hover:bg-blue-100'}`}
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
                 </div>
-              }
-            />
+                <div className="flex items-center justify-center mb-2">
+                  <button 
+                    onClick={zoomOut} 
+                    className="p-2 rounded text-blue-600 hover:bg-blue-100"
+                  >
+                    <ZoomOut className="w-5 h-5" />
+                  </button>
+                  <span className="mx-2 text-sm">{Math.round(scale * 100)}%</span>
+                  <button 
+                    onClick={zoomIn} 
+                    className="p-2 rounded text-blue-600 hover:bg-blue-100"
+                  >
+                    <ZoomIn className="w-5 h-5" />
+                  </button>
+                </div>
+                <Page 
+                  pageNumber={pageNumber} 
+                  scale={scale}
+                  renderTextLayer={true}
+                  renderAnnotationLayer={true}
+                  className="border"
+                />
+              </div>
+            )}
           </Document>
-        ) : (
+        : (
           // Fallback direct iframe 
           <div className="w-full h-full flex flex-col">
-            <div className="p-2 bg-yellow-100 text-yellow-800 mb-2 rounded text-sm">
-              Using fallback viewer for compatibility. Some features may be limited.
-            </div>
+            {pdfError && !iframeLoaded && (
+              <div className="p-2 bg-yellow-100 text-yellow-800 mb-2 rounded text-sm">
+                Loading document in fallback viewer...
+              </div>
+            )}
             {url && url.includes('docs.google.com') ? (
               // Use Google Drive viewer if available
               <iframe
@@ -275,10 +253,12 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ url, apiUrl, filename }) =
                 onLoad={() => {
                   console.log('Google Drive PDF viewer loaded successfully');
                   setIsLoading(false);
+                  setIframeLoaded(true);
+                  setPdfError(null);
                 }}
                 onError={() => {
                   console.error('Google Drive PDF viewer failed to load');
-                  setPdfError('All PDF viewing methods failed. Please download the file directly.');
+                  setPdfError('All PDF viewing methods failed. Please try again later.');
                   setIsLoading(false);
                 }}
               />
@@ -291,6 +271,8 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ url, apiUrl, filename }) =
                 onLoad={() => {
                   console.log('Direct PDF iframe loaded successfully');
                   setIsLoading(false);
+                  setIframeLoaded(true);
+                  setPdfError(null);
                 }}
                 onError={() => {
                   console.error('Direct PDF iframe failed to load');
@@ -299,37 +281,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ url, apiUrl, filename }) =
                 }}
               />
             )}
-            
-            {apiUrl && (
-              <div className="p-2">
-                <a 
-                  href={apiUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download PDF directly
-                </a>
-              </div>
-            )}
           </div>
-        )}
-      </div>
-      
-      {/* Download button for all viewers */}
-      <div className="mt-2 flex justify-end">
-        {apiUrl && (
-          <a 
-            href={apiUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 flex items-center"
-            download={filename}
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Download PDF
-          </a>
         )}
       </div>
     </div>
