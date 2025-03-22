@@ -84,6 +84,9 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
   const [scale, setScale] = useState<number>(1);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
+  // Inside the component, add a state for tracking PDF.js failures
+  const [useFallbackViewer, setUseFallbackViewer] = useState<boolean>(false);
+
   // Check if the backend API is accessible
   useEffect(() => {
     const checkBackendAccess = async () => {
@@ -917,7 +920,8 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                       onLoadSuccess={onDocumentLoadSuccess}
                       onLoadError={(error) => {
                         console.error('Error loading PDF:', error);
-                        setPdfError('Failed to load PDF. Please check if the file is accessible.');
+                        setPdfError('Failed to load PDF with PDF.js. Trying fallback viewer...');
+                        setUseFallbackViewer(true);
                         setIframeLoading(false);
                       }}
                       loading={
@@ -971,6 +975,39 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {useFallbackViewer && presentation.url && (
+            <div className="w-full h-full min-h-[600px] relative flex flex-col">
+              <div className="p-2 bg-yellow-100 text-yellow-800 mb-2 rounded text-sm">
+                Using fallback viewer for compatibility. Some features may be limited.
+              </div>
+              <iframe
+                src={presentation.url}
+                className="w-full h-full border-none flex-grow"
+                title="PDF Document"
+                onLoad={() => {
+                  console.log('Fallback PDF iframe loaded successfully');
+                  setIframeLoading(false);
+                }}
+                onError={() => {
+                  console.error('Fallback PDF iframe failed to load');
+                  setIframeError('Could not load PDF. Please try downloading it directly.');
+                  setIframeLoading(false);
+                }}
+              />
+              <div className="mt-2 flex justify-end">
+                <a 
+                  href={presentation.apiUrl || presentation.url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 flex items-center"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download PDF
+                </a>
+              </div>
             </div>
           )}
         </div>
