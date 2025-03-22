@@ -584,4 +584,43 @@ async def options_proxy_pdf(doc_id: str, filename: str):
         "Access-Control-Allow-Headers": "*",
         "Cache-Control": "no-cache"
     }
-    return JSONResponse(content={}, headers=headers) 
+    return JSONResponse(content={}, headers=headers)
+
+@router.get("/proxy/ppt/{doc_id}/{filename}")
+async def proxy_ppt_file(doc_id: str, filename: str, request: Request):
+    """Proxy PowerPoint files to avoid CORS/CSP issues and ensure proper content type"""
+    try:
+        logger.debug(f"Proxying PowerPoint file: {doc_id}/{filename}")
+        
+        # Get the upload directory
+        upload_dir = Path(settings.upload_dir) / doc_id
+        logger.debug(f"Looking for PowerPoint file in: {upload_dir}")
+        
+        # Find the PowerPoint file
+        ppt_path = upload_dir / filename
+        if not ppt_path.exists():
+            logger.error(f"PowerPoint file not found: {ppt_path}")
+            raise HTTPException(status_code=404, detail="PowerPoint file not found")
+        
+        # Determine the content type based on file extension
+        content_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        if filename.lower().endswith('.ppt'):
+            content_type = "application/vnd.ms-powerpoint"
+        
+        # Return the file directly with proper headers
+        logger.info(f"Serving PowerPoint file through proxy: {ppt_path}")
+        return FileResponse(
+            path=ppt_path,
+            media_type=content_type,
+            filename=filename,
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Cache-Control": "public, max-age=3600"
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error proxying PowerPoint file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to proxy PowerPoint file: {str(e)}") 

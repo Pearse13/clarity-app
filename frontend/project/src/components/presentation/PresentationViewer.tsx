@@ -606,11 +606,19 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
             throw new Error('No file URL provided in the response');
         }
         
-        const fileUrl = fileData.file_url;
-        console.log('File URL:', fileUrl);
+        // Get original file URL
+        const originalFileUrl = fileData.file_url;
+        
+        // Create a proxy URL that uses our backend to serve the file
+        const docId = fileData.document_id;
+        const fileName = originalFileUrl.split('/').pop() || `${docId}.pptx`;
+        const proxyUrl = `${apiUrl}/api/presentations/proxy/ppt/${docId}/${fileName}`;
+        
+        console.log('Original file URL:', originalFileUrl);
+        console.log('Proxy file URL:', proxyUrl);
 
         // Create Office Online Viewer URL with additional parameters for better reliability
-        const encodedFileUrl = encodeURIComponent(fileUrl);
+        const encodedFileUrl = encodeURIComponent(proxyUrl);
         const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodedFileUrl}&wdStartOn=1&wdEmbedCode=0&wdAr=1.3333`;
 
         // Create presentation data
@@ -622,7 +630,7 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
             filename: fileData.filename || 'presentation.pptx',
             type: 'PowerPoint',
             isPowerPoint: true,
-            apiUrl: fileUrl
+            apiUrl: proxyUrl
         };
 
         // Set the presentation data

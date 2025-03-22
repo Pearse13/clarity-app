@@ -22,8 +22,16 @@ export const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ url, apiUrl,
     // Make sure we use HTTPS URLs for Office Online Viewer
     const secureApiUrl = apiUrl.replace('http://', 'https://');
     
+    // This should handle the proxy URL correctly, but log it just in case
+    console.log('Using Office Online Viewer with URL:', secureApiUrl);
+    
     const encodedFileUrl = encodeURIComponent(secureApiUrl);
-    return `https://view.officeapps.live.com/op/embed.aspx?src=${encodedFileUrl}&wdStartOn=1&wdEmbedCode=0&wdAr=1.3333&wdPrint=0&wdModified=${Date.now()}`;
+    const viewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodedFileUrl}&wdStartOn=1&wdEmbedCode=0&wdAr=1.3333&wdPrint=0&wdModified=${Date.now()}`;
+    
+    // Log generated URL for debugging
+    console.log('Generated Office Viewer URL:', viewerUrl);
+    
+    return viewerUrl;
   };
   
   // Refresh the viewer
