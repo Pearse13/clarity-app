@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, Download } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 export type PowerPointViewerProps = {
   url: string;
@@ -15,40 +15,39 @@ export const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ url, apiUrl,
   // Force refresh the iframe when retry is clicked
   const refreshKey = `${url}-${retryCount}`;
 
-  // Create Google Drive Viewer URL - this is much more reliable for external URLs
+  // Create Google Drive Viewer URL - this is generally more reliable
   const getGoogleViewerUrl = () => {
     if (!apiUrl) return url;
     
-    // Make sure we use HTTPS URLs for Google Drive Viewer
+    // Make sure we use HTTPS URLs
     const secureApiUrl = apiUrl.replace('http://', 'https://');
     
-    // Log the URL we're using
-    console.log('Using Google Drive Viewer with URL:', secureApiUrl);
+    // Create a URL with a cache buster
+    const urlWithCacheBuster = `${secureApiUrl}?t=${Date.now()}`;
+    console.log('Using Google Drive Viewer with URL:', urlWithCacheBuster);
     
-    // Google Docs Viewer is more reliable for external URLs
-    return `https://docs.google.com/viewer?url=${encodeURIComponent(secureApiUrl)}&embedded=true`;
+    // Google Docs Viewer
+    return `https://docs.google.com/viewer?url=${encodeURIComponent(urlWithCacheBuster)}&embedded=true`;
   };
   
-  // Create Office Online Viewer URL with additional parameters for better reliability
+  // Create Office Online Viewer URL
   const getOfficeViewerUrl = () => {
     if (!apiUrl) return url;
     
-    // Make sure we use HTTPS URLs for Office Online Viewer
+    // Make sure we use HTTPS URLs
     const secureApiUrl = apiUrl.replace('http://', 'https://');
     
-    // This should handle the proxy URL correctly, but log it just in case
-    console.log('Using Office Online Viewer with URL:', secureApiUrl);
+    // Add cache buster to URL
+    const urlWithCacheBuster = `${secureApiUrl}?t=${Date.now()}`;
+    console.log('Using Office Online Viewer with URL:', urlWithCacheBuster);
     
-    const encodedFileUrl = encodeURIComponent(secureApiUrl);
-    const viewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodedFileUrl}&wdStartOn=1&wdEmbedCode=0&wdAr=1.3333&wdPrint=0&wdModified=${Date.now()}`;
-    
-    // Log generated URL for debugging
-    console.log('Generated Office Viewer URL:', viewerUrl);
+    const encodedFileUrl = encodeURIComponent(urlWithCacheBuster);
+    const viewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodedFileUrl}&wdStartOn=1&wdEmbedCode=0&wdAr=1.3333&wdPrint=0`;
     
     return viewerUrl;
   };
   
-  // We'll try to use Google Drive viewer instead
+  // We'll try to use Google Drive viewer by default
   const [useGoogleViewer, setUseGoogleViewer] = useState<boolean>(true);
   
   // Get the current viewer URL based on the state
@@ -85,7 +84,7 @@ export const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ url, apiUrl,
     const timeoutId = setTimeout(() => {
       if (isLoading) {
         console.log('PowerPoint viewer taking too long to load, showing message');
-        setError('The PowerPoint viewer is taking longer than expected. The file may be too large or temporarily unavailable.');
+        setError('The PowerPoint viewer is taking longer than expected. Please try the alternate viewer.');
       }
     }, 15000); // 15 seconds timeout
     
@@ -121,7 +120,7 @@ export const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ url, apiUrl,
       {error && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 z-20 p-4">
           <p className="text-red-500 mb-4">{error}</p>
-          <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex gap-2">
             <button
               onClick={() => retryLoad(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center"
@@ -137,21 +136,9 @@ export const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ url, apiUrl,
               <RefreshCw className="w-4 h-4 mr-2" />
               Retry Current Viewer
             </button>
-            
-            {apiUrl && (
-              <a 
-                href={apiUrl.replace('http://', 'https://')}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center justify-center"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Download PowerPoint
-              </a>
-            )}
           </div>
           <p className="mt-4 text-sm text-gray-500">
-            If viewing continues to fail, please download the file and open it with PowerPoint or another application.
+            If viewing continues to fail, please try using the alternate viewer.
           </p>
         </div>
       )}
@@ -169,28 +156,13 @@ export const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ url, apiUrl,
         }}
         onError={(e) => {
           console.error(`${useGoogleViewer ? 'Google Drive' : 'Office Online'} PowerPoint viewer failed to load:`, e);
-          setError(`Failed to load PowerPoint with ${useGoogleViewer ? 'Google Drive' : 'Office Online'} viewer. Try another viewer or download the file directly.`);
+          setError(`Failed to load PowerPoint with ${useGoogleViewer ? 'Google Drive' : 'Office Online'} viewer. Try the alternate viewer.`);
           setIsLoading(false);
         }}
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"
         referrerPolicy="no-referrer"
         title="PowerPoint Presentation"
       />
-      
-      {/* Download button always visible at the bottom */}
-      {apiUrl && (
-        <div className="p-2 bg-gray-100 mt-2 rounded flex justify-center">
-          <a 
-            href={apiUrl.replace('http://', 'https://')}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Download PowerPoint
-          </a>
-        </div>
-      )}
     </div>
   );
 };
