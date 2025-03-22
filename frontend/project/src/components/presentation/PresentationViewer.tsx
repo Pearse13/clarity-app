@@ -1,6 +1,7 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Upload, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, Download, ZoomIn, ZoomOut } from 'lucide-react';
 import { PDFViewer } from '../pdf/PDFViewer';
+import { PowerPointViewer } from '../powerpoint/PowerPointViewer';
 
 // Debug log for environment variables
 console.log('Environment variables:', {
@@ -11,7 +12,7 @@ console.log('Environment variables:', {
 
 // Type definitions
 type PresentationViewerProps = {
-  onTextSelect: (text: string) => void;
+  onTextSelect?: (text: string) => void;
 };
 
 type UploadResponse = {
@@ -30,22 +31,14 @@ type UploadResponse = {
   possibleUrls?: string[];
 };
 
-interface ViewerUrls {
-  office: string;
-  google: string;
-}
-
-interface FileStatusResponse {
+type FileStatusResponse = {
   document_id: string;
   status: 'ready' | 'processing' | 'error';
-  error?: string;
   filename?: string;
-  type?: string;
-  original_path?: string;
-  url?: string;
-  check_status_url?: string;
-  file_url?: string;  // Optional since older responses might not have it
-}
+  file_url?: string;
+  error?: string;
+  filesize?: number;
+};
 
 const SUPPORTED_FILE_TYPES = {
   '.ppt': 'PowerPoint',
@@ -58,16 +51,13 @@ const SUPPORTED_FILE_TYPES = {
 export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [error, setError] = useState<string | null>(null);
   const [presentation, setPresentation] = useState<UploadResponse | null>(null);
-  const [iframeLoading, setIframeLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [iframeError, setIframeError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [iframeLoading, setIframeLoading] = useState<boolean>(true);
+  const [retryCount, setRetryCount] = useState<number>(0);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
-  const [viewerUrls, setViewerUrls] = useState<ViewerUrls>({ office: '', google: '' });
-  const [activeViewer, setActiveViewer] = useState<'office' | 'google'>('office');
-  const [serverError, setServerError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const apiUrl = (process.env.VITE_PRODUCTION_API_URL || 'https://clarity-backend-production.up.railway.app').replace('http://', 'https://');
 
   // Check if the backend API is accessible
@@ -435,27 +425,6 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
     }
   };
 
-  const retryLoad = useCallback(async () => {
-    if (!presentation) {
-      setIframeError('No presentation to reload');
-      return;
-    }
-    
-    console.log('Retrying PDF load...');
-    setIframeLoading(true);
-    setIframeError(null);
-    
-    // Simply reload the current URL
-    setPresentation(prev => {
-      if (!prev) return null;
-      // Force a refresh by creating a new URL object with the same source
-      const refreshedUrl = prev.url.includes('blob:') 
-        ? prev.url  // Keep blob URLs as they are
-        : `${prev.url}${prev.url.includes('?') ? '&' : '?'}refresh=${Date.now()}`;
-      return { ...prev, url: refreshedUrl };
-    });
-  }, [presentation]);
-
   // Add a function to handle iframe load
   const handleIframeLoad = useCallback((event: React.SyntheticEvent<HTMLIFrameElement>) => {
     console.log('iframe loaded');
@@ -642,18 +611,7 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
 
         // Create Office Online Viewer URL with additional parameters for better reliability
         const encodedFileUrl = encodeURIComponent(fileUrl);
-        const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodedFileUrl}&wdStartOn=1&wdEmbedCode=0&wdAr=1.3333&wdPrint=0&wdModified=${Date.now()}`;
-
-        console.log('Created Office viewer URL:', officeViewerUrl);
-
-        // Set the viewer URLs
-        setViewerUrls({
-            office: officeViewerUrl,
-            google: ''
-        });
-
-        // Set active viewer
-        setActiveViewer('office');
+        const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodedFileUrl}&wdStartOn=1&wdEmbedCode=0&wdAr=1.3333`;
 
         // Create presentation data
         const presentationData: UploadResponse = {
@@ -669,34 +627,16 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
 
         // Set the presentation data
         setPresentation(presentationData);
-        console.log('PowerPoint viewer setup complete');
-
-        // Start a timeout to check if the viewer loads
-        const timeoutId = setTimeout(() => {
-            const iframe = document.querySelector('iframe');
-            if (iframe && !iframe.contentWindow?.document?.body) {
-                console.log('Viewer failed to load within timeout');
-                setIframeError('The PowerPoint viewer is taking longer than expected. Please try refreshing the page.');
-                setIframeLoading(false);
-            }
-        }, 30000); // 30 second timeout
-
-        // Show a download notification after 3 seconds of loading
-        setTimeout(() => {
-          if (iframeLoading) {
-            console.log('PDF still loading after 3s, showing download option');
-            setIframeError('PDF is taking longer than expected to load. You can download it directly if needed.');
-          }
-        }, 3000);
-
-        return () => clearTimeout(timeoutId);
+        setIframeLoading(false);
+        console.log('PowerPoint viewer setup complete with data:', presentationData);
+        return;
     } catch (error) {
         console.error('Error setting up PowerPoint viewing:', error);
         setIframeLoading(false);
         setIframeError('Failed to set up PowerPoint viewer. Please try refreshing the page.');
         throw error;
     }
-};
+  };
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -749,57 +689,17 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
               <p>{iframeError}</p>
               <p className="text-sm mt-2">The file was uploaded successfully, but there was an issue displaying it in the browser.</p>
-              <div className="mt-4 flex space-x-2">
-                <button
-                  onClick={retryLoad}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Refresh Viewer
-                </button>
-              </div>
             </div>
           )}
 
           {!iframeLoading && !iframeError && (
             <div className="flex-grow border rounded-lg overflow-hidden bg-white">
               {presentation.isPowerPoint ? (
-                <div className="w-full h-full flex flex-col">
-                  <div className="flex-grow relative min-h-[600px] bg-gray-50">
-                    {iframeLoading && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 z-10">
-                            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-                            <p className="mt-4 text-gray-600">Loading PowerPoint presentation...</p>
-                            <p className="mt-2 text-sm text-gray-500">This may take a few moments for large files</p>
-                            <button
-                                onClick={retryLoad}
-                                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2"
-                            >
-                                <RefreshCw className="w-4 h-4" />
-                                Refresh Viewer
-                            </button>
-                        </div>
-                    )}
-                    <iframe
-                      key={viewerUrls.office + Date.now()} // Force iframe refresh
-                      src={viewerUrls.office}
-                      className="w-full h-full absolute inset-0"
-                      style={{ border: 'none' }}
-                      onLoad={() => {
-                        console.log('PowerPoint viewer loaded successfully');
-                        setIframeLoading(false);
-                        setIframeError(null);
-                      }}
-                      onError={(e) => {
-                        console.error('PowerPoint viewer failed to load:', e);
-                        setIframeError('Failed to load PowerPoint. Please try refreshing the page.');
-                        setIframeLoading(false);
-                      }}
-                      allow="fullscreen"
-                      title="PowerPoint Presentation"
-                    />
-                  </div>
-                </div>
+                <PowerPointViewer 
+                  url={presentation.url}
+                  apiUrl={presentation.apiUrl}
+                  filename={presentation.filename}
+                />
               ) : (
                 // For PDFs, use the separated PDF viewer component
                 <PDFViewer 
