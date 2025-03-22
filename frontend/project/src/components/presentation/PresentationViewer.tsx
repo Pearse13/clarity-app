@@ -352,8 +352,8 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
       }
 
       // Handle PDF files
-                  if (file.type === 'application/pdf') {
-        console.log('PDF file uploaded, displaying directly');
+      if (file.type === 'application/pdf') {
+        console.log('PDF file uploaded, using Google Drive viewer');
         
         // Make sure we have a file URL in the response
         if (!responseData.file_url) {
@@ -363,45 +363,31 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
         const pdfUrl = responseData.file_url;
         console.log('PDF URL from response:', pdfUrl);
         
-        // Create a proxy URL through our own backend to avoid CSP issues
         try {
           setIframeLoading(true);
-          console.log('Setting up PDF via proxy...');
           
-          // Extract the filename from the URL
-          const urlParts = pdfUrl.split('/');
-        const docId = responseData.document_id;
-          const filename = urlParts[urlParts.length - 1];
+          // Create a direct Google Drive viewer URL which should work with minimal CSP issues
+          const googleViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(pdfUrl)}&embedded=true`;
+          console.log('Using Google Drive viewer for PDF:', googleViewerUrl);
           
-          // Create a proxy URL that will be served by our backend
-          const proxyUrl = `${apiUrl}/api/presentations/proxy/pdf/${docId}/${filename}`;
-          console.log('Using proxy URL for PDF:', proxyUrl);
-        
-        const presentationData: UploadResponse = {
+          const presentationData: UploadResponse = {
             id: responseData.document_id,
             document_id: responseData.document_id,
-          status: 'ready',
-            url: proxyUrl,
-                      filename: file.name,
-          type: 'PDF',
-          apiUrl: pdfUrl
-                    };
-                    
-                    setUploadProgress(100);
-        setPresentation(presentationData);
-          setIframeLoading(true); // Show loading until PDF renders
+            status: 'ready',
+            url: googleViewerUrl,
+            filename: file.name,
+            type: 'PDF',
+            apiUrl: pdfUrl
+          };
           
-          // Show a download notification after 3 seconds of loading
-          setTimeout(() => {
-            if (iframeLoading) {
-              console.log('PDF still loading after 3s, showing download option');
-              setIframeError('PDF is taking longer than expected to load. You can download it directly if needed.');
-            }
-          }, 3000);
+          setUploadProgress(100);
+          setPresentation(presentationData);
+          setViewerAttempt(3); // Start with Google Drive viewer
+          setIframeLoading(true);
           
-          console.log('PDF display data set with proxy URL:', presentationData);
+          console.log('PDF display data set with Google Drive viewer:', presentationData);
         } catch (error) {
-          console.error('Error setting up PDF proxy:', error);
+          console.error('Error setting up PDF viewer:', error);
           setError('Failed to process PDF file. Please try again.');
           setUploading(false);
         }
@@ -1045,8 +1031,10 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
                 Using Google Drive viewer for compatibility.
               </div>
               <iframe
-                src={`https://docs.google.com/viewer?url=${encodeURIComponent(presentation.apiUrl)}&embedded=true`}
+                src={presentation.url}
                 className="w-full h-full border-none flex-grow"
+                sandbox="allow-scripts allow-same-origin allow-forms"
+                referrerPolicy="no-referrer"
                 title="PDF Document (Google Drive)"
                 onLoad={() => {
                   console.log('Google Drive PDF viewer loaded successfully');
