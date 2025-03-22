@@ -119,9 +119,22 @@ async def upload_presentation(
         
         # Generate unique ID and create directories
         doc_id = str(uuid.uuid4())
-        upload_dir = Path(settings.upload_dir) / doc_id
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Created document directory at: {upload_dir.absolute()}")
+        
+        # Ensure the upload directory exists and is accessible
+        upload_base_dir = Path(settings.upload_dir).resolve()
+        upload_dir = upload_base_dir / doc_id
+        
+        try:
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Created document directory at: {upload_dir.absolute()}")
+            
+            # Log directory paths for debugging
+            logger.info(f"Upload base directory: {upload_base_dir}")
+            logger.info(f"Document upload directory: {upload_dir}")
+            logger.info(f"Settings upload_dir: {settings.upload_dir}")
+        except Exception as e:
+            logger.error(f"Failed to create upload directory: {str(e)}")
+            raise HTTPException(status_code=500, detail="Failed to create upload directory")
         
         # Save file with doc_id name only
         doc_path = upload_dir / f"{doc_id}{file_ext}"
@@ -240,14 +253,14 @@ async def upload_presentation(
                 
                 # Return PDF URL for viewing
                 base_url = str(request.base_url).rstrip('/')
-                pdf_url = f"{base_url}/static/uploads/{doc_id}/{doc_id}.pdf"
+                pdf_url = f"{base_url}/api/presentations/documents/{doc_id}/{doc_id}.pdf"
                 
                 return JSONResponse(content={
                     "document_id": doc_id,
                     "status": "ready",
                     "filename": file.filename,
                     "file_url": pdf_url,
-                    "original_url": f"{base_url}/static/uploads/{doc_id}/{doc_id}{file_ext}"
+                    "original_url": f"{base_url}/api/presentations/documents/{doc_id}/{doc_id}{file_ext}"
                 })
                 
             except HTTPException:

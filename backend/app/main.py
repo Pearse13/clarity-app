@@ -61,8 +61,9 @@ def create_app() -> FastAPI:
     static_dir = data_dir / "static"
     documents_dir = data_dir / "documents"
     temp_dir = data_dir / "temp"
+    uploads_dir = Path(settings.upload_dir).resolve()
     
-    for directory in [data_dir, static_dir, documents_dir, temp_dir]:
+    for directory in [data_dir, static_dir, documents_dir, temp_dir, uploads_dir]:
         directory.mkdir(parents=True, exist_ok=True)
         logger.info(f"Ensured directory exists: {directory}")
     
@@ -74,10 +75,19 @@ def create_app() -> FastAPI:
     
     # Mount the uploads directory for static file serving
     # This needs to be before the router inclusion
-    upload_dir = Path("/app/app/data/uploads")
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Upload directory initialized at: {upload_dir}")
-    app.mount("/api/presentations/documents", StaticFiles(directory=str(upload_dir), html=True), name="documents")
+    logger.info(f"Upload directory for static serving: {uploads_dir}")
+    app.mount("/api/presentations/documents", StaticFiles(directory=str(uploads_dir), html=True), name="documents")
+    
+    # Add detailed logging for directory structure
+    logger.info("Directory structure for uploads:")
+    try:
+        for root, dirs, files in os.walk(uploads_dir):
+            relative_path = os.path.relpath(root, uploads_dir)
+            logger.info(f"Directory: {relative_path if relative_path != '.' else '/'}")
+            for f in files:
+                logger.info(f"  File: {f}")
+    except Exception as e:
+        logger.error(f"Error walking upload directory: {str(e)}")
     
     # Include routers
     app.include_router(presentations.router)
