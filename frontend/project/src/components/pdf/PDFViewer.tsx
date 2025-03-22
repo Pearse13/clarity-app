@@ -25,6 +25,38 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ url, apiUrl, filename }) =
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [viewerAttempt, setViewerAttempt] = useState<number>(1);
   const [useFallbackViewer, setUseFallbackViewer] = useState<boolean>(false);
+  
+  // Use the direct PDF URL if available, otherwise use the Google Drive URL
+  const pdfUrl = apiUrl || url;
+  
+  // Log the URLs for debugging
+  useEffect(() => {
+    console.log('PDFViewer mounted with URLs:', { 
+      googleUrl: url, 
+      directUrl: apiUrl,
+      usingUrl: pdfUrl 
+    });
+    
+    // Attempt to determine if we should use the direct PDF URL or fallback to Google Drive
+    const checkPdfAccess = async () => {
+      if (apiUrl) {
+        try {
+          const response = await fetch(apiUrl, { method: 'HEAD' });
+          if (response.ok) {
+            console.log('Direct PDF URL is accessible, using it as primary source');
+          } else {
+            console.log('Direct PDF URL returned status:', response.status);
+            setUseFallbackViewer(true);
+          }
+        } catch (err) {
+          console.error('Error checking PDF URL access:', err);
+          setUseFallbackViewer(true);
+        }
+      }
+    };
+    
+    checkPdfAccess();
+  }, [url, apiUrl, pdfUrl]);
 
   // Functions for PDF navigation
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
@@ -164,7 +196,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ url, apiUrl, filename }) =
         ) : !useFallbackViewer ? (
           // PDF.js viewer
           <Document
-            file={url}
+            file={pdfUrl}
             onLoadSuccess={onDocumentLoadSuccess}
             onLoadError={(error) => {
               console.error('Error loading PDF:', error);
@@ -172,13 +204,15 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ url, apiUrl, filename }) =
               if (viewerAttempt === 1) {
                 setPdfError('Trying alternate viewer...');
                 setViewerAttempt(2);
+                // If we were using the direct URL, switch to Google Drive viewer
+                if (pdfUrl === apiUrl && url) {
+                  console.log('Switching from direct PDF to Google Drive viewer');
+                  setUseFallbackViewer(true);
+                }
               } else if (viewerAttempt === 2) {
                 setPdfError('Using Google Drive viewer as fallback...');
                 setViewerAttempt(3);
-                // Create Google Drive URL
-                if (apiUrl) {
-                  window.location.href = `https://docs.google.com/viewer?url=${encodeURIComponent(apiUrl)}&embedded=true`;
-                }
+                setUseFallbackViewer(true);
               } else {
                 setPdfError('PDF viewing failed. Please download the file directly.');
                 setUseFallbackViewer(true);
@@ -240,20 +274,55 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ url, apiUrl, filename }) =
             <div className="p-2 bg-yellow-100 text-yellow-800 mb-2 rounded text-sm">
               Using fallback viewer for compatibility. Some features may be limited.
             </div>
-            <iframe
-              src={apiUrl || url}
-              className="w-full h-full border-none flex-grow"
-              title="PDF Document"
-              onLoad={() => {
-                console.log('Fallback PDF iframe loaded successfully');
-                setIsLoading(false);
-              }}
-              onError={() => {
-                console.error('Fallback PDF iframe failed to load');
-                setPdfError('Could not load PDF. Please try downloading it directly.');
-                setIsLoading(false);
-              }}
-            />
+            {url && url.includes('docs.google.com') ? (
+              // Use Google Drive viewer if available
+              <iframe
+                src={url}
+                className="w-full h-full border-none flex-grow"
+                sandbox="allow-scripts allow-same-origin allow-forms"
+                referrerPolicy="no-referrer"
+                title="PDF Document (Google Drive)"
+                onLoad={() => {
+                  console.log('Google Drive PDF viewer loaded successfully');
+                  setIsLoading(false);
+                }}
+                onError={() => {
+                  console.error('Google Drive PDF viewer failed to load');
+                  setPdfError('All PDF viewing methods failed. Please download the file directly.');
+                  setIsLoading(false);
+                }}
+              />
+            ) : (
+              // Direct PDF viewer
+              <iframe
+                src={apiUrl}
+                className="w-full h-full border-none flex-grow"
+                title="PDF Document"
+                onLoad={() => {
+                  console.log('Direct PDF iframe loaded successfully');
+                  setIsLoading(false);
+                }}
+                onError={() => {
+                  console.error('Direct PDF iframe failed to load');
+                  setPdfError('All PDF viewing methods failed. Please download the file directly.');
+                  setIsLoading(false);
+                }}
+              />
+            )}
+            
+            {apiUrl && (
+              <div className="p-2">
+                <a 
+                  href={apiUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center justify-center"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download PDF directly
+                </a>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -336,7 +336,7 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
 
       // Handle PDF files
       if (file.type === 'application/pdf') {
-        console.log('PDF file uploaded, using Google Drive viewer');
+        console.log('PDF file uploaded, processing...');
         
         // Make sure we have a file URL in the response
         if (!responseData.file_url) {
@@ -349,25 +349,27 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
         try {
           setIframeLoading(true);
           
-          // Create a direct Google Drive viewer URL which should work with minimal CSP issues
+          // For PDF files, we now use the PDFViewer component which handles multiple viewing options
+          // We'll pass the direct PDF URL as apiUrl and use the Google Drive viewer as the primary URL
           const googleViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(pdfUrl)}&embedded=true`;
-          console.log('Using Google Drive viewer for PDF:', googleViewerUrl);
           
           const presentationData: UploadResponse = {
             id: responseData.document_id,
             document_id: responseData.document_id,
             status: 'ready',
-            url: googleViewerUrl,
+            url: googleViewerUrl, // This will be used by the PDFViewer component
             filename: file.name,
             type: 'PDF',
-            apiUrl: pdfUrl
+            apiUrl: pdfUrl  // Direct URL to the PDF for download/fallback
           };
           
           setUploadProgress(100);
           setPresentation(presentationData);
-          setIframeLoading(true);
           
-          console.log('PDF display data set with Google Drive viewer:', presentationData);
+          // Set iframeLoading to false since the PDFViewer component will handle its own loading state
+          setIframeLoading(false);
+          
+          console.log('PDF display data prepared:', presentationData);
         } catch (error) {
           console.error('Error setting up PDF viewer:', error);
           setError('Failed to process PDF file. Please try again.');
