@@ -5,7 +5,7 @@ from pathlib import Path
 import logging
 import os
 import shutil
-from .routers import presentations
+from .routers import presentations, documents
 from .models import TransformRequest, TransformResponse, TransformationType
 from .services.openai_service import transform_text_with_gpt, call_openai_api
 from pydantic import BaseModel
@@ -76,7 +76,10 @@ def create_app() -> FastAPI:
     # Mount the uploads directory for static file serving
     # This needs to be before the router inclusion
     logger.info(f"Upload directory for static serving: {uploads_dir}")
-    app.mount("/api/presentations/documents", StaticFiles(directory=str(uploads_dir), html=True), name="documents")
+    app.mount("/api/presentations/documents", StaticFiles(directory=str(uploads_dir), html=True), name="presentations_documents")
+    
+    # Mount the same upload directory for document files
+    app.mount("/api/documents/file", StaticFiles(directory=str(uploads_dir), html=True), name="word_documents")
     
     # Add detailed logging for directory structure
     logger.info("Directory structure for uploads:")
@@ -91,6 +94,7 @@ def create_app() -> FastAPI:
     
     # Include routers
     app.include_router(presentations.router)
+    app.include_router(documents.router)
     
     return app
 
