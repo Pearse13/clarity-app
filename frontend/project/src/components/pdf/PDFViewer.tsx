@@ -4,8 +4,8 @@ import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
 import { ChevronLeft, ChevronRight, Download, ZoomIn, ZoomOut } from 'lucide-react';
 
-// Initialize PDF.js worker - use CDN URL instead of local file to avoid 404 errors
-pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+// Initialize PDF.js worker with explicit version
+pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.js`;
 
 export type PDFViewerProps = {
   url: string;
@@ -77,6 +77,20 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ url, apiUrl, filename }) =
 
   const zoomIn = () => setScale(prev => Math.min(prev + 0.1, 2.0));
   const zoomOut = () => setScale(prev => Math.max(prev - 0.1, 0.5));
+
+  const onDocumentLoadError = (error: Error) => {
+    console.error('Error loading PDF:', error);
+    
+    if (viewerAttempt === 1) {
+      setPdfError('Switching to direct iframe viewer...');
+      setViewerAttempt(2);
+      // Skip Google Drive and go directly to iframe fallback
+      setUseFallbackViewer(true);
+    } else {
+      setPdfError('PDF viewing failed. Please try again.');
+      setIsLoading(false);
+    }
+  };
 
   // Clean up blob URLs when component unmounts
   useEffect(() => {
@@ -195,28 +209,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ url, apiUrl, filename }) =
           <Document
             file={pdfUrl}
             onLoadSuccess={onDocumentLoadSuccess}
-            onLoadError={(error) => {
-              console.error('Error loading PDF:', error);
-              
-              if (viewerAttempt === 1) {
-                setPdfError('Trying alternate viewer...');
-                setViewerAttempt(2);
-                // If we were using the direct URL, switch to Google Drive viewer
-                if (pdfUrl === apiUrl && url) {
-                  console.log('Switching from direct PDF to Google Drive viewer');
-                  setUseFallbackViewer(true);
-                }
-              } else if (viewerAttempt === 2) {
-                setPdfError('Using Google Drive viewer as fallback...');
-                setViewerAttempt(3);
-                setUseFallbackViewer(true);
-              } else {
-                setPdfError('PDF viewing failed. Please download the file directly.');
-                setUseFallbackViewer(true);
-              }
-              
-              setIsLoading(false);
-            }}
+            onLoadError={onDocumentLoadError}
             loading={
               <div className="flex flex-col items-center justify-center h-full">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
@@ -290,10 +283,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ url, apiUrl, filename }) =
                 }}
               />
             ) : (
-              // Direct PDF viewer
-              <iframe
-                src={apiUrl}
-                className="w-full h-full border-none flex-grow"
+              // Direct PDF iframe
+              <iframe 
+                src={apiUrl || url}
+                className="w-full h-full border-none flex-grow" 
                 title="PDF Document"
                 onLoad={() => {
                   console.log('Direct PDF iframe loaded successfully');
@@ -301,7 +294,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({ url, apiUrl, filename }) =
                 }}
                 onError={() => {
                   console.error('Direct PDF iframe failed to load');
-                  setPdfError('All PDF viewing methods failed. Please download the file directly.');
+                  setPdfError('All PDF viewing methods failed. Please try again later.');
                   setIsLoading(false);
                 }}
               />

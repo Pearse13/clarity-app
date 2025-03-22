@@ -30,19 +30,28 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             # Set security headers
             response.headers["X-Content-Type-Options"] = "nosniff"
             
-            # Allow embedding for document endpoints but deny for other routes
+            # Check if this is a document endpoint
             path = request.url.path
-            if (path.startswith("/api/presentations/documents/") or 
+            is_document_endpoint = (
+                path.startswith("/api/presentations/documents/") or 
                 path.startswith("/api/presentations/proxy/") or
-                path.startswith("/api/presentations/file/")):
-                # For document viewing endpoints, allow embedding in iframes
-                response.headers["X-Frame-Options"] = "SAMEORIGIN"
-            else:
-                # For all other routes, deny iframe embedding
+                path.startswith("/api/presentations/file/")
+            )
+            
+            # For document endpoints, allow embedding in iframes by removing X-Frame-Options
+            if not is_document_endpoint:
+                # Only add X-Frame-Options for non-document endpoints
                 response.headers["X-Frame-Options"] = "DENY"
+            elif "X-Frame-Options" in response.headers:
+                # Remove X-Frame-Options if it exists for document endpoints
+                del response.headers["X-Frame-Options"]
                 
             response.headers["X-XSS-Protection"] = "1; mode=block"
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+            
+            # For document endpoints, add Content-Security-Policy to allow embedding
+            if is_document_endpoint:
+                response.headers["Content-Security-Policy"] = "frame-ancestors *"
             
             return response
             
