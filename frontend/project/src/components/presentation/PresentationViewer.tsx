@@ -75,7 +75,8 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
   const [viewerUrls, setViewerUrls] = useState<ViewerUrls>({ office: '', google: '' });
   const [activeViewer, setActiveViewer] = useState<'office' | 'google'>('office');
-  const apiUrl = process.env.VITE_PRODUCTION_API_URL || 'https://clarity-backend-production.up.railway.app';
+  const [serverError, setServerError] = useState<string | null>(null);
+  const apiUrl = (process.env.VITE_PRODUCTION_API_URL || 'https://clarity-backend-production.up.railway.app').replace('http://', 'https://');
 
   // Add state for PDF viewing inside the component
   const [numPages, setNumPages] = useState<number | null>(null);
@@ -87,7 +88,6 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
   useEffect(() => {
     const checkBackendAccess = async () => {
       try {
-        const apiUrl = 'https://clarity-backend-production.up.railway.app';
         console.log('Checking backend API access at:', apiUrl);
         
         const response = await fetch(`${apiUrl}/health`, {
@@ -364,7 +364,12 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
         try {
           setIframeLoading(true);
           console.log('Fetching PDF as blob...');
-          const response = await fetch(pdfUrl, {
+          
+          // Ensure we're using HTTPS for Railway URLs
+          const secureUrl = pdfUrl.replace('http://clarity-backend-production.up.railway.app', 'https://clarity-backend-production.up.railway.app');
+          console.log('Using secure URL:', secureUrl);
+          
+          const response = await fetch(secureUrl, {
             method: 'GET',
             headers: {
               'Accept': 'application/pdf',
