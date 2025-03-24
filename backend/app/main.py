@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, Response, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pathlib import Path
 import logging
 import os
@@ -34,13 +35,22 @@ def create_app() -> FastAPI:
         version="1.0.0"
     )
 
-    # Configure CORS
+    # Configure CORS with more specific settings
+    origins = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://clarity-app-beta.vercel.app",
+        "https://clarity-app-pearse13.vercel.app",
+        "*"  # Temporarily allow all origins
+    ]
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # In production, specify the exact origins
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["*"]
     )
     
     # Configure static file serving
@@ -48,36 +58,45 @@ def create_app() -> FastAPI:
     static_dir.mkdir(parents=True, exist_ok=True)
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-    # Include routers with proper error handling
+    # Include routers with proper error handling and logging
     try:
         app.include_router(presentations.router)
-        logger.info("Presentations router included")
+        logger.info("Presentations router included successfully")
     except Exception as e:
         logger.error(f"Error including presentations router: {str(e)}")
+        logger.error(traceback.format_exc())
 
     try:
         app.include_router(documents.router)
-        logger.info("Documents router included")
+        logger.info("Documents router included successfully")
     except Exception as e:
         logger.error(f"Error including documents router: {str(e)}")
+        logger.error(traceback.format_exc())
 
     try:
         app.include_router(chat.router)
-        logger.info("Chat router included")
+        logger.info("Chat router included successfully at /api/chat")
     except Exception as e:
         logger.error(f"Error including chat router: {str(e)}")
+        logger.error(traceback.format_exc())
 
     return app
 
 # Create the application instance
 app = create_app()
 
-# Add global exception handler
+# Add global exception handler with detailed logging
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Unhandled exception: {str(exc)}")
+    logger.error(f"Unhandled exception in {request.method} {request.url}")
     logger.error(f"Exception type: {type(exc)}")
+    logger.error(f"Exception message: {str(exc)}")
     logger.error(f"Traceback: {traceback.format_exc()}")
+    
+    # Log request details for debugging
+    logger.error(f"Request headers: {dict(request.headers)}")
+    logger.error(f"Request query params: {dict(request.query_params)}")
+    
     return Response(
         status_code=500,
         content="Internal Server Error: An unexpected error occurred. Please try again later.",
@@ -87,8 +106,15 @@ async def global_exception_handler(request: Request, exc: Exception):
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     logger.info(f"Incoming request: {request.method} {request.url}")
-    response = await call_next(request)
-    return response
+    logger.debug(f"Request headers: {dict(request.headers)}")
+    
+    try:
+        response = await call_next(request)
+        logger.info(f"Response status: {response.status_code}")
+        return response
+    except Exception as e:
+        logger.error(f"Error processing request: {str(e)}")
+        raise
 
 @app.get("/")
 async def root():
@@ -96,7 +122,12 @@ async def root():
     return {
         "status": "running",
         "version": "1.0.0",
-        "documentation": "/docs"
+        "documentation": "/docs",
+        "endpoints": {
+            "health": "/health",
+            "chat": "/api/chat",
+            "transform": "/api/transform"
+        }
     }
 
 @app.get("/health")
@@ -104,7 +135,11 @@ async def health_check():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "timestamp": str(datetime.now())
+        "timestamp": str(datetime.now()),
+        "endpoints": {
+            "chat": "/api/chat",
+            "transform": "/api/transform"
+        }
     }
 
 class EmailVerificationRequest(BaseModel):
