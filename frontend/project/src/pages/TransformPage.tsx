@@ -16,6 +16,7 @@ const TransformPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [modelUsed, setModelUsed] = useState<string | null>(null);
 
   // Add keyboard shortcuts
   useKeyboardShortcuts([
@@ -37,13 +38,28 @@ const TransformPage: React.FC = () => {
     setError(null);
     
     try {
+      // First try the main health endpoint
       const response = await fetch(`${API_URL}/health`, { 
         method: 'GET', 
         headers: { 'Content-Type': 'application/json' } 
       });
       
       if (response.ok) {
-        setError('✅ API connection successful! The server is reachable.');
+        // Now test our new transformer endpoint
+        try {
+          const transformerResponse = await fetch(`${API_URL}/api/transformer/health`, { 
+            method: 'GET', 
+            headers: { 'Content-Type': 'application/json' } 
+          });
+          
+          if (transformerResponse.ok) {
+            setError('✅ API connection successful! Both main API and transformer service are reachable.');
+          } else {
+            setError(`✅ Main API is reachable, but ❌ transformer service returned status ${transformerResponse.status}. The transformer service might be experiencing issues.`);
+          }
+        } catch (transformerErr) {
+          setError('✅ Main API is reachable, but ❌ transformer service cannot be connected. The transformer service might be down.');
+        }
       } else {
         setError(`❌ API server is reachable but returned status ${response.status}. The server might be experiencing issues.`);
       }
@@ -116,6 +132,7 @@ const TransformPage: React.FC = () => {
 
     setIsLoading(true);
     setError(null);
+    setModelUsed(null);
 
     try {
       const token = await getAccessTokenSilently({
@@ -125,7 +142,8 @@ const TransformPage: React.FC = () => {
         }
       });
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/transform`, {
+      // Use the specific transform endpoint
+      const response = await fetch(`${API_URL}/api/transform/v1`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -135,7 +153,7 @@ const TransformPage: React.FC = () => {
           text: inputText,
           transformationType: transformType,
           level: parseInt(transformLevel),
-          isLecture: false  // Indicate this is not a lecture request
+          isLecture: false
         })
       });
 
@@ -146,6 +164,7 @@ const TransformPage: React.FC = () => {
       }
 
       setOutputText(data.transformedText);
+      setModelUsed(data.model || null);
     } catch (err: any) {
       console.error('Transform error:', err);
       handleError(err);
@@ -156,18 +175,16 @@ const TransformPage: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <div className="flex-1">
-        <div className="flex items-center gap-3 mb-6">
-          <img 
-            src="/clarity-logo.jpg" 
-            alt="Clarity Logo" 
-            className="w-8 h-8 object-contain"
-          />
+      <div className="flex-1 flex flex-col h-full">
+        {/* Header with proper vertical centering and title moved 10% right */}
+        <div className="flex items-center h-16 border-b border-gray-200 dark:border-gray-700 mb-6 pl-[10%]">
           <h1 className="text-2xl font-semibold">Clarity Text Transformer</h1>
         </div>
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        {/* Main content area */}
+        <div className="flex-1 flex flex-col md:flex-row gap-6">
           {/* Input Column */}
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
+          <div className="flex-1 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
             <h2 className="text-2xl font-semibold mb-4 text-gray-900 dark:text-white">Input Text</h2>
             <textarea
               value={inputText}
@@ -195,9 +212,12 @@ const TransformPage: React.FC = () => {
               )}
             </div>
           </div>
+          
+          {/* Vertical Divider */}
+          <div className="hidden md:block w-px bg-gray-200 dark:bg-gray-700" aria-hidden="true"></div>
 
           {/* Output Column */}
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
+          <div className="flex-1 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
             <h2 className="text-2xl font-semibold mb-4 text-gray-900 dark:text-white">Output Text</h2>
             <div className="mb-4 flex gap-4">
               <select
@@ -283,6 +303,12 @@ const TransformPage: React.FC = () => {
                 </button>
               )}
             </div>
+
+            {modelUsed && (
+              <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                Model used: {modelUsed}
+              </div>
+            )}
           </div>
         </div>
       </div>

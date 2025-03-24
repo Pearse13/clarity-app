@@ -575,9 +575,9 @@ async def logout():
 # Add direct route implementations in case the router isn't properly included
 app = FastAPI()  # This will be overridden by create_app, but we need it for the route decorators
 
-@app.post("/api/transformer", response_model=MainTransformResponse)
-async def direct_transform_text(request: MainTransformRequest):
-    """Fallback direct implementation of transform_text"""
+@app.post("/api/transform/v1", response_model=MainTransformResponse)
+async def api_transform(request: MainTransformRequest):
+    """Direct implementation of /api/transform/v1 endpoint"""
     # Simple model selection based on level
     model = "gpt-3.5-turbo" if request.level <= 2 else "gpt-4"
     
@@ -652,7 +652,7 @@ async def direct_transform_text(request: MainTransformRequest):
             detail=f"Error transforming text: {str(e)}"
         )
 
-@app.get("/api/transformer")
+@app.get("/api/transformer/health")
 async def direct_transformer_health_check():
     """Direct health check endpoint for the transformer API"""
     try:

@@ -7,7 +7,8 @@ export const API_URL = import.meta.env.VITE_PRODUCTION_API_URL || 'https://clari
 console.log('Using API URL:', API_URL);
 
 export const API_ENDPOINTS = {
-  transform: `${API_URL}/api/transform`
+  transform: `${API_URL}/api/transform/v1`,
+  transformer: `${API_URL}/api/transformer/health`
 };
 
 // Verify the API configuration
