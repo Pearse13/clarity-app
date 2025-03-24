@@ -45,17 +45,18 @@ const TransformPage: React.FC = () => {
       });
       
       if (response.ok) {
-        // Test the existing transform endpoint
+        // Test the existing health check endpoint
         try {
-          const transformerResponse = await fetch(`${API_URL}/api/transform`, { 
+          // Use the health endpoint for the test since transform doesn't accept GET
+          const transformerResponse = await fetch(`${API_URL}/health`, { 
             method: 'GET', 
             headers: { 'Content-Type': 'application/json' } 
           });
           
           if (transformerResponse.ok) {
-            setError('✅ API connection successful! Both main API and transformer service are reachable.');
+            setError('✅ API connection successful! Backend is reachable and operational.');
           } else {
-            setError(`✅ Main API is reachable, but ❌ transformer service returned status ${transformerResponse.status}. The transformer service might be experiencing issues.`);
+            setError(`❌ API health check returned status ${transformerResponse.status}. The backend might be experiencing issues.`);
           }
         } catch (transformerErr) {
           setError('✅ Main API is reachable, but ❌ transformer service cannot be connected. The transformer service might be down.');
@@ -142,6 +143,7 @@ const TransformPage: React.FC = () => {
         }
       });
 
+      console.log("Sending request to transform endpoint...");
       // Use the original transform endpoint that exists in production
       const response = await fetch(`${API_URL}/api/transform`, {
         method: 'POST',
@@ -151,13 +153,15 @@ const TransformPage: React.FC = () => {
         },
         body: JSON.stringify({
           text: inputText,
-          transformationType: transformType,
+          TransformationType: transformType,
           level: parseInt(transformLevel),
           isLecture: false
         })
       });
 
+      console.log("Response received:", response.status);
       const data = await response.json();
+      console.log("Response data:", data);
       
       if (!response.ok) {
         throw new Error(data.detail || 'Transform request failed');
