@@ -1,20 +1,23 @@
 from pydantic import BaseModel, Field, validator
 from enum import Enum
 import re
+from typing import Dict, Any
 
 class TransformationType(str, Enum):
     SIMPLIFY = "simplify"
     SOPHISTICATE = "sophisticate"
+    CASUALISE = "casualise"
+    FORMALISE = "formalise"
 
 class TransformRequest(BaseModel):
     text: str = Field(
         ..., 
-        max_length=250,
-        description="The text to transform (max 250 characters)"
+        max_length=1000,  # Increased from 250 to handle lecture selections better
+        description="The text to transform (max 1000 characters)"
     )
     transformationType: TransformationType = Field(
         ...,
-        description="The type of transformation to apply (simplify or sophisticate)"
+        description="The type of transformation to apply (simplify, sophisticate, casualise, formalise)"
     )
     level: int = Field(
         ..., 
@@ -49,4 +52,5 @@ class TransformResponse(BaseModel):
     transformedText: str
     transformationType: TransformationType
     level: int
-    usage_info: dict
+    usage_info: Dict[str, Any]
+    context_applied: bool = False

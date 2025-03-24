@@ -156,13 +156,13 @@ async def upload_presentation(
             logger.error(f"Error saving file: {str(e)}")
             raise HTTPException(status_code=500, detail="Failed to save file")
             
-        # For PowerPoint files, convert to PDF
-        if SUPPORTED_FILE_TYPES[file_ext] in ['PowerPoint']:
+        # For PowerPoint or Word files, convert to PDF
+        if SUPPORTED_FILE_TYPES[file_ext] in ['PowerPoint', 'Word']:
             if not doc_path.exists():
                 logger.error(f"File not found after save: {doc_path}")
                 raise HTTPException(status_code=500, detail="File not found after save")
 
-            logger.info(f"PowerPoint file saved successfully at: {doc_path}")
+            logger.info(f"{SUPPORTED_FILE_TYPES[file_ext]} file saved successfully at: {doc_path}")
             
             # Create status file
             status_file = upload_dir / "status.json"
@@ -170,16 +170,16 @@ async def upload_presentation(
                 "document_id": doc_id,
                 "status": "processing",
                 "filename": file.filename,
-                "type": "PowerPoint",
+                "type": SUPPORTED_FILE_TYPES[file_ext],
                 "file_path": str(doc_path)
             }
             
             with open(status_file, "w") as f:
                 json.dump(status_data, f)
                 
-            # Convert PowerPoint to PDF using LibreOffice
+            # Convert file to PDF using LibreOffice
             try:
-                logger.info(f"Converting PowerPoint to PDF using LibreOffice: {doc_path}")
+                logger.info(f"Converting {SUPPORTED_FILE_TYPES[file_ext]} to PDF using LibreOffice: {doc_path}")
                 pdf_path = upload_dir / f"{doc_id}.pdf"
                 
                 # Convert using LibreOffice
@@ -214,7 +214,7 @@ async def upload_presentation(
                     logger.error(f"PDF not created after conversion: {pdf_path}")
                     raise Exception("PDF not created after conversion")
                     
-                logger.info(f"PowerPoint successfully converted to PDF: {pdf_path}")
+                logger.info(f"{SUPPORTED_FILE_TYPES[file_ext]} successfully converted to PDF: {pdf_path}")
                 
                 # Update the status file
                 status_data["status"] = "ready"
@@ -229,91 +229,81 @@ async def upload_presentation(
                     base_url = base_url.replace('http://', 'https://')
                     
                 pdf_url = f"{base_url}/api/presentations/documents/{doc_id}/{doc_id}.pdf"
-                ppt_url = f"{base_url}/api/presentations/documents/{doc_id}/{doc_id}{file_ext}"
+                original_url = f"{base_url}/api/presentations/documents/{doc_id}/{doc_id}{file_ext}"
                 
                 return JSONResponse(content={
                     "document_id": doc_id,
                     "status": "ready",
                     "filename": file.filename,
                     "file_url": pdf_url,
-                    "original_url": ppt_url,
+                    "original_url": original_url,
                     "type": "PDF"
                 })
                 
             except Exception as e:
-                logger.error(f"PowerPoint to PDF conversion failed: {str(e)}")
+                logger.error(f"{SUPPORTED_FILE_TYPES[file_ext]} to PDF conversion failed: {str(e)}")
                 status_data["status"] = "error"
                 status_data["error"] = str(e)
                 with open(status_file, "w") as f:
                     json.dump(status_data, f)
                     
-                # Return PowerPoint URL as fallback
+                # Return original URL as fallback
                 base_url = str(request.base_url).rstrip('/')
                 # Ensure we use HTTPS for the URL
                 if base_url.startswith('http://'):
                     base_url = base_url.replace('http://', 'https://')
-                    
-                ppt_url = f"{base_url}/api/presentations/documents/{doc_id}/{doc_id}{file_ext}"
+                file_url = f"{base_url}/api/presentations/documents/{doc_id}/{doc_id}{file_ext}"
                 
                 return JSONResponse(content={
                     "document_id": doc_id,
                     "status": "error",
                     "filename": file.filename,
-                    "file_url": ppt_url,
-                    "original_url": ppt_url,
-                    "error": f"PDF conversion failed: {str(e)}",
-                    "type": "PowerPoint"
+                    "file_url": file_url,
+                    "error": str(e),
+                    "type": SUPPORTED_FILE_TYPES[file_ext]
                 })
-            
-        # For PDF files, return immediately
-        if SUPPORTED_FILE_TYPES[file_ext] == 'PDF':
-            if not doc_path.exists():
-                logger.error(f"File not found after save: {doc_path}")
-                raise HTTPException(status_code=500, detail="File not found after save")
-
-            logger.info(f"PDF file saved successfully at: {doc_path}")
-            
-            # Create status file for PDF
-            status_file = upload_dir / "status.json"
-            status_data = {
-                "document_id": doc_id,
-                "status": "ready",
-                "filename": file.filename,
-                "type": "PDF",
-                "file_path": str(doc_path)
-            }
-            
-            with open(status_file, "w") as f:
-                json.dump(status_data, f)
                 
-            # Return PDF URL for viewing
+        elif SUPPORTED_FILE_TYPES[file_ext] == 'PDF':
+            # For PDF files, we just return the file_url without conversion
             base_url = str(request.base_url).rstrip('/')
             # Ensure we use HTTPS for the URL
             if base_url.startswith('http://'):
                 base_url = base_url.replace('http://', 'https://')
-                
-            pdf_url = f"{base_url}/api/presentations/documents/{doc_id}/{doc_id}{file_ext}"
+            file_url = f"{base_url}/api/presentations/documents/{doc_id}/{doc_id}{file_ext}"
             
             return JSONResponse(content={
                 "document_id": doc_id,
                 "status": "ready",
                 "filename": file.filename,
-                "file_url": pdf_url,
-                "original_url": pdf_url
+                "file_url": file_url,
+                "type": "PDF"
             })
             
-        # Return for unsupported file types
+        # Return the URL for this file
+        base_url = str(request.base_url).rstrip('/')
+        # Ensure we use HTTPS for the URL
+        if base_url.startswith('http://'):
+            base_url = base_url.replace('http://', 'https://')
+        file_url = f"{base_url}/api/presentations/documents/{doc_id}/{doc_id}{file_ext}"
+            
         return JSONResponse(content={
             "document_id": doc_id,
-            "status": "error",
-            "detail": f"Unsupported file type: {file_ext}"
+            "status": "ready",
+            "filename": file.filename,
+            "file_url": file_url,
+            "type": SUPPORTED_FILE_TYPES[file_ext]
         })
         
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"Upload failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Log the full stack trace for debugging
+        logger.error(f"Error processing upload: {str(e)}")
+        logger.error(f"Stack trace: {''.join(traceback.format_exception(*sys.exc_info()))}")
+        
+        # Return error response
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "message": str(e)}
+        )
 
 @router.get("/static/{path:path}")
 async def get_static_file(path: str):
@@ -394,6 +384,10 @@ async def get_document_file(doc_id: str, filename: str):
             content_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
         elif file_path.suffix.lower() in ['.ppt']:
             content_type = "application/vnd.ms-powerpoint"
+        elif file_path.suffix.lower() in ['.docx']:
+            content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        elif file_path.suffix.lower() in ['.doc']:
+            content_type = "application/msword"
         elif file_path.suffix.lower() in ['.pdf']:
             content_type = "application/pdf"
             
@@ -469,6 +463,10 @@ async def head_document_file(doc_id: str, filename: str):
             content_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
         elif file_path.suffix.lower() in ['.ppt']:
             content_type = "application/vnd.ms-powerpoint"
+        elif file_path.suffix.lower() in ['.docx']:
+            content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        elif file_path.suffix.lower() in ['.doc']:
+            content_type = "application/msword"
         elif file_path.suffix.lower() in ['.pdf']:
             content_type = "application/pdf"
             

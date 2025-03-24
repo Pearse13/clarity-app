@@ -1,13 +1,63 @@
-import React from 'react';
+import React, { memo, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSidebar } from '../contexts/SidebarContext';
 
-const PrimarySidebar: React.FC = () => {
+// Detect if device is touch-based
+const isTouchDevice = () => {
+  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+};
+
+// Memoize the component to prevent unnecessary re-renders
+const PrimarySidebar: React.FC = memo(() => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isOpen, setOpen } = useSidebar();
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  const isTouch = isTouchDevice();
   
   const isActive = (path: string) => location.pathname === path;
+
+  // Add focus tracking to close sidebar when focus leaves
+  useEffect(() => {
+    const handleWindowBlur = () => {
+      // Close sidebar when window loses focus
+      setOpen(false);
+    };
+
+    const handleMouseLeave = (e: MouseEvent) => {
+      // Additional check if mouse has completely left the window
+      if (e.clientX <= 0 || e.clientX >= window.innerWidth || 
+          e.clientY <= 0 || e.clientY >= window.innerHeight) {
+        setOpen(false);
+      }
+    };
+
+    // On iOS/touch devices, add touchend listener to detect taps outside sidebar
+    const handleTouchOutside = (e: TouchEvent) => {
+      if (sidebarRef.current && !sidebarRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    // Track global mouse movement to detect when user leaves the app area
+    window.addEventListener('blur', handleWindowBlur);
+    
+    // Use appropriate events based on device type
+    if (isTouch) {
+      document.addEventListener('touchend', handleTouchOutside);
+    } else {
+      document.addEventListener('mouseleave', handleMouseLeave);
+    }
+    
+    return () => {
+      window.removeEventListener('blur', handleWindowBlur);
+      if (isTouch) {
+        document.removeEventListener('touchend', handleTouchOutside);
+      } else {
+        document.removeEventListener('mouseleave', handleMouseLeave);
+      }
+    };
+  }, [setOpen, isTouch]);
 
   const navItems = [
     {
@@ -32,36 +82,38 @@ const PrimarySidebar: React.FC = () => {
 
   return (
     <div 
+      ref={sidebarRef}
       className={`fixed md:relative h-screen bg-white border-r border-gray-200
-                 transition-all duration-[230ms] ease-out transform origin-left z-10
-                 ${isOpen ? 'w-72 scale-x-100' : 'w-16 scale-x-95'}`}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+                 transition-all will-change-transform backface-visibility-hidden transform-gpu
+                 duration-150 ease-out z-10 overflow-hidden ${isOpen ? 'w-72' : 'w-16'}`}
+      style={{ willChange: 'width' }}
+      onMouseEnter={!isTouch ? () => setOpen(true) : undefined}
+      onMouseLeave={!isTouch ? () => setOpen(false) : undefined}
+      onTouchStart={isTouch ? () => setOpen(true) : undefined}
     >
-      <div className="p-4 overflow-y-auto">
+      <div className="p-4 h-full overflow-y-auto">
         <div className="space-y-1">
           {navItems.map((item) => (
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
               className={`w-full flex items-center rounded-lg 
-                         transform hover:scale-[1.02]
                          ${isOpen 
                            ? 'px-4 gap-3 justify-start' 
-                           : 'px-0 justify-center hover:scale-[1.1]'} 
-                         py-3 text-sm font-medium
+                           : 'px-0 justify-center'} 
+                         py-3 text-sm font-medium transition-all
                          ${isActive(item.path)
                            ? 'bg-blue-50 text-blue-600'
-                           : 'text-gray-600'}`}
+                           : 'text-gray-600 hover:bg-gray-50'}`}
             >
-              <div className={`flex-shrink-0 ${!isOpen ? 'w-5 scale-110' : 'scale-100'}`}>
+              <div className={`flex-shrink-0 transform-gpu transition-transform duration-150 ${!isOpen ? 'scale-110' : ''}`}>
                 {item.icon}
               </div>
               <span 
-                className={`whitespace-nowrap
+                className={`whitespace-nowrap transform-gpu transition-opacity duration-150
                            ${isOpen 
-                             ? 'opacity-100 translate-x-0' 
-                             : 'opacity-0 -translate-x-4 hidden'}`}
+                             ? 'opacity-100 max-w-full' 
+                             : 'opacity-0 max-w-0 overflow-hidden'}`}
               >
                 {item.name}
               </span>
@@ -71,6 +123,6 @@ const PrimarySidebar: React.FC = () => {
       </div>
     </div>
   );
-};
+});
 
 export default PrimarySidebar; 

@@ -1,11 +1,11 @@
-from fastapi import FastAPI, Request, Response, HTTPException
+from fastapi import FastAPI, Request, Response, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import logging
 import os
 import shutil
-from .routers import presentations, documents
+from .routers import presentations, documents, transform, upload, health, chat
 from .models import TransformRequest, TransformResponse, TransformationType
 from .services.openai_service import transform_text_with_gpt, call_openai_api
 from pydantic import BaseModel
@@ -21,6 +21,7 @@ from app.core.email import send_verification_email, verify_code
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletion
 from datetime import datetime
+import traceback
 
 # Load environment variables
 load_dotenv()
@@ -95,6 +96,10 @@ def create_app() -> FastAPI:
     # Include routers
     app.include_router(presentations.router)
     app.include_router(documents.router)
+    app.include_router(transform.router)
+    app.include_router(upload.router)
+    app.include_router(health.router)
+    app.include_router(chat.router)
     
     return app
 
@@ -163,26 +168,39 @@ async def transform_text(request: TransformRequest):
     """Transform text using GPT based on the specified parameters"""
     try:
         if not request.text:
+            logger.warning("Transform request with empty text")
             raise HTTPException(status_code=400, detail="Text cannot be empty")
         
-        logger.info(f"Transform request - Type: {request.transformationType}, Level: {request.level}")
+        logger.info(f"Transform request - Type: {request.transformationType}, Level: {request.level}, isLecture: {request.isLecture}, hasDocumentText: {request.documentText is not None}")
         
         try:
+            # Log the full request details for debugging
+            logger.debug(f"Transform request details:")
+            logger.debug(f"- Text length: {len(request.text)} chars")
+            logger.debug(f"- Text preview: {request.text[:100]}...")
+            logger.debug(f"- isLecture: {request.isLecture}")
+            logger.debug(f"- documentText: {request.documentText is not None}")
+            
             result = await transform_text_with_gpt(
                 text=request.text,
                 transform_type=request.transformationType,
                 level=request.level,
-                is_lecture=False
+                is_lecture=request.isLecture,
+                document_text=request.documentText
             )
             
             logger.info("Transform complete")
+            logger.debug(f"Transform result: {result}")
             return result
             
         except HTTPException as e:
             # Re-raise HTTP exceptions from the service
+            logger.error(f"HTTP Exception in transform: {e.status_code} - {e.detail}")
             raise
         except Exception as e:
             logger.error(f"Error transforming text: {str(e)}")
+            logger.error(f"Error details: {type(e).__name__}")
+            logger.error(f"Stack trace: {traceback.format_exc()}")
             raise HTTPException(
                 status_code=500,
                 detail=f"Error transforming text: {str(e)}"
@@ -193,6 +211,7 @@ async def transform_text(request: TransformRequest):
         raise
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
+        logger.error(f"Stack trace: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
             detail="An unexpected error occurred"

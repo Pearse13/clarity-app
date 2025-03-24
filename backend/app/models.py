@@ -6,13 +6,13 @@ class TransformationType(Enum):
     SIMPLIFY = "simplify"
     SOPHISTICATE = "sophisticate"
     CASUALISE = "casualise"
-    FORMALISE = "formalise"
 
 class TransformRequest(BaseModel):
     text: str
     transformationType: TransformationType
     level: int = 1
     isLecture: bool = False
+    documentText: Optional[str] = None
 
 class TransformResponse(BaseModel):
     transformedText: str

@@ -6,7 +6,7 @@ export interface ApiError {
 
 export interface TransformRequest {
   text: string;
-  transformationType: 'simplify' | 'sophisticate' | 'casualise';
+  transformationType: 'simplify' | 'sophisticate' | 'casualise' | 'formalise';
   level: number;
   model: 'gpt-4' | 'gpt-3.5-turbo';
   isLecture?: boolean;

@@ -1,8 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, ChevronDown } from 'lucide-react';
 import '../../styles/animations.css';
 
 export type TransformationType = 'simplify' | 'sophisticate' | 'casualise';
+
+const TRANSFORMATION_DETAILS = [
+  {
+    id: 'simplify',
+    label: 'Simplify',
+    description: 'Makes text clearer and more accessible'
+  },
+  {
+    id: 'sophisticate',
+    label: 'Sophisticate',
+    description: 'Enhances vocabulary and structure'
+  },
+  {
+    id: 'casualise',
+    label: 'Casualise',
+    description: 'Creates a relaxed, approachable style'
+  }
+];
 
 interface UnderstandOutputProps {
   level: number;
@@ -16,9 +34,58 @@ interface UnderstandOutputProps {
   characterCount: number;
   isOverLimit: boolean;
   error?: string | null;
+  onTextSelect?: (text: string) => void;
 }
 
 const CHARACTER_LIMIT = 1000;
+
+const TransformationTypeSelect = ({ value, onChange }: { value: TransformationType; onChange: (value: TransformationType) => void }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedType = TRANSFORMATION_DETAILS.find(type => type.id === value) || TRANSFORMATION_DETAILS[0];
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-left flex justify-between items-center"
+      >
+        <span>{selectedType.label}</span>
+        <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      
+      {isOpen && (
+        <>
+          <div 
+            className="fixed inset-0" 
+            onClick={() => setIsOpen(false)}
+          />
+          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+            {TRANSFORMATION_DETAILS.map((type) => (
+              <button
+                key={type.id}
+                onClick={() => {
+                  onChange(type.id as TransformationType);
+                  setIsOpen(false);
+                }}
+                className={`w-full px-3 py-2 text-left hover:bg-gray-50 ${
+                  value === type.id ? 'bg-blue-50' : ''
+                }`}
+              >
+                <div className="font-medium">{type.label}</div>
+                <div className="text-sm text-gray-500 mt-0.5">{type.description}</div>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      
+      <div className="mt-1 text-sm text-gray-500">
+        {selectedType.description}
+      </div>
+    </div>
+  );
+};
 
 const UnderstandOutput: React.FC<UnderstandOutputProps> = ({
   level,
@@ -31,11 +98,16 @@ const UnderstandOutput: React.FC<UnderstandOutputProps> = ({
   isLoading = false,
   characterCount,
   isOverLimit,
-  error
+  error,
+  onTextSelect
 }) => {
   const [isLevelFocused, setIsLevelFocused] = React.useState(false);
   const [displayedText, setDisplayedText] = useState('');
   const [words, setWords] = useState<string[]>([]);
+  const [currentTextState, setCurrentText] = useState<string>(currentText || '');
+  const [characterCountState, setCharacterCount] = useState(characterCount);
+  const [isOverLimitState, setIsOverLimit] = useState(isOverLimit);
+  const [errorState, setError] = useState<string | null>(error || null);
 
   // Split text into words when outputText changes
   useEffect(() => {
@@ -120,12 +192,6 @@ const UnderstandOutput: React.FC<UnderstandOutputProps> = ({
     return "";
   };
 
-  const transformationTypes = [
-    { value: 'simplify', label: 'Simplify' },
-    { value: 'sophisticate', label: 'Sophisticate' },
-    { value: 'casualise', label: 'Casualise' }
-  ] as const;
-
   // Render words with animation
   const renderAnimatedText = () => {
     if (!displayedText) return null;
@@ -159,6 +225,23 @@ const UnderstandOutput: React.FC<UnderstandOutputProps> = ({
     );
   };
 
+  const handleTransform = (text: string) => {
+    if (!text.trim()) return;
+    
+    console.log('UnderstandOutput: handleTransform with text:', text.length, 'chars');
+    
+    // Update the current text and character count
+    setCurrentText(text);
+    setCharacterCount(text.length);
+    setIsOverLimit(text.length > CHARACTER_LIMIT);
+    
+    // Clear previous errors
+    setError(null);
+    
+    // Notify parent component
+    onTextSelect?.(text);
+  };
+
   return (
     <div className="flex flex-col p-8 bg-white rounded-lg border-2 border-blue-300">
       <div className="flex flex-col gap-6">
@@ -167,17 +250,7 @@ const UnderstandOutput: React.FC<UnderstandOutputProps> = ({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Transformation Type
             </label>
-            <select
-              value={transformationType}
-              onChange={(e) => onTransformationTypeChange(e.target.value as TransformationType)}
-              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {transformationTypes.map(type => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
+            <TransformationTypeSelect value={transformationType} onChange={onTransformationTypeChange} />
           </div>
           
           <div className="flex-1 min-w-[200px]">
@@ -244,7 +317,7 @@ const UnderstandOutput: React.FC<UnderstandOutputProps> = ({
             Transformed Text
           </label>
           <button
-            onClick={onTransform}
+            onClick={() => handleTransform(currentTextState || '')}
             disabled={!currentText || isOverLimit || isLoading}
             className={`px-4 py-2 text-sm font-medium rounded-lg transform transition-transform duration-100
               ${

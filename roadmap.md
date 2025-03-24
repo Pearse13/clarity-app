@@ -10,7 +10,7 @@ Clarity is a dual-purpose AI-powered educational platform consisting of two main
 
 **Tech Stack** ✓
 - Frontend: React + Vite (Deployed on Vercel)
-- Backend: FastAPI (Deployed on Vercel)
+- Backend: FastAPI (Deployed on Railway)
 - Authentication: Auth0 with Google OAuth
 - Monitoring: Sentry
 - Development: GitHub
@@ -24,7 +24,7 @@ Clarity is a dual-purpose AI-powered educational platform consisting of two main
 4. OpenAI API integration for text transformation
 5. Environment configuration for development and production
 6. Sentry integration for error tracking and monitoring
-7. Vercel deployment for frontend and backend
+7. Vercel deployment for frontend, Railway deployment for backend
 
 ## 2. Authentication System
 1. Auth0 Core Setup ✓
@@ -70,43 +70,84 @@ Clarity is a dual-purpose AI-powered educational platform consisting of two main
 ## 4. Clarity Lectures Development Roadmap
 
 ### Phase 1: Understand Mode Implementation
-1. File Upload System ✓
+1. Document Upload System ✓
    - Support for PowerPoint files (.ppt, .pptx) ✓
-   - Support for Word documents (.doc, .docx)
+     - LibreOffice headless conversion to PDF ✓
+     - Server-side processing pipeline ✓
+     - PDF.js integration for rendering ✓
+   - Support for Word documents (.doc, .docx) ✓
+     - LibreOffice conversion implementation ✓
+     - PDF output generation ✓
    - Support for PDF files ✓
+     - Direct PDF rendering ✓
+     - Text layer for selection ✓
+     - Continuous scrolling view for all pages ✓
+     - PDF.js integration with version compatibility ✓
    - Drag-and-drop interface with progress indicators ✓
    - File size limits and type validation ✓
    - Secure file storage in local filesystem ✓
    - Backend route for file upload and processing ✓
    - File preview functionality ✓
 
-2. Document Viewer Interface
+2. Document Viewer Interface ✓
    - Split-screen layout (document viewer + text transformer) ✓
    - Text selection and highlighting functionality ✓
    - Integration with Text Transformer for selected text ✓
-   - Responsive design for different screen sizes
-   - Zoom and navigation controls
+   - Responsive design for different screen sizes ✓
+   - Loading states and error handling ✓
+   - Retry mechanism for failed loads ✓
+   - Unified viewing experience across document types ✓
+   - Document-level text selection events ✓
+   - Fallback viewers for compatibility issues ✓
+
+3. UI/UX Improvements ✓
+   - Consistent dividing lines between layout sections ✓
+   - Optimized spacing and padding in main layout ✓
+   - Properly sized upload button and text ✓
+   - Tab layout optimization ✓
+   - Navbar size reduction to maximize content space ✓
+
+4. Advanced Document Features
+   - Zoom and navigation controls ✓
+     - Zoom in/out functionality ✓
+     - Scroll to top button for long documents ✓
    - Thumbnail navigation for multi-page documents
    - Dark/light mode support
    - Mobile-friendly viewing experience
-   - Loading states and error handling ✓
-   - Retry mechanism for failed loads ✓
 
 ### Phase 2: Chat Mode Development
 1. AI Chat Interface
    - Real-time chat interface
-   - Context-aware document understanding
+   - Claude 3.5 Sonnet integration for superior document understanding
+   - Conversation streaming for immediate responses
+   - Support for documents up to 200K tokens (approximately 150 pages)
+   - Contextual awareness across multiple questions
    - Natural language query processing
-   - Document-specific responses
-   - Chat history management
+   - Document-specific responses with high accuracy
+   - Chat history management with persistent sessions
    - Error handling and fallback responses
+   - Cost-efficient processing compared to GPT-4 alternatives
 
 2. Document Context Integration
-   - Document content indexing
-   - Semantic search capabilities
-   - Reference highlighting
-   - Source citation in responses
-   - Multi-document context support
+   - Automatic document content indexing
+   - Full-text search capabilities within documents
+   - Reference highlighting in source document
+   - Source citation in responses with page numbers
+   - Precise quote extraction from document
+   - Support for document-specific terminology
+   - Ability to follow complex document structure (headers, sections)
+   - Multi-document context support for comparative analysis
+   - User control over context specificity
+   - Integration with Content Context framework
+
+3. Chat User Experience
+   - Markdown-formatted responses with code highlighting
+   - Message threading for organized conversation
+   - Easy document navigation through chat references
+   - Mobile-friendly chat interface
+   - Copy-to-clipboard functionality for responses
+   - Export conversation history options
+   - Response rating system for feedback
 
 ### Phase 3: Create Mode Development
 1. Study Material Generation
@@ -149,6 +190,21 @@ Clarity is a dual-purpose AI-powered educational platform consisting of two main
    - API access
    - Integration options
 
+4. Browser Compatibility
+   - Chrome/Edge/Safari/Firefox support ✓
+   - PDF.js version compatibility handling ✓
+   - Fallback rendering mechanisms for older browsers ✓
+   - Mobile browser support
+   - Touch device optimization
+
+5. Accessibility Features
+   - Keyboard navigation
+   - Screen reader compatibility
+   - High contrast mode
+   - Text size adjustments via zoom ✓
+   - ARIA attributes for interactive elements
+   - Proper focus management
+
 ## 6. Technical Optimization
 1. Performance
    - Vercel Edge Functions
@@ -157,15 +213,39 @@ Clarity is a dual-purpose AI-powered educational platform consisting of two main
    - Bundle size reduction
    - Load time improvement
    - Resource efficiency
+   - PDF viewer optimization ✓
+     - Efficient rendering of large documents ✓
+     - Version compatibility handling ✓
+     - Local worker file utilization ✓
 
-2. Security
+2. Error Handling & Fallbacks ✓
+   - PDF viewer error recovery ✓
+     - Version mismatch detection and handling ✓
+     - Fallback to iframe when needed ✓
+   - Document loading timeout detection ✓
+   - User feedback for loading states ✓
+   - Alternate viewer options ✓
+
+3. Security
    - Auth0 security features
    - Rate limiting
    - Input validation
    - Security audits
    - Vulnerability scanning
+   - Safe iframe sandboxing ✓
+   - Cross-origin resource handling ✓
 
-3. Monitoring
+4. File Processing Architecture ✓
+   - Separate conversion processes for different file types ✓
+     - Direct PDF rendering without conversion ✓
+     - PowerPoint to PDF conversion using LibreOffice ✓
+     - Word document to PDF conversion using LibreOffice ✓
+   - Modular file handling services ✓
+   - Type-specific rendering optimizations ✓
+   - Fallback rendering mechanisms ✓
+   - Railway standalone conversion service ✓
+
+5. Monitoring
    - Sentry error tracking ✓
    - Sentry performance monitoring ✓
    - Vercel analytics
@@ -176,11 +256,12 @@ Clarity is a dual-purpose AI-powered educational platform consisting of two main
 ## 7. Production Infrastructure
 1. Deployment
    - Vercel frontend deployment ✓
-   - Vercel backend deployment ✓
+   - Railway backend deployment ✓
+   - Railway document conversion service ✓
    - Database implementation
    - File storage solution
-   - Load balancing (Vercel)
-   - Scaling automation (Vercel)
+   - Load balancing (Railway)
+   - Scaling automation (Railway)
 
 2. Documentation
    - API documentation

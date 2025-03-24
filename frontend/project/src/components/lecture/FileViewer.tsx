@@ -20,10 +20,117 @@ interface OcrProgress {
   progress: number;
 }
 
-const PowerPointViewer: React.FC<{ file: UploadedFile }> = ({ file }) => {
+// Create a dedicated WordViewer component
+interface WordViewerProps {
+  file: UploadedFile;
+}
+
+const WordViewer: React.FC<WordViewerProps> = ({ file }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Create Office Online Viewer URL
+  const getOfficeViewerUrl = () => {
+    if (!file.url) return '';
+    
+    // Make sure we use HTTPS URLs and encode
+    const secureUrl = file.url.replace('http://', 'https://');
+    const encodedFileUrl = encodeURIComponent(secureUrl);
+    
+    console.log('Using Office Online Viewer with URL:', secureUrl);
+    return `https://view.officeapps.live.com/op/embed.aspx?src=${encodedFileUrl}&wdStartOn=1&wdEmbedCode=0`;
+  };
+  
+  // Create Google Docs viewer URL as fallback
+  const getGoogleViewerUrl = () => {
+    if (!file.url) return '';
+    
+    // Make sure we use HTTPS URLs and encode
+    const secureUrl = file.url.replace('http://', 'https://');
+    return `https://docs.google.com/viewer?url=${encodeURIComponent(secureUrl)}&embedded=true`;
+  };
+  
+  const viewerUrl = getOfficeViewerUrl();
+  const googleViewerUrl = getGoogleViewerUrl();
+  
+  const [usingGoogleViewer, setUsingGoogleViewer] = useState(false);
+  const currentViewerUrl = usingGoogleViewer ? googleViewerUrl : viewerUrl;
 
+  return (
+    <div className="flex flex-col h-full bg-white rounded-lg shadow-sm overflow-hidden">
+      {/* Viewer toggle */}
+      <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 flex justify-between items-center">
+        <span className="text-sm text-blue-800">
+          Using {usingGoogleViewer ? 'Google Docs' : 'Microsoft Office'} viewer
+        </span>
+        <button
+          onClick={() => setUsingGoogleViewer(!usingGoogleViewer)}
+          className="text-xs px-2 py-1 bg-white rounded border border-blue-200 text-blue-600 hover:bg-blue-50"
+        >
+          Try {usingGoogleViewer ? 'Microsoft Office' : 'Google Docs'} viewer
+        </button>
+      </div>
+      
+      {/* Loading indicator */}
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+          <div className="flex flex-col items-center">
+            <div className="w-8 h-8 border-4 border-t-blue-500 border-r-transparent border-b-blue-500 border-l-transparent rounded-full animate-spin mb-2"></div>
+            <p className="text-sm text-gray-600">Loading document...</p>
+          </div>
+        </div>
+      )}
+      
+      {/* Error fallback */}
+      {error && (
+        <div className="p-4 flex flex-col items-center text-center">
+          <p className="text-red-500 mb-2">{error}</p>
+          <button
+            onClick={() => setUsingGoogleViewer(!usingGoogleViewer)}
+            className="px-3 py-1 bg-blue-500 text-white rounded mb-2"
+          >
+            Try {usingGoogleViewer ? 'Microsoft Office' : 'Google Docs'} viewer
+          </button>
+          <a 
+            href={file.url} 
+            download={file.name}
+            className="text-blue-500 hover:underline text-sm"
+          >
+            Download document
+          </a>
+        </div>
+      )}
+      
+      {/* Document viewer iframe */}
+      <iframe
+        src={currentViewerUrl}
+        className="w-full flex-1"
+        onLoad={() => {
+          console.log(`${usingGoogleViewer ? 'Google' : 'Microsoft'} Word viewer loaded`);
+          setIsLoading(false);
+        }}
+        onError={(e) => {
+          console.error(`${usingGoogleViewer ? 'Google' : 'Microsoft'} Word viewer failed:`, e);
+          setError(`Failed to load with ${usingGoogleViewer ? 'Google' : 'Microsoft'} viewer. Try the alternative.`);
+          setIsLoading(false);
+        }}
+        style={{ border: 'none' }}
+        title="Word Document"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
+      />
+    </div>
+  );
+};
+
+// PowerPoint viewer component (similar to WordViewer)
+interface PowerPointViewerProps {
+  file: UploadedFile;
+}
+
+const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ file }) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
   // Get and validate the public URL for the file
   const fileUrl = file.url || '';
   if (!file.url) {
@@ -33,7 +140,7 @@ const PowerPointViewer: React.FC<{ file: UploadedFile }> = ({ file }) => {
       </div>
     );
   }
-
+  
   return (
     <div className="relative h-full">
       {isLoading && (
@@ -312,12 +419,24 @@ const FileViewer: React.FC<FileViewerProps> = ({ onAddToTransform }) => {
   };
 
   const renderContent = () => {
-    if (!currentFile) return null;
+    if (!currentFile) {
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-gray-500">No file selected</div>
+        </div>
+      );
+    }
 
     // Handle PowerPoint files
     if (currentFile.type === 'application/vnd.ms-powerpoint' || 
         currentFile.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
       return <PowerPointViewer file={currentFile} />;
+    }
+    
+    // Handle Word documents with dedicated viewer
+    if (currentFile.type === 'application/msword' || 
+        currentFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      return <WordViewer file={currentFile} />;
     }
 
     if (currentFile.progress !== 100) {
@@ -359,7 +478,53 @@ const FileViewer: React.FC<FileViewerProps> = ({ onAddToTransform }) => {
     }
 
     // For Word documents (DOCX)
-    if (currentFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+    if (currentFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+        currentFile.type === 'application/msword') {
+      
+      // Check if we have a PDF URL from backend conversion
+      const isPdfUrl = currentFile.url && currentFile.url.includes('.pdf');
+      
+      // If we have a PDF URL from the backend conversion, use the PDF viewer
+      if (isPdfUrl) {
+        return (
+          <div className={CONTAINER_CLASSES}>
+            <div className={HEADER_CLASSES}>
+              <h3 className="text-sm font-semibold text-blue-800">
+                {currentFile.name} (Converted to PDF)
+              </h3>
+            </div>
+            <div className={CONTENT_CLASSES} style={{ padding: 0 }}>
+              <iframe
+                src={currentFile.url}
+                className="w-full h-full border-0"
+                title={`${currentFile.name} (PDF)`}
+              />
+            </div>
+          </div>
+        );
+      }
+      
+      // If we have text content extracted from the document (by the backend or locally)
+      if (currentFile.textContent) {
+        return (
+          <div className={CONTAINER_CLASSES}>
+            <div className={HEADER_CLASSES}>
+              <h3 className="text-sm font-semibold text-blue-800">{currentFile.name}</h3>
+            </div>
+            <div className={CONTENT_CLASSES}>
+              <pre 
+                onMouseUp={handleTextSelection}
+                onKeyUp={handleTextSelection}
+                className="p-4 bg-white rounded border text-sm font-mono whitespace-pre-wrap selection:bg-blue-100"
+              >
+                {currentFile.textContent}
+              </pre>
+            </div>
+          </div>
+        );
+      }
+      
+      // Otherwise, show the standard processing state or mammoth.js fallback
       return (
         <div className={CONTAINER_CLASSES}>
           <div className={HEADER_CLASSES}>
@@ -390,7 +555,7 @@ const FileViewer: React.FC<FileViewerProps> = ({ onAddToTransform }) => {
                 onKeyUp={handleTextSelection}
                 className="p-4 bg-white rounded border text-sm font-mono whitespace-pre-wrap selection:bg-blue-100"
               >
-                {docxContent}
+                {docxContent || "Processing document content..."}
               </pre>
             }
           </div>
@@ -422,6 +587,24 @@ const FileViewer: React.FC<FileViewerProps> = ({ onAddToTransform }) => {
                 }} 
               />
             </div>
+          </div>
+        </div>
+      );
+    }
+
+    // For PDFs, display in an iframe
+    if (currentFile.type === 'application/pdf') {
+      return (
+        <div className={CONTAINER_CLASSES}>
+          <div className={HEADER_CLASSES}>
+            <h3 className="text-sm font-semibold text-blue-800">{currentFile.name}</h3>
+          </div>
+          <div className={CONTENT_CLASSES} style={{ padding: 0 }}>
+            <iframe
+              src={currentFile.url}
+              className="w-full h-full border-0"
+              title={currentFile.name}
+            />
           </div>
         </div>
       );
@@ -485,54 +668,6 @@ const FileViewer: React.FC<FileViewerProps> = ({ onAddToTransform }) => {
                   )}
                 </div>
               )}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // For PDFs, display in an iframe
-    if (currentFile.type === 'application/pdf') {
-      return (
-        <div className={CONTAINER_CLASSES}>
-          <div className={HEADER_CLASSES}>
-            <h3 className="text-sm font-semibold text-blue-800">{currentFile.name}</h3>
-          </div>
-          <div className={CONTENT_CLASSES} style={{ padding: 0 }}>
-            <iframe
-              src={currentFile.url}
-              className="w-full h-full border-0"
-              title={currentFile.name}
-            />
-          </div>
-        </div>
-      );
-    }
-
-    // For legacy Word documents (DOC)
-    if (currentFile.type === 'application/msword') {
-      return (
-        <div className={CONTAINER_CLASSES}>
-          <div className={HEADER_CLASSES}>
-            <h3 className="text-sm font-semibold text-blue-800">{currentFile.name}</h3>
-          </div>
-          <div className={CONTENT_CLASSES}>
-            <div className="text-center p-8">
-              <File className="w-12 h-12 text-blue-600 mx-auto mb-4" />
-              <p className="text-gray-600 mb-4">Legacy Word documents (.doc) cannot be previewed directly</p>
-              <div className="flex flex-col items-center gap-2">
-                <a 
-                  href={currentFile.url} 
-                  download={currentFile.name}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                >
-                  <Download className="w-4 h-4" />
-                  Download Document
-                </a>
-                <p className="text-xs text-gray-500 mt-2">
-                  Tip: Save as .docx format for better compatibility
-                </p>
-              </div>
             </div>
           </div>
         </div>

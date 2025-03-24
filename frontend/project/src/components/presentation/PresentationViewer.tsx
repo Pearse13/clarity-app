@@ -1,7 +1,8 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Upload, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, Download, ZoomIn, ZoomOut } from 'lucide-react';
 import { PDFViewer } from '../pdf/PDFViewer';
 import { PowerPointViewer } from '../powerpoint/PowerPointViewer';
+import { WordViewer } from '../word/WordViewer';
 
 // Debug log for environment variables
 console.log('Environment variables:', {
@@ -12,7 +13,33 @@ console.log('Environment variables:', {
 
 // Type definitions
 type PresentationViewerProps = {
-  onTextSelect?: (text: string) => void;
+  onTextSelect?: (text: string, extractedText?: string) => void;
+  onDocumentTextExtracted?: (text: string | null) => void;
+  className?: string;
+  onReset?: () => void;
+};
+
+type ApiHealth = {
+  status: string;
+  timestamp: string;
+};
+
+// Using the existing UploadResponse as our PresentationData type
+type PresentationData = {
+  id: string;
+  document_id: string;
+  status: 'ready' | 'processing' | 'error';
+  url: string;
+  filename: string;
+  type: string;
+  apiUrl?: string; // Original API URL for PDFs
+  alternativeUrl?: string;
+  error?: string;
+  check_status_url?: string;
+  isPowerPoint?: boolean;
+  isWord?: boolean;
+  useDirectViewer?: boolean;
+  possibleUrls?: string[];
 };
 
 type UploadResponse = {
@@ -27,6 +54,7 @@ type UploadResponse = {
   error?: string;
   check_status_url?: string;
   isPowerPoint?: boolean;
+  isWord?: boolean;
   useDirectViewer?: boolean;
   possibleUrls?: string[];
 };
@@ -48,7 +76,11 @@ const SUPPORTED_FILE_TYPES = {
   '.pdf': 'PDF'
 };
 
-export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
+// Export the component with forwardRef to allow parent components to access its methods
+export const PresentationViewer = forwardRef<
+  { resetPresentation: () => void },
+  PresentationViewerProps
+>(({ onTextSelect, onDocumentTextExtracted, className = '', onReset }, ref) => {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [presentation, setPresentation] = useState<UploadResponse | null>(null);
@@ -59,6 +91,18 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const apiUrl = (process.env.VITE_PRODUCTION_API_URL || 'https://clarity-backend-production.up.railway.app').replace('http://', 'https://');
+  const [presentationData, setPresentationData] = useState<PresentationData | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [selectedText, setSelectedText] = useState<string>('');
+  const [showDebug, setShowDebug] = useState<boolean>(false);
+
+  // API health checking
+  const [apiHealth, setApiHealth] = useState<ApiHealth | null>(null);
+
+  // In the component state declarations
+  const [uploadStage, setUploadStage] = useState<'idle' | 'uploading' | 'processing' | 'converting'>('idle');
+  const [uploadMessage, setUploadMessage] = useState<string>('Uploading file...');
 
   // Check if the backend API is accessible
   useEffect(() => {
@@ -66,24 +110,58 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
       try {
         console.log('Checking backend API access at:', apiUrl);
         
-        const response = await fetch(`${apiUrl}/health`, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Origin': window.location.origin
-          },
-          mode: 'cors'
-        });
+        // Try with regular fetch first
+        try {
+          const response = await fetch(`${apiUrl}/health`, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'Origin': window.location.origin
+            },
+            mode: 'cors'
+          });
+          
+          console.log('Backend API health check status:', response.status);
+          if (response.ok) {
+            const data = await response.json();
+            console.log('Backend API health check response:', data);
+            setApiHealth({
+              status: data.status,
+              timestamp: data.timestamp
+            });
+            return; // Successful API call, exit the function
+          } else {
+            console.error('Backend API health check failed with status:', response.status);
+            // Continue to try alternative methods
+          }
+        } catch (fetchError) {
+          console.error('Initial fetch attempt failed:', fetchError);
+          // Continue to try alternative methods
+        }
         
-        console.log('Backend API health check status:', response.status);
-        if (response.ok) {
-          const data = await response.json();
-          console.log('Backend API health check response:', data);
-        } else {
-          console.error('Backend API health check failed with status:', response.status);
+        // If we get here, the initial fetch failed. Try with no-cors mode
+        try {
+          console.log('Trying with no-cors mode');
+          const noCorsFetch = await fetch(`${apiUrl}/health`, {
+            method: 'GET',
+            mode: 'no-cors'
+          });
+          
+          // no-cors won't give us the response content but at least tells us if the server is reachable
+          console.log('Backend reachable with no-cors mode, status:', noCorsFetch.status, noCorsFetch.type);
+          
+          // Since we can't get data from no-cors, set a generic health status
+          setApiHealth({
+            status: 'reachable',
+            timestamp: new Date().toISOString()
+          });
+        } catch (noCorsError) {
+          console.error('No-cors attempt also failed:', noCorsError);
+          // Final fallback warning
+          console.warn('Backend API may not be accessible due to network or certificate issues');
         }
       } catch (err) {
-        console.error('Error checking backend API access:', err);
+        console.error('Error in checkBackendAccess:', err);
       }
     };
     
@@ -104,136 +182,60 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
     return cleanText;
   };
 
-  // Handle text selection in the iframe
-  const handleTextSelection = useCallback(() => {
-    const iframe = document.querySelector('iframe');
-    if (!iframe) {
-      console.log('No iframe found');
-      return;
-    }
-
-    try {
-      // Try to get the selection from the iframe's content window
-      const iframeWindow = iframe.contentWindow;
-      if (!iframeWindow) {
-        console.log('No iframe window access');
-        return;
+  // Handle text selection from PDF viewer
+  const handlePDFTextSelection = useCallback((text: string, extractedDocText?: string) => {
+    console.log('PresentationViewer: Received text from PDF viewer:', text);
+    console.log('PresentationViewer: onTextSelect prop is', onTextSelect ? 'provided' : 'not provided');
+    
+    if (text && onTextSelect) {
+      const cleanText = cleanSelectedText(text);
+      console.log('PresentationViewer: Clean text to send to parent:', cleanText);
+      if (cleanText) {
+        console.log('PresentationViewer: Calling onTextSelect with clean text');
+        onTextSelect(cleanText, extractedDocText);
+      } else {
+        console.log('PresentationViewer: Clean text is empty, not calling onTextSelect');
       }
-
-      // Get selection from iframe document
-      const iframeDoc = iframeWindow.document;
-      if (!iframeDoc) {
-        console.log('No iframe document access');
-        return;
-      }
-
-      // Get selection from iframe or main window
-      const selection = iframeDoc.getSelection() || window.getSelection();
-      const rawText = selection?.toString() || '';
-      
-      console.log('Raw selected text:', rawText); // Debug log
-      
-      if (rawText && onTextSelect) {
-        const cleanText = cleanSelectedText(rawText);
-        console.log('Cleaned selected text:', cleanText); // Debug log
-        if (cleanText) {
-          onTextSelect(cleanText);
-        }
-      }
-    } catch (err) {
-      // If we can't access the iframe selection, try getting it from the main window
-      const mainSelection = window.getSelection();
-      const rawText = mainSelection?.toString() || '';
-      
-      console.log('Fallback - Raw selected text:', rawText); // Debug log
-      
-      if (rawText && onTextSelect) {
-        const cleanText = cleanSelectedText(rawText);
-        console.log('Fallback - Cleaned selected text:', cleanText); // Debug log
-        if (cleanText) {
-          onTextSelect(cleanText);
-        }
-      }
+    } else {
+      console.log('PresentationViewer: Text empty or onTextSelect not provided');
     }
   }, [onTextSelect, cleanSelectedText]);
 
-  // Add event listeners for text selection
+  // Add event handler to prevent text selection from outside the PDF viewer from being processed
   useEffect(() => {
-    const iframe = document.querySelector('iframe');
+    if (!onTextSelect) return;
     
-    const addListeners = () => {
-      try {
-        if (iframe?.contentDocument) {
-          // Add listeners to the iframe document
-          iframe.contentDocument.addEventListener('mouseup', handleTextSelection);
-          iframe.contentDocument.addEventListener('keyup', handleTextSelection);
-          iframe.contentDocument.addEventListener('selectionchange', handleTextSelection);
-          
-          // Also add listeners to any body element that might be added later
-          const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-              if (mutation.type === 'childList') {
-                const body = iframe.contentDocument?.body;
-                if (body) {
-                  body.addEventListener('mouseup', handleTextSelection);
-                  body.addEventListener('keyup', handleTextSelection);
-                  body.addEventListener('selectionchange', handleTextSelection);
-                }
-              }
-            });
-          });
-          
-          observer.observe(iframe.contentDocument, {
-            childList: true,
-            subtree: true
-          });
-        }
-        
-        // Also listen on main window and iframe element
-        document.addEventListener('mouseup', handleTextSelection);
-        document.addEventListener('keyup', handleTextSelection);
-        document.addEventListener('selectionchange', handleTextSelection);
-        iframe?.addEventListener('mouseup', handleTextSelection);
-        iframe?.addEventListener('keyup', handleTextSelection);
-      } catch (err) {
-        console.warn('Error adding event listeners:', err);
+    // Prevent regular text selection from occurring at the document level
+    const preventDocumentSelection = (e: MouseEvent) => {
+      // Only apply if we have a document loaded
+      if (!presentationData) return;
+      
+      // Get the target element
+      const target = e.target as HTMLElement;
+      
+      // Check if the target is part of the PDF viewer content
+      const isDocumentContent = (
+        target.tagName === 'IFRAME' ||
+        target.closest('iframe') ||
+        target.classList.contains('react-pdf__Page') ||
+        !!target.closest('.react-pdf__Page') ||
+        target.classList.contains('document-viewer-area') ||
+        !!target.closest('.document-viewer-area')
+      );
+      
+      if (!isDocumentContent) {
+        console.log('PresentationViewer: Mouse event outside document content - ignore for text selection');
+        // Don't prevent default, just log that this selection should be ignored
       }
     };
-
-    if (iframe) {
-      // Add listeners when iframe loads
-      iframe.addEventListener('load', () => {
-        // Small delay to ensure content is loaded
-        setTimeout(addListeners, 1000);
-      });
-      // Try adding listeners immediately as well
-      addListeners();
-    }
-
+    
+    // Add the event listener to track where the selection begins
+    document.addEventListener('mousedown', preventDocumentSelection);
+    
     return () => {
-      try {
-        if (iframe?.contentDocument) {
-          iframe.contentDocument.removeEventListener('mouseup', handleTextSelection);
-          iframe.contentDocument.removeEventListener('keyup', handleTextSelection);
-          iframe.contentDocument.removeEventListener('selectionchange', handleTextSelection);
-          
-          const body = iframe.contentDocument.body;
-          if (body) {
-            body.removeEventListener('mouseup', handleTextSelection);
-            body.removeEventListener('keyup', handleTextSelection);
-            body.removeEventListener('selectionchange', handleTextSelection);
-          }
-        }
-        document.removeEventListener('mouseup', handleTextSelection);
-        document.removeEventListener('keyup', handleTextSelection);
-        document.removeEventListener('selectionchange', handleTextSelection);
-        iframe?.removeEventListener('mouseup', handleTextSelection);
-        iframe?.removeEventListener('keyup', handleTextSelection);
-      } catch (err) {
-        console.warn('Error removing event listeners:', err);
-      }
+      document.removeEventListener('mousedown', preventDocumentSelection);
     };
-  }, [handleTextSelection]);
+  }, [presentationData, onTextSelect]);
 
   // Add progress simulation
   useEffect(() => {
@@ -274,9 +276,12 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
 
     try {
       setUploading(true);
+      setIsLoading(true);
       setUploadProgress(0);
       setError(null);
       setIframeError(null);
+      setUploadStage('uploading');
+      setUploadMessage('Uploading file...');
 
       const formData = new FormData();
       formData.append('file', file);
@@ -287,20 +292,39 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
         type: file.type
       });
 
+      // Determine appropriate message based on file type
+      if (fileExt === '.pdf') {
+        setUploadMessage('Uploading PDF document...');
+      } else if (['.ppt', '.pptx'].includes(fileExt)) {
+        setUploadMessage('Uploading PowerPoint presentation...');
+      } else if (['.doc', '.docx'].includes(fileExt)) {
+        setUploadMessage('Uploading Word document...');
+      }
+
       // Use the production API URL
-          const response = await fetch(`${apiUrl}/api/presentations/upload`, {
-            method: 'POST',
-            body: formData,
-            headers: {
-              'Accept': 'application/json',
-              'Origin': window.location.origin
-            },
-            mode: 'cors'
-          });
+      const response = await fetch(`${apiUrl}/api/presentations/upload`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json',
+          'Origin': window.location.origin
+        },
+        mode: 'cors'
+      });
 
       console.log('Upload response status:', response.status);
 
-          if (!response.ok) {
+      // Update stage to processing after upload completes
+      setUploadStage('processing');
+      if (['.ppt', '.pptx'].includes(fileExt)) {
+        setUploadMessage('Converting PowerPoint to viewable format...');
+      } else if (['.doc', '.docx'].includes(fileExt)) {
+        setUploadMessage('Converting Word document to viewable format...');
+      } else if (fileExt === '.pdf') {
+        setUploadMessage('Processing PDF document...');
+      }
+
+      if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Upload failed: ${errorText}`);
       }
@@ -310,6 +334,91 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
 
       if (!responseData.document_id) {
         throw new Error('No document ID received from server');
+      }
+
+      // Handle Word documents - they may come back as converted PDFs
+      if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+          file.type === 'application/msword') {
+        
+        console.log('Word document uploaded, checking type...');
+        
+        // Check if it's been converted to PDF
+        if (responseData.type === 'PDF') {
+          console.log('Word document converted to PDF, using PDF viewer');
+          
+          // Use the PDF viewer for the converted Word document
+          if (!responseData.file_url) {
+            throw new Error('No file URL provided in the response for PDF');
+          }
+          
+          try {
+            setIframeLoading(true);
+            
+            const documentData: PresentationData = {
+              id: responseData.document_id,
+              document_id: responseData.document_id,
+              status: 'ready',
+              url: responseData.file_url,
+              filename: file.name,
+              type: 'pdf',
+              apiUrl: responseData.file_url,
+              isWord: false // Treat as PDF now
+            };
+            
+            setUploadProgress(100);
+            setPresentation(documentData);
+            setPresentationData(documentData); // Add to presentationData state
+            setIframeLoading(false);
+            
+            console.log('Word document converted to PDF, viewer setup complete:', documentData);
+            return;
+          } catch (error) {
+            console.error('Error setting up PDF viewer for converted Word document:', error);
+            setError('Failed to process converted Word document. Please try again.');
+            setUploadError('Failed to process converted Word document. Please try again.');
+            setUploading(false);
+            setIsLoading(false);
+            return;
+          }
+        } else {
+          // Handle as regular Word document
+          console.log('Word document uploaded, setting up Word viewer...');
+          
+          // Create Word document viewer URLs
+          // Get base URL for the API
+          const baseApiUrl = apiUrl.replace('/api/presentations/upload', '');
+          
+          // Create direct access URL for the file - make sure we use the file_ext which has the right extension
+          const directFileUrl = `${baseApiUrl}/api/presentations/documents/${responseData.document_id}/${responseData.document_id}${fileExt}`;
+          console.log('Word document direct URL:', directFileUrl);
+          
+          // Create Office viewer URL with proper encoding
+          const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(directFileUrl)}&wdStartOn=1&wdEmbedCode=0`;
+          console.log('Word document Office viewer URL:', officeViewerUrl);
+          
+          const documentData: PresentationData = {
+            id: responseData.document_id,
+            document_id: responseData.document_id,
+            status: 'ready',
+            url: officeViewerUrl,
+            filename: file.name,
+            type: 'word',
+            apiUrl: directFileUrl,
+            isWord: true
+          };
+          
+          setUploadProgress(100);
+          setPresentation(documentData);
+          setPresentationData(documentData);
+          setIframeLoading(false);
+          
+          console.log('Word document viewer setup complete:', documentData);
+          
+          // Signal document text is available to enable "Upload Another" button
+          onDocumentTextExtracted?.(`[Word Document]: ${file.name}`);
+          
+          return;
+        }
       }
 
       // Handle PowerPoint files - now they may come back as converted PDFs
@@ -330,38 +439,41 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
           try {
             setIframeLoading(true);
             
-            const presentationData: UploadResponse = {
+            const documentData: PresentationData = {
               id: responseData.document_id,
               document_id: responseData.document_id,
               status: 'ready',
               url: responseData.file_url,
               filename: file.name,
-              type: 'PDF',
+              type: 'pdf',
               apiUrl: responseData.file_url,
               isPowerPoint: false // Treat as PDF now
             };
             
             setUploadProgress(100);
-            setPresentation(presentationData);
+            setPresentation(documentData);
+            setPresentationData(documentData); // Add to presentationData state
             setIframeLoading(false);
             
-            console.log('PowerPoint converted to PDF, viewer setup complete:', presentationData);
+            console.log('PowerPoint converted to PDF, viewer setup complete:', documentData);
             return;
           } catch (error) {
             console.error('Error setting up PDF viewer for converted PowerPoint:', error);
             setError('Failed to process converted PowerPoint file. Please try again.');
+            setUploadError('Failed to process converted PowerPoint file. Please try again.');
             setUploading(false);
+            setIsLoading(false);
             return;
           }
         } else {
           // Handle as regular PowerPoint
           console.log('PowerPoint file uploaded, setting up PowerPoint viewer...');
-          await setupPowerPointViewing(responseData);
+          setupPowerPointViewing(responseData);
           return;
         }
       }
 
-      // Handle PDF files - NO CHANGES to this section to preserve original PDF handling
+      // Handle PDF files
       if (file.type === 'application/pdf') {
         console.log('PDF file uploaded, processing...');
         
@@ -376,22 +488,21 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
         try {
           setIframeLoading(true);
           
-          // For PDF files, we now use the PDFViewer component which handles multiple viewing options
-          // We'll pass the direct PDF URL as apiUrl and use the Google Drive viewer as the primary URL
-          const googleViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(pdfUrl)}&embedded=true`;
-          
-          const presentationData: UploadResponse = {
+          // IMPORTANT: Use the direct PDF URL as the primary URL for better text selection
+          // We no longer use Google Drive viewer as it prevents text selection
+          const presentationData: PresentationData = {
             id: responseData.document_id,
             document_id: responseData.document_id,
             status: 'ready',
-            url: googleViewerUrl, // This will be used by the PDFViewer component
+            url: pdfUrl, // Use direct PDF URL as primary
             filename: file.name,
-            type: 'PDF',
-            apiUrl: pdfUrl  // Direct URL to the PDF for download/fallback
+            type: 'pdf',
+            apiUrl: pdfUrl  // Same URL as backup
           };
           
           setUploadProgress(100);
           setPresentation(presentationData);
+          setPresentationData(presentationData); // Also set the presentationData state
           
           // Set iframeLoading to false since the PDFViewer component will handle its own loading state
           setIframeLoading(false);
@@ -405,11 +516,39 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
         return;
       }
       
+      // After a successful upload, update the uploadStage based on file type
+      if (responseData?.status === 'ready' && responseData?.file_url) {
+        // If it's a PDF, we need to show the processing stage differently
+        if (responseData.filename?.toLowerCase().endsWith('.pdf')) {
+          setUploadStage('processing');
+          setUploadMessage('Processing PDF document...');
+        } 
+        // For PowerPoint and Word, we show converting stage
+        else if (responseData.filename?.toLowerCase().endsWith('.ppt') || 
+                 responseData.filename?.toLowerCase().endsWith('.pptx') ||
+                 responseData.filename?.toLowerCase().endsWith('.doc') || 
+                 responseData.filename?.toLowerCase().endsWith('.docx')) {
+          setUploadStage('converting');
+          setUploadMessage(
+            responseData.filename?.toLowerCase().endsWith('.doc') || 
+            responseData.filename?.toLowerCase().endsWith('.docx')
+              ? 'Converting Word document...'
+              : 'Converting PowerPoint presentation...'
+          );
+        }
+      }
     } catch (err) {
       console.error('Upload error:', err);
       setError(err instanceof Error ? err.message : 'Failed to upload file. Please try again.');
-    } finally {
+      setUploadError(err instanceof Error ? err.message : 'Failed to upload file. Please try again.');
       setUploading(false);
+      setIsLoading(false);
+      setUploadStage('idle');
+    } finally {
+      if (presentationData) {
+        setUploading(false);
+        setIsLoading(false);
+      }
     }
   };
 
@@ -542,27 +681,43 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
     
     const poll = async () => {
       try {
-        const response = await fetch(statusUrl);
-        const responseData: FileStatusResponse = await response.json();
-        console.log('Polling response:', responseData);
+        // If we have a check_status_url, use it to check file status
+        if (statusUrl) {
+          console.log('Polling for file status:', statusUrl);
+          
+          setUploadStage('processing');
+          setUploadMessage('Converting document for viewing...');
+          
+          const response = await fetch(statusUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'Origin': window.location.origin
+            },
+            mode: 'cors'
+          });
+          
+          const responseData: FileStatusResponse = await response.json();
+          console.log('Polling response:', responseData);
 
-        if (responseData.status === 'ready') {
-          console.log('File is ready, stopping polling');
-          if (pollingInterval) clearInterval(pollingInterval);
-          await setupPowerPointViewing(responseData);
-          return;
-        }
+          if (responseData.status === 'ready') {
+            console.log('File is ready, stopping polling');
+            if (pollingInterval) clearInterval(pollingInterval);
+            await setupPowerPointViewing(responseData);
+            return;
+          }
 
-        if (responseData.status === 'error') {
-          console.error('Processing error:', responseData.error);
-          if (pollingInterval) clearInterval(pollingInterval);
-          throw new Error(responseData.error || 'Processing failed');
-        }
+          if (responseData.status === 'error') {
+            console.error('Processing error:', responseData.error);
+            if (pollingInterval) clearInterval(pollingInterval);
+            throw new Error(responseData.error || 'Processing failed');
+          }
 
-        attempts++;
-        if (attempts >= maxAttempts) {
-          if (pollingInterval) clearInterval(pollingInterval);
-          throw new Error('Processing timed out');
+          attempts++;
+          if (attempts >= maxAttempts) {
+            if (pollingInterval) clearInterval(pollingInterval);
+            throw new Error('Processing timed out');
+          }
         }
       } catch (error) {
         console.error('Polling error:', error);
@@ -634,52 +789,64 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
 
   const setupPowerPointViewing = async (fileData: FileStatusResponse) => {
     try {
-        console.log('Setting up PowerPoint viewing...');
-        setIframeLoading(true);
-        setIframeError(null);
+      console.log('Setting up PowerPoint viewing:', fileData);
+      
+      // Update message for conversion process
+      setUploadStage('converting');
+      setUploadMessage('Preparing document for viewing...');
+      
+      if (fileData.status === 'ready' && fileData.file_url) {
+        const fileUrl = fileData.file_url;
         
-        // Use the direct file URL from the upload response without modification
-        if (!fileData.file_url) {
-            throw new Error('No file URL provided in the response');
+        // Check if it's PPTX/PPT
+        const isPowerPoint = fileData.filename?.toLowerCase().endsWith('.ppt') || 
+                             fileData.filename?.toLowerCase().endsWith('.pptx');
+          
+        // Check if it's DOC/DOCX
+        const isWord = fileData.filename?.toLowerCase().endsWith('.doc') || 
+                       fileData.filename?.toLowerCase().endsWith('.docx');
+        
+        // Update message based on file type
+        if (isPowerPoint) {
+          setUploadMessage('Finalizing PowerPoint conversion...');
+        } else if (isWord) {
+          setUploadMessage('Finalizing Word document conversion...');
+        } else {
+          setUploadMessage('Loading document...');
         }
         
-        // Get original file URL
-        const originalFileUrl = fileData.file_url;
+        // Set presentation data
+        setPresentationData({
+          id: '',
+          document_id: fileData.document_id,
+          status: 'ready',
+          url: fileUrl,
+          filename: fileData.filename || 'document',
+          type: isPowerPoint ? 'powerpoint' : isWord ? 'word' : 'pdf',
+          isPowerPoint,
+          isWord
+        });
         
-        // Create a proxy URL that uses our backend to serve the file
-        const docId = fileData.document_id;
-        const fileName = originalFileUrl.split('/').pop() || `${docId}.pptx`;
-        const proxyUrl = `${apiUrl}/api/presentations/proxy/ppt/${docId}/${fileName}`;
-        
-        console.log('Original file URL:', originalFileUrl);
-        console.log('Proxy file URL:', proxyUrl);
-
-        // Create Office Online Viewer URL with additional parameters for better reliability
-        const encodedFileUrl = encodeURIComponent(proxyUrl);
-        const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodedFileUrl}&wdStartOn=1&wdEmbedCode=0&wdAr=1.3333`;
-
-        // Create presentation data
-        const presentationData: UploadResponse = {
-            id: fileData.document_id,
-            document_id: fileData.document_id,
-            status: 'ready',
-            url: officeViewerUrl,
-            filename: fileData.filename || 'presentation.pptx',
-            type: 'PowerPoint',
-            isPowerPoint: true,
-            apiUrl: proxyUrl
-        };
-
-        // Set the presentation data
-        setPresentation(presentationData);
-        setIframeLoading(false);
-        console.log('PowerPoint viewer setup complete with data:', presentationData);
-        return;
+        setUploading(false);
+        setIsLoading(false);
+        setUploadProgress(100);
+      } else if (fileData.status === 'processing') {
+        // Still processing, continue polling
+        console.log('File still processing, continue polling...');
+        return false;
+      } else if (fileData.status === 'error') {
+        // Handle error
+        throw new Error(fileData.error || 'Error processing file');
+      }
+      
+      return true;
     } catch (error) {
-        console.error('Error setting up PowerPoint viewing:', error);
-        setIframeLoading(false);
-        setIframeError('Failed to set up PowerPoint viewer. Please try refreshing the page.');
-        throw error;
+      console.error('Error setting up document viewing:', error);
+      setError((error as Error).message || 'Error setting up document viewing');
+      setUploadError((error as Error).message || 'Error setting up document viewing');
+      setIsLoading(false);
+      setUploading(false);
+      return false;
     }
   };
 
@@ -693,88 +860,93 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
     };
   }, [pollingInterval]);
 
+  // Function to handle text selection from PDF or PowerPoint
+  const handleTextSelection = (text: string) => {
+    console.log('PresentationViewer: Text selected:', text);
+    console.log('PresentationViewer: onTextSelect prop is', onTextSelect ? 'provided' : 'not provided');
+    
+    if (text && onTextSelect) {
+      const cleanText = cleanSelectedText(text);
+      console.log('PresentationViewer: Clean text:', cleanText);
+      
+      if (cleanText) {
+        console.log('PresentationViewer: Calling onTextSelect with clean text');
+        onTextSelect(cleanText);
+      } else {
+        console.log('PresentationViewer: Clean text is empty, not calling onTextSelect');
+      }
+    } else {
+      console.log('PresentationViewer: Text empty or onTextSelect not provided');
+    }
+  };
+  
+  // Clear selected text when changing presentations
+  useEffect(() => {
+    setSelectedText('');
+  }, [presentationData?.id]);
+
+  // Function to reset the presentation
+  const resetPresentation = () => {
+    setPresentationData(null);
+    setUploadProgress(0);
+    setError(null);
+    setIsLoading(false);
+    setUploading(false);
+    setUploadError(null);
+    setIframeError(null);
+    setUploadStage('idle');
+    setUploadMessage('Uploading file...');
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    
+    // If parent component provided onReset callback, call it
+    onReset?.();
+  };
+
+  // Expose the resetPresentation method to parent components
+  useImperativeHandle(ref, () => ({
+    resetPresentation
+  }));
+
   return (
-    <div className="h-full">
-      {presentation ? (
-        // Presentation Viewer
-        <div className="flex flex-col h-full">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">
-              {presentation.filename}
-            </h2>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => {
-                  setPresentation(null);
-                  setIframeError(null);
-                  setRetryCount(0);
-                  setIframeLoading(false);
-                }}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Upload Another
-              </button>
-            </div>
-          </div>
-
-          {iframeLoading && (
-            <div className="flex flex-col items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-              <p className="mt-4 text-gray-600">Loading your file...</p>
-            </div>
-          )}
-
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-              <p>{error}</p>
-            </div>
-          )}
-
-          {iframeError && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-              <p>{iframeError}</p>
-              <p className="text-sm mt-2">The file was uploaded successfully, but there was an issue displaying it in the browser.</p>
-            </div>
-          )}
-
-          {!iframeLoading && !iframeError && (
-            <div className="flex-grow border rounded-lg overflow-hidden bg-white">
-              {presentation.isPowerPoint ? (
-                <PowerPointViewer 
-                  url={presentation.url}
-                  apiUrl={presentation.apiUrl}
-                  filename={presentation.filename}
-                />
-              ) : (
-                // For PDFs, use the separated PDF viewer component
-                <PDFViewer 
-                  url={presentation.url}
-                  apiUrl={presentation.apiUrl}
-                  filename={presentation.filename}
-                />
-              )}
-            </div>
-          )}
-        </div>
-      ) : (
+    <div className={`w-full h-full flex flex-col transform-gpu backface-visibility-hidden ${className}`}>
+      {/* File Upload UI */}
+      {!presentationData ? (
         // Upload Area
         <label 
           htmlFor="file-upload"
           className="h-full flex flex-col items-center justify-center gap-4 p-6 bg-white/80 backdrop-blur-xl shadow-sm hover:bg-white/90 transition-colors cursor-pointer relative"
         >
-          {error ? (
-            <div className="text-red-500 text-xl mb-4">{error}</div>
-          ) : uploading ? (
-            <>
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-              <p className="mt-4 text-gray-600">Processing your file...</p>
-              <div className="absolute bottom-0 left-0 w-full h-1 bg-gray-100">
+          {uploadError ? (
+            <div className="text-red-500 text-xl mb-4">{uploadError}</div>
+          ) : uploading || isLoading ? (
+            <div className="flex flex-col items-center justify-center w-full max-w-md">
+              <div className="animate-spin rounded-full h-16 w-16 border-t-3 border-b-3 border-blue-500 mb-6"></div>
+              <p className="text-gray-600 text-lg mb-4">{uploadMessage}</p>
+              
+              {/* Processing stage indicator */}
+              <div className="flex items-center gap-2 mb-4">
+                <div className={`h-2 w-2 rounded-full ${uploadStage === 'uploading' ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
+                <div className={`h-2 w-2 rounded-full ${uploadStage === 'processing' ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
+                <div className={`h-2 w-2 rounded-full ${uploadStage === 'converting' ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
+              </div>
+              
+              {/* Progress bar */}
+              <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
                 <div 
-                  className="h-full bg-blue-600 transition-all duration-150"
+                  className="h-full bg-blue-600 transition-all duration-150 rounded-full"
                   style={{ width: `${uploadProgress}%` }}
                 />
               </div>
-            </>
+              
+              {/* Progress percentage */}
+              <p className="text-sm text-gray-600 mt-2">
+                {Math.round(uploadProgress)}% Complete
+              </p>
+            </div>
           ) : (
             <>
               <Upload className="w-8 h-8 text-blue-600 stroke-[1.5]" />
@@ -793,12 +965,65 @@ export function PresentationViewer({ onTextSelect }: PresentationViewerProps) {
             className="hidden" 
             onChange={handleFileUpload}
             ref={fileInputRef}
-            disabled={uploading}
+            disabled={isLoading}
           />
         </label>
+      ) : (
+        <div className="flex flex-col flex-grow h-full">
+          {/* Document viewer only - no sidebar */}
+          <div className="flex-grow h-full w-full document-viewer-area relative">
+            {presentationData.type === 'pdf' ? (
+              <PDFViewer 
+                url={presentationData.url} 
+                apiUrl={presentationData.apiUrl}
+                filename={presentationData.filename}
+                onTextSelect={handlePDFTextSelection}
+                onDocumentTextExtracted={onDocumentTextExtracted}
+              />
+            ) : presentationData.type === 'powerpoint' ? (
+              <PowerPointViewer 
+                url={presentationData.url} 
+                filename={presentationData.filename}
+                onTextSelect={handleTextSelection}
+              />
+            ) : presentationData.type === 'word' ? (
+              <WordViewer 
+                url={presentationData.url} 
+                apiUrl={presentationData.apiUrl}
+                filename={presentationData.filename}
+                onTextSelect={handleTextSelection}
+              />
+            ) : (
+              <div className="h-full flex items-center justify-center">
+                <div className="text-center p-4">
+                  <p className="text-red-500 mb-2">Unsupported file type</p>
+                  <button 
+                    onClick={resetPresentation}
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    Upload a different file
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {/* Error message display */}
+      {uploadError && (
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shadow-md">
+          <p>{uploadError}</p>
+          <button 
+            className="absolute top-0 right-0 p-2" 
+            onClick={() => setUploadError(null)}
+          >
+            <span className="text-red-500">&times;</span>
+          </button>
+        </div>
       )}
     </div>
   );
-}
+});
 
 export default PresentationViewer; 

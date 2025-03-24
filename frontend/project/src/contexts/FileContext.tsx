@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 
 export interface UploadedFile {
   id: string;
@@ -27,11 +27,11 @@ const FileContext = createContext<FileContextType | undefined>(undefined);
 export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [files, setFiles] = useState<UploadedFile[]>([]);
 
-  const addFile = (file: UploadedFile) => {
+  const addFile = useCallback((file: UploadedFile) => {
     setFiles(prev => [...prev, file]);
-  };
+  }, []);
 
-  const removeFile = (id: string) => {
+  const removeFile = useCallback((id: string) => {
     setFiles(prev => {
       const file = prev.find(f => f.id === id);
       if (file?.url) {
@@ -39,27 +39,27 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return prev.filter(f => f.id !== id);
     });
-  };
+  }, []);
 
-  const updateFileProgress = (id: string, progress: number) => {
+  const updateFileProgress = useCallback((id: string, progress: number) => {
     setFiles(prev => prev.map(file => 
       file.id === id ? { ...file, progress } : file
     ));
-  };
+  }, []);
 
-  const setFileError = (id: string, error: string) => {
+  const setFileError = useCallback((id: string, error: string) => {
     setFiles(prev => prev.map(file => 
       file.id === id ? { ...file, error } : file
     ));
-  };
+  }, []);
 
-  const setFileTextContent = (id: string, content: string) => {
+  const setFileTextContent = useCallback((id: string, content: string) => {
     setFiles(prev => prev.map(file => 
       file.id === id ? { ...file, textContent: content } : file
     ));
-  };
+  }, []);
 
-  const uploadFile = async (file: File, extractedText?: string, fileUrl?: string) => {
+  const uploadFile = useCallback(async (file: File, extractedText?: string, fileUrl?: string) => {
     const id = Math.random().toString(36).substring(7);
     const newFile: UploadedFile = {
       id,
@@ -74,18 +74,29 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     addFile(newFile);
     updateFileProgress(id, 100);
-  };
+  }, [addFile, updateFileProgress]);
+
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    files,
+    addFile,
+    removeFile,
+    updateFileProgress,
+    setFileError,
+    setFileTextContent,
+    uploadFile
+  }), [
+    files, 
+    addFile, 
+    removeFile, 
+    updateFileProgress, 
+    setFileError, 
+    setFileTextContent, 
+    uploadFile
+  ]);
 
   return (
-    <FileContext.Provider value={{
-      files,
-      addFile,
-      removeFile,
-      updateFileProgress,
-      setFileError,
-      setFileTextContent,
-      uploadFile
-    }}>
+    <FileContext.Provider value={contextValue}>
       {children}
     </FileContext.Provider>
   );

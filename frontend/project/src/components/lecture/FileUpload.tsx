@@ -146,12 +146,54 @@ Note: This is a smart sample of the document optimized for GPT-4 analysis. The s
         }
       }
       
-      // Handle Word documents
+      // Handle Word documents - use presentations API endpoint like PowerPoint files
       if (file.type === 'application/msword' || 
           file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-        url = URL.createObjectURL(file);
-        // Create a simple preview message
-        preview = `Word document loaded: ${file.name}\nSize: ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+        
+        console.log("Processing Word document using presentations API...");
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const apiBase = import.meta.env.VITE_API_BASE_URL || 'https://clarity-backend-production.up.railway.app';
+        const uploadEndpoint = `${apiBase}/api/presentations/upload`;
+        
+        console.log(`Uploading Word document to: ${uploadEndpoint}`);
+        
+        try {
+          const response = await fetch(uploadEndpoint, {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'Accept': 'application/json',
+              'Origin': window.location.origin
+            },
+            mode: 'cors'
+          });
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Word document upload failed: ${errorText}`);
+            throw new Error(`Upload failed: ${errorText}`);
+          }
+          
+          const data = await response.json();
+          console.log("Word document conversion response:", data);
+          
+          if (data.status === 'ready' && data.file_url) {
+            url = data.file_url;
+            preview = `Word document converted: ${file.name}\nSize: ${(file.size / 1024 / 1024).toFixed(2)} MB\nConversion successful!`;
+          } else if (data.status === 'error') {
+            throw new Error(`Conversion error: ${data.error || 'Unknown error'}`);
+          } else {
+            url = URL.createObjectURL(file);
+            preview = `Word document loaded: ${file.name}\nSize: ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+          }
+        } catch (error) {
+          console.error("Error during Word document conversion:", error);
+          // Fallback to client-side rendering if server conversion fails
+          url = URL.createObjectURL(file);
+          preview = `Word document loaded (local): ${file.name}\nSize: ${(file.size / 1024 / 1024).toFixed(2)} MB\nNote: Server conversion failed, using local preview.`;
+        }
       }
       
       // Handle PowerPoint files

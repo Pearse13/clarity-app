@@ -1,36 +1,40 @@
-from fastapi import FastAPI, Request, Response, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, status, Security, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi.security import APIKeyHeader
+from pydantic import BaseModel, Field
+from typing import List, Dict, Optional, Any
 import logging
-from dotenv import load_dotenv
+import time
 import os
+# Import models from the app models file
+from app.models import TransformResponse, TransformationType
 from app.services.openai_service import transform_text_with_gpt
-from app.models import TransformationType
+from app.services.context_service import context_extractor
 from app.core.security import verify_request, key_manager
 from app.core.config import settings
-from app.core.rate_limit import rate_limiter
-from app.core.middleware import SecurityMiddleware
 from app.core.logging import app_logger, security_logger
 from app.core.rate_limit import RateLimiter
+from app.core.middleware import SecurityMiddleware
 from app.core.email import send_verification_email, verify_code
 
 # Load environment variables
+from dotenv import load_dotenv
 load_dotenv()
 
 # Configure logging
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(
     title="Clarity API",
-    description="API for transforming text between different complexity levels",
+    description="API for transforming text with context awareness",
     version="1.0.0"
 )
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=["*"],  # Allow all origins in development
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -42,10 +46,33 @@ app.add_middleware(SecurityMiddleware)
 # Initialize rate limiter
 rate_limiter = RateLimiter()
 
+# API key authentication
+API_KEY = os.getenv("API_KEY", "dev_key")
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+def get_client_host(request: Request) -> str:
+    """Safely get client host with fallback to unknown."""
+    if request and hasattr(request, 'client') and request.client and hasattr(request.client, 'host'):
+        return request.client.host
+    return "unknown"
+
+async def get_api_key(api_key: str = Security(api_key_header)):
+    if not API_KEY:  # Skip validation if no API key is set (dev mode)
+        return True
+    if api_key == API_KEY:
+        return True
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid API Key",
+    )
+
+# Define request models here to avoid conflicts with app.models
 class TransformRequest(BaseModel):
     text: str
-    transformationType: str
+    transformationType: TransformationType
     level: int
+    isLecture: bool = False
+    documentText: Optional[str] = None
 
 class EmailVerificationRequest(BaseModel):
     email: str
@@ -53,12 +80,6 @@ class EmailVerificationRequest(BaseModel):
 class VerifyCodeRequest(BaseModel):
     email: str
     code: str
-
-def get_client_host(request: Request) -> str:
-    """Safely get client host with fallback to unknown."""
-    if request and request.client and hasattr(request.client, 'host'):
-        return request.client.host
-    return "unknown"
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -80,45 +101,46 @@ async def log_requests(request: Request, call_next):
 async def health_check():
     """Health check endpoint"""
     app_logger.info("Health check requested")
-    return {"status": "healthy", "key_rotation_needed": key_manager.should_rotate()}
+    return {"status": "healthy", "key_rotation_needed": key_manager.should_rotate(), "timestamp": time.time()}
 
-@app.post("/transform")
-async def transform(request: Request):
-    """Transform text endpoint with enhanced security"""
-    # Verify request origin
-    authorized = await verify_request(request)
-    if not authorized:
-        security_logger.log_security_event("unauthorized_request", {
-            "client_host": get_client_host(request)
-        })
-        return Response(status_code=403, content="Unauthorized")
-    
-    # Check rate limit
-    rate_limit_info = rate_limiter.check_rate_limit(get_client_host(request), request)
-    if not rate_limit_info[0]:
-        security_logger.log_security_event("rate_limit_exceeded", {
-            "client_host": get_client_host(request),
-            "limit_info": rate_limit_info[1]
-        })
-        return Response(status_code=429, content="Rate limit exceeded")
+@app.post("/transform", response_model=TransformResponse)
+async def transform(request: TransformRequest, authenticated: bool = Depends(get_api_key)):
+    """Transform text based on the provided transformation type and level"""
+    logger.info(f"Received transform request for type={request.transformationType}, level={request.level}")
     
     try:
-        # Get request body
-        data = await request.json()
+        # Extract context if document text is provided
+        context = None
+        if hasattr(request, 'documentText') and request.documentText:
+            context = context_extractor.extract_context(request.documentText, request.text)
+            logger.info(f"Extracted context: {len(context.keys()) if context else 0} elements")
         
-        # Transform text
-        result = await transform_text_with_gpt(
-            data.get("text"),
-            TransformationType(data.get("transformationType")),
-            data.get("level")
+        # Call the OpenAI service to transform the text
+        transformed_text, usage_info = await transform_text_with_gpt(
+            text=request.text, 
+            transform_type=request.transformationType, 
+            level=request.level,
+            is_lecture=request.isLecture if hasattr(request, 'isLecture') else False,
+            context=context
         )
         
-        app_logger.info(f"Successfully transformed text for {get_client_host(request)}")
-        return result
+        # Create the response object
+        response = TransformResponse(
+            transformedText=transformed_text,
+            transformationType=request.transformationType,
+            level=request.level,
+            usage_info=usage_info,
+            context_applied=usage_info.get("context_applied", False)
+        )
+        
+        return response
         
     except Exception as e:
-        app_logger.error(f"Error transforming text: {str(e)}")
-        return Response(status_code=500, content="Internal server error")
+        logger.error(f"Error transforming text: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error transforming text: {str(e)}",
+        )
 
 @app.post("/send-verification")
 async def send_verification(request: EmailVerificationRequest):

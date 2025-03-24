@@ -97,8 +97,12 @@ def create_app() -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(static_dir), html=True), name="static")
 
     # Include routers
-    from app.routers import presentations
+    from app.routers import presentations, documents, chat
     app.include_router(presentations.router)
+    app.include_router(documents.router) 
+    
+    # Include the chat router
+    app.include_router(chat.router)
     
     # Include the transformer router
     app.include_router(transformer_router)

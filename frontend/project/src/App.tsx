@@ -33,27 +33,27 @@ const App: React.FC = () => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen overflow-visible">
-        <nav className="p-4 flex justify-between items-center bg-white shadow-sm border-b-2 border-blue-300">
-          <div className="flex items-center gap-3">
+      <div className="min-h-screen flex flex-col overflow-hidden">
+        <nav className="py-2 px-3 flex justify-between items-center bg-white shadow-sm border-b border-blue-300">
+          <div className="flex items-center gap-2">
             <img 
               src="/clarity-logo.jpg" 
               alt="Clarity Logo" 
-              className="w-8 h-8 object-contain"
+              className="w-7 h-7 object-contain"
             />
             <span className="text-logo font-medium tracking-tight">
               Clarity<span className="text-[0.425rem] align-top ml-1 text-blue-400">© 2025</span>
             </span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {isAuthenticated && (
               <>
                 <div className="flex items-center gap-2">
-                  <span className="text-base text-gray-600">{user?.name || user?.email}</span>
+                  <span className="text-sm text-gray-600">{user?.name || user?.email}</span>
                 </div>
                 <button
                   onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
-                  className="py-2 px-4 text-sm font-medium bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-all"
+                  className="py-1 px-3 text-xs font-medium bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-all"
                 >
                   Logout
                 </button>
@@ -62,25 +62,27 @@ const App: React.FC = () => {
           </div>
         </nav>
 
-        <Routes>
-          <Route path="/" element={
-            isAuthenticated ? <Navigate to="/lecture" replace /> : <TryClarity />
-          } />
-          
-          <Route path="/callback" element={<Callback />} />
-          
-          <Route path="/transform" element={
-            isAuthenticated ? <TransformPage /> : <Navigate to="/" replace />
-          } />
+        <div className="flex-1 overflow-hidden">
+          <Routes>
+            <Route path="/" element={
+              isAuthenticated ? <Navigate to="/lecture" replace /> : <TryClarity />
+            } />
+            
+            <Route path="/callback" element={<Callback />} />
+            
+            <Route path="/transform" element={
+              isAuthenticated ? <TransformPage /> : <Navigate to="/" replace />
+            } />
 
-          <Route path="/lecture" element={
-            isAuthenticated ? <LecturePage /> : <Navigate to="/" replace />
-          } />
-          
-          <Route path="*" element={
-            <Navigate to={isAuthenticated ? '/lecture' : '/'} replace />
-          } />
-        </Routes>
+            <Route path="/lecture" element={
+              isAuthenticated ? <LecturePage /> : <Navigate to="/" replace />
+            } />
+            
+            <Route path="*" element={
+              <Navigate to={isAuthenticated ? '/lecture' : '/'} replace />
+            } />
+          </Routes>
+        </div>
       </div>
     </SidebarProvider>
   );

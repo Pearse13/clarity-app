@@ -1,40 +1,50 @@
-const isDevelopment = import.meta.env.VITE_ENV === 'development';
+// API configuration
+const isDevelopment = import.meta.env.MODE === 'development';
 
-// Force production URL for now to ensure connection to Railway
-export const API_URL = import.meta.env.VITE_PRODUCTION_API_URL || 'https://clarity-backend-production.up.railway.app';
+// API URL is different for development vs. production
+export const API_URL = 'https://clarity-backend-production.up.railway.app';
 
-// Log the API URL being used
-console.log('Using API URL:', API_URL);
+console.log(`Using API URL: ${API_URL}`);
 
+// API endpoints
 export const API_ENDPOINTS = {
-  transform: `${API_URL}/api/transform/v1`,
-  transformer: `${API_URL}/api/transformer/health`
+  transform: `${API_URL}/api/transform`,
+  transformer: `${API_URL}/api/transformer`,
+  upload: `${API_URL}/api/presentations/create`,
+  document: `${API_URL}/api/documents/create`,
+  health: `${API_URL}/health`,
+  chat: {
+    send: `${API_URL}/chat`,
+    health: `${API_URL}/chat/health`
+  }
 };
 
-// Verify the API configuration
-function verifyApiConfig() {
-  const missingVars = [];
+// Verify API configuration
+export function verifyApiConfig(): void {
+  const requiredEnvVars = [
+    'VITE_AUTH0_DOMAIN',
+    'VITE_AUTH0_CLIENT_ID',
+    'VITE_AUTH0_AUDIENCE'
+  ];
   
-  if (!import.meta.env.VITE_API_BASE_URL && isDevelopment) {
-    missingVars.push('VITE_API_BASE_URL');
-    console.warn('Warning: VITE_API_BASE_URL is not defined, using fallback: http://localhost:8000');
-  }
+  const warnings: string[] = [];
   
-  if (!import.meta.env.VITE_PRODUCTION_API_URL && !isDevelopment) {
-    missingVars.push('VITE_PRODUCTION_API_URL');
-    console.warn('Warning: VITE_PRODUCTION_API_URL is not defined, using fallback: https://api.clarity.app');
-  }
-  
-  // Log configuration
-  console.log('API Config:', {
-    apiUrl: API_URL,
-    environment: import.meta.env.VITE_ENV,
-    endpoints: API_ENDPOINTS,
-    missingVars: missingVars.length > 0 ? missingVars : 'None'
+  // Check for missing environment variables
+  requiredEnvVars.forEach(envVar => {
+    if (!import.meta.env[envVar]) {
+      warnings.push(`Missing environment variable: ${envVar}`);
+    }
   });
   
-  return missingVars.length === 0;
-}
-
-// Run verification in all environments
-verifyApiConfig(); 
+  // Log warnings for missing variables
+  if (warnings.length > 0) {
+    console.warn('API Configuration Warnings:', warnings);
+  }
+  
+  // Log current API configuration
+  console.log('API Configuration:', {
+    apiUrl: API_URL,
+    endpoints: API_ENDPOINTS,
+    isDevelopment
+  });
+} 

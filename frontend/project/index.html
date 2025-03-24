@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: http:; connect-src 'self' https://*.auth0.com https://dev-8utndajax3l877vt.us.auth0.com http://localhost:8000 https://clarity-backend-production.up.railway.app http://clarity-backend-production.up.railway.app blob: data: https://cdn.jsdelivr.net https://*.jsdelivr.net https://*.cloudflare.com; font-src 'self' data: https://*.auth0.com https://rsms.me https://*.rsms.me; style-src 'self' 'unsafe-inline' https://*.auth0.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.auth0.com https://cdn.auth0.com https://cdn.jsdelivr.net https://*.cloudflare.com https://cdnjs.cloudflare.com blob: 'wasm-unsafe-eval'; worker-src 'self' blob: https://cdn.jsdelivr.net https://*.cloudflare.com https://cdnjs.cloudflare.com; img-src 'self' data: https://*.auth0.com https://s.gravatar.com blob:; frame-src 'self' http://localhost:8000 https://clarity-backend-production.up.railway.app http://clarity-backend-production.up.railway.app blob: https://*.auth0.com https://dev-8utndajax3l877vt.us.auth0.com https://view.officeapps.live.com https://*.officeapps.live.com https://docs.google.com" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: http:; connect-src 'self' https://*.auth0.com https://dev-8utndajax3l877vt.us.auth0.com http://localhost:8000 https://clarity-backend-production.up.railway.app http://clarity-backend-production.up.railway.app blob: data: https://cdn.jsdelivr.net https://*.jsdelivr.net https://*.cloudflare.com; font-src 'self' data: https://*.auth0.com https://rsms.me https://*.rsms.me; style-src 'self' 'unsafe-inline' https://*.auth0.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.auth0.com https://cdn.auth0.com https://cdn.jsdelivr.net https://*.cloudflare.com https://cdnjs.cloudflare.com https://unpkg.com blob: 'wasm-unsafe-eval'; worker-src 'self' blob: https://cdn.jsdelivr.net https://*.cloudflare.com https://cdnjs.cloudflare.com https://unpkg.com; img-src 'self' data: https://*.auth0.com https://s.gravatar.com blob:; frame-src 'self' http://localhost:8000 https://clarity-backend-production.up.railway.app http://clarity-backend-production.up.railway.app blob: https://*.auth0.com https://dev-8utndajax3l877vt.us.auth0.com https://view.officeapps.live.com https://*.officeapps.live.com https://docs.google.com" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <title>Clarity API - Understand it First</title>
     <style>
@@ -17,8 +17,22 @@
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
+        overscroll-behavior: none;
+      }
+      /* Performance optimizations for smoother animations */
+      .transform-gpu {
+        transform: translateZ(0);
+      }
+      .backface-visibility-hidden {
+        backface-visibility: hidden;
+      }
+      /* Prevent layout thrashing during sidebar transitions */
+      * {
+        box-sizing: border-box;
       }
     </style>
+    <!-- Performance optimization script -->
+    <script src="/performance-optimization.js" defer></script>
   </head>
   <body>
     <div id="root"></div>
