@@ -125,7 +125,19 @@ const TransformPage: React.FC = () => {
       return;
     }
     
-    setError('Unable to process text at the moment. Please try again.');
+    // Try to parse error message if it's JSON
+    try {
+      const errorData = JSON.parse(err.message);
+      if (Array.isArray(errorData)) {
+        // Format validation errors nicely
+        setError(`API validation error: ${errorData.map(e => e.msg || e).join(", ")}`);
+        return;
+      }
+    } catch (e) {
+      // Not JSON, use as is
+    }
+    
+    setError(`Unable to process text: ${err.message}`);
   };
 
   const handleTransform = async () => {
@@ -144,6 +156,17 @@ const TransformPage: React.FC = () => {
       });
 
       console.log("Sending request to transform endpoint...");
+      
+      // Create the payload with both camel case and Pascal case options
+      const payload = {
+        text: inputText,
+        transformationType: transformType, // try lowercase 
+        level: parseInt(transformLevel),
+        isLecture: false
+      };
+      
+      console.log("Request payload:", payload);
+      
       // Use the original transform endpoint that exists in production
       const response = await fetch(`${API_URL}/api/transform`, {
         method: 'POST',
@@ -151,19 +174,17 @@ const TransformPage: React.FC = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          text: inputText,
-          TransformationType: transformType,
-          level: parseInt(transformLevel),
-          isLecture: false
-        })
+        body: JSON.stringify(payload)
       });
 
       console.log("Response received:", response.status);
       const data = await response.json();
-      console.log("Response data:", data);
+      console.log("Response data:", JSON.stringify(data));
       
       if (!response.ok) {
+        if (data && data.detail) {
+          throw new Error(JSON.stringify(data.detail));
+        }
         throw new Error(data.detail || 'Transform request failed');
       }
 
