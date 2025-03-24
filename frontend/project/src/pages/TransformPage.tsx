@@ -45,9 +45,9 @@ const TransformPage: React.FC = () => {
       });
       
       if (response.ok) {
-        // Now test our new transformer endpoint
+        // Test the existing transform endpoint
         try {
-          const transformerResponse = await fetch(`${API_URL}/api/transformer/health`, { 
+          const transformerResponse = await fetch(`${API_URL}/api/transform`, { 
             method: 'GET', 
             headers: { 'Content-Type': 'application/json' } 
           });
@@ -142,8 +142,8 @@ const TransformPage: React.FC = () => {
         }
       });
 
-      // Use the specific transform endpoint
-      const response = await fetch(`${API_URL}/api/transform/v1`, {
+      // Use the original transform endpoint that exists in production
+      const response = await fetch(`${API_URL}/api/transform`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
