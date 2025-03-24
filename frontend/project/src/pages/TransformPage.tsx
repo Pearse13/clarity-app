@@ -188,8 +188,8 @@ const TransformPage: React.FC = () => {
         throw new Error(data.detail || 'Transform request failed');
       }
 
-      setOutputText(data.transformedText);
-      setModelUsed(data.model || null);
+      setOutputText(data.text || data.transformedText || '');
+      setModelUsed(data.model || 'gpt-3.5-turbo');
     } catch (err: any) {
       console.error('Transform error:', err);
       handleError(err);
