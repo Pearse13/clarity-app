@@ -5,22 +5,18 @@ from pathlib import Path
 import logging
 import os
 import shutil
-from .routers import presentations, documents, transform, upload, health, chat
+from datetime import datetime
+
+# Import routers individually to avoid unknown import symbols
+from app.routers import presentations
+from app.routers import documents
+from app.routers import chat
+
 from .models import TransformRequest, TransformResponse, TransformationType
 from .services.openai_service import transform_text_with_gpt, call_openai_api
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List, cast
 from dotenv import load_dotenv
-from app.core.security import verify_request, key_manager
-from app.core.config import settings
-from app.core.rate_limit import rate_limiter
-from app.core.middleware import SecurityMiddleware
-from app.core.logging import app_logger, security_logger
-from app.core.rate_limit import RateLimiter
-from app.core.email import send_verification_email, verify_code
-from openai import AsyncOpenAI
-from openai.types.chat import ChatCompletion
-from datetime import datetime
 import traceback
 
 # Load environment variables
@@ -30,131 +26,86 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
-# Initialize OpenAI client
-client = AsyncOpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    timeout=30.0,
-    max_retries=2
-)
-
 def create_app() -> FastAPI:
+    """Create and configure the FastAPI application."""
     app = FastAPI(
         title="Clarity API",
-        description="API for transforming text between different complexity levels",
+        description="API for the Clarity educational tool",
         version="1.0.0"
     )
-    
-    # Configure CORS with more permissive settings for development
+
+    # Configure CORS
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Allow all origins temporarily for debugging
+        allow_origins=["*"],  # In production, specify the exact origins
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
-        expose_headers=["*"]
     )
     
-    # Add security middleware
-    app.add_middleware(SecurityMiddleware)
-    
-    # Create data directories if they don't exist
-    data_dir = Path("data")
-    static_dir = data_dir / "static"
-    documents_dir = data_dir / "documents"
-    temp_dir = data_dir / "temp"
-    uploads_dir = Path(settings.upload_dir).resolve()
-    
-    for directory in [data_dir, static_dir, documents_dir, temp_dir, uploads_dir]:
-        directory.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Ensured directory exists: {directory}")
-    
-    # Mount static files directory
-    app.mount("/static", StaticFiles(directory="data/static"), name="static")
-    
-    # Mount documents directory for direct file access
-    app.mount("/documents", StaticFiles(directory="data/documents"), name="documents")
-    
-    # Mount the uploads directory for static file serving
-    # This needs to be before the router inclusion
-    logger.info(f"Upload directory for static serving: {uploads_dir}")
-    app.mount("/api/presentations/documents", StaticFiles(directory=str(uploads_dir), html=True), name="presentations_documents")
-    
-    # Mount the same upload directory for document files
-    app.mount("/api/documents/file", StaticFiles(directory=str(uploads_dir), html=True), name="word_documents")
-    
-    # Add detailed logging for directory structure
-    logger.info("Directory structure for uploads:")
+    # Configure static file serving
+    static_dir = Path("data/static")
+    static_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+    # Include routers with proper error handling
     try:
-        for root, dirs, files in os.walk(uploads_dir):
-            relative_path = os.path.relpath(root, uploads_dir)
-            logger.info(f"Directory: {relative_path if relative_path != '.' else '/'}")
-            for f in files:
-                logger.info(f"  File: {f}")
+        app.include_router(presentations.router)
+        logger.info("Presentations router included")
     except Exception as e:
-        logger.error(f"Error walking upload directory: {str(e)}")
-    
-    # Include routers
-    app.include_router(presentations.router)
-    app.include_router(documents.router)
-    app.include_router(transform.router)
-    app.include_router(upload.router)
-    app.include_router(health.router)
-    app.include_router(chat.router)
-    
+        logger.error(f"Error including presentations router: {str(e)}")
+
+    try:
+        app.include_router(documents.router)
+        logger.info("Documents router included")
+    except Exception as e:
+        logger.error(f"Error including documents router: {str(e)}")
+
+    try:
+        app.include_router(chat.router)
+        logger.info("Chat router included")
+    except Exception as e:
+        logger.error(f"Error including chat router: {str(e)}")
+
     return app
 
+# Create the application instance
 app = create_app()
 
 # Add global exception handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled exception: {str(exc)}")
+    logger.error(f"Exception type: {type(exc)}")
+    logger.error(f"Traceback: {traceback.format_exc()}")
     return Response(
         status_code=500,
-        content=f"Internal Server Error: An unexpected error occurred. Please try again later.",
+        content="Internal Server Error: An unexpected error occurred. Please try again later.",
         media_type="text/plain"
     )
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     logger.info(f"Incoming request: {request.method} {request.url}")
-    logger.info(f"Client host: {get_client_host(request)}")
-    logger.info(f"Headers: {dict(request.headers)}")
     response = await call_next(request)
     return response
 
 @app.get("/")
 async def root():
-    try:
-        # Simple response that doesn't depend on any external services
-        return {
-            "name": "Clarity API",
-            "status": "running",
-            "version": "1.0.0",
-            "documentation": "/docs",
-            "health": "/health",
-            "timestamp": str(datetime.now())
-        }
-    except Exception as e:
-        logger.error(f"Error in root endpoint: {str(e)}")
-        # Return a simple response even if there's an error
-        return {"status": "running"}
+    """Root endpoint for API status check"""
+    return {
+        "status": "running",
+        "version": "1.0.0",
+        "documentation": "/docs"
+    }
 
 @app.get("/health")
 async def health_check():
-    try:
-        # Simple health check that doesn't depend on external services
-        return {
-            "status": "healthy",
-            "timestamp": str(datetime.now())
-        }
-    except Exception as e:
-        logger.error(f"Health check error: {str(e)}")
-        # Always return a response even if there's an error
-        return {
-            "status": "responding",
-            "error": str(e)
-        }
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "timestamp": str(datetime.now())
+    }
 
 class EmailVerificationRequest(BaseModel):
     email: str
@@ -194,7 +145,6 @@ async def transform_text(request: TransformRequest):
             return result
             
         except HTTPException as e:
-            # Re-raise HTTP exceptions from the service
             logger.error(f"HTTP Exception in transform: {e.status_code} - {e.detail}")
             raise
         except Exception as e:
@@ -207,7 +157,6 @@ async def transform_text(request: TransformRequest):
             )
             
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
@@ -217,97 +166,7 @@ async def transform_text(request: TransformRequest):
             detail="An unexpected error occurred"
         )
 
-def get_client_host(request: Request) -> str:
-    """Safely get client host with fallback to unknown."""
-    if request and request.client and hasattr(request.client, 'host'):
-        return request.client.host
-    return "unknown"
-
-@app.post("/test-openai")
-async def test_openai_connection():
-    """Test OpenAI API connection with both models"""
-    try:
-        logger.info("Testing OpenAI connection with both models...")
-        
-        # Test GPT-3.5
-        gpt35_response = await client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a test assistant."},
-                {"role": "user", "content": "Respond with 'GPT-3.5 connection successful!' if you receive this message."}
-            ],
-            temperature=0.7
-        )
-        
-        # Test GPT-4
-        gpt4_response = await client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are a test assistant."},
-                {"role": "user", "content": "Respond with 'GPT-4 connection successful!' if you receive this message."}
-            ],
-            temperature=0.7
-        )
-        
-        logger.info("OpenAI test successful for both models")
-        
-        # Safely get response content and usage data
-        gpt35_content = gpt35_response.choices[0].message.content if gpt35_response.choices else ""
-        gpt4_content = gpt4_response.choices[0].message.content if gpt4_response.choices else ""
-        
-        gpt35_usage = gpt35_response.usage.model_dump() if gpt35_response.usage else {}
-        gpt4_usage = gpt4_response.usage.model_dump() if gpt4_response.usage else {}
-        
-        return {
-            "status": "success",
-            "message": "OpenAI connection test successful for both models",
-            "gpt35": {
-                "model": "gpt-3.5-turbo",
-                "response": gpt35_content,
-                "usage": gpt35_usage
-            },
-            "gpt4": {
-                "model": "gpt-4",
-                "response": gpt4_content,
-                "usage": gpt4_usage
-            }
-        }
-    except Exception as e:
-        logger.error(f"OpenAI test failed: {str(e)}")
-        if hasattr(e, '__cause__'):
-            logger.error(f"Caused by: {str(e.__cause__)}")
-        raise HTTPException(status_code=500, detail=f"OpenAI test failed: {str(e)}")
-
-# Log startup information
-@app.on_event("startup")
-async def startup_event():
-    logger.info("Starting up application...")
-    
-    # Create necessary directories
-    directories = [
-        settings.upload_dir,
-        settings.temp_dir,
-        Path(settings.documents_dir)  # Convert to Path object
-    ]
-    
-    for directory in directories:
-        directory = Path(directory)  # Ensure Path object
-        directory.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Created directory: {directory}")
-
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # Ensure upload directory exists
-upload_dir = Path("/app/app/data/uploads")
+upload_dir = Path("data/uploads")
 upload_dir.mkdir(parents=True, exist_ok=True)
 logger.info(f"Upload directory initialized at: {upload_dir}")
-
-# Include routers
-app.include_router(presentations.router)

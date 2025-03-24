@@ -21,15 +21,17 @@ class AnthropicService:
     
     def __init__(self):
         """Initialize the Anthropic service with API configuration"""
-        self.api_key = os.getenv("ANTHROPIC_API_KEY", "")
+        # Check both environment variable names for compatibility
+        self.api_key = os.getenv("anthropic-secret-key") or os.getenv("ANTHROPIC_API_KEY", "")
         self.api_url = "https://api.anthropic.com/v1/messages"
-        self.model = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20240620")
+        self.model = os.getenv("ANTHROPIC_MODEL", "claude-3-sonnet-20240229")
         
         # Log configuration status
         if not self.api_key:
-            logger.warning("ANTHROPIC_API_KEY not set. Chat functionality will be limited.")
+            logger.warning("Neither anthropic-secret-key nor ANTHROPIC_API_KEY is set. Chat functionality will be limited.")
         else:
             logger.info(f"Anthropic service initialized with model: {self.model}")
+            logger.debug("API key found with length: %d", len(self.api_key))
     
     def health_check(self) -> bool:
         """
@@ -39,6 +41,7 @@ class AnthropicService:
             bool: True if the service is operational, False otherwise
         """
         if not self.api_key:
+            logger.error("No API key found")
             return False
             
         try:
@@ -53,6 +56,7 @@ class AnthropicService:
                     headers=headers
                 )
                 
+            logger.info(f"Health check response status: {response.status_code}")
             return response.status_code == 200
         except Exception as e:
             logger.error(f"Error checking Anthropic API health: {str(e)}")

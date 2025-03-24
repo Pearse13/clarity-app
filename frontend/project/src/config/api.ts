@@ -14,8 +14,8 @@ export const API_ENDPOINTS = {
   document: `${API_URL}/api/documents/create`,
   health: `${API_URL}/health`,
   chat: {
-    send: `${API_URL}/chat`,
-    health: `${API_URL}/chat/health`
+    send: `${API_URL}/api/chat`,
+    health: `${API_URL}/api/chat/health`
   }
 };
 

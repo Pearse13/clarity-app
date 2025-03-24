@@ -14,6 +14,7 @@ const PrimarySidebar: React.FC = memo(() => {
   const { isOpen, setOpen } = useSidebar();
   const sidebarRef = useRef<HTMLDivElement>(null);
   const isTouch = isTouchDevice();
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const isActive = (path: string) => location.pathname === path;
 
@@ -56,8 +57,30 @@ const PrimarySidebar: React.FC = memo(() => {
       } else {
         document.removeEventListener('mouseleave', handleMouseLeave);
       }
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
     };
   }, [setOpen, isTouch]);
+
+  const handleMouseEnter = () => {
+    if (!isTouch) {
+      // Clear any pending timeout
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+      setOpen(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (!isTouch) {
+      // Close almost immediately on mouse leave
+      hoverTimeoutRef.current = setTimeout(() => {
+        setOpen(false);
+      }, 30); // Reduced from 100ms to 30ms for faster response
+    }
+  };
 
   const navItems = [
     {
@@ -86,9 +109,13 @@ const PrimarySidebar: React.FC = memo(() => {
       className={`fixed md:relative h-screen bg-white border-r border-gray-200
                  transition-all will-change-transform backface-visibility-hidden transform-gpu
                  duration-150 ease-out z-10 overflow-hidden ${isOpen ? 'w-72' : 'w-16'}`}
-      style={{ willChange: 'width' }}
-      onMouseEnter={!isTouch ? () => setOpen(true) : undefined}
-      onMouseLeave={!isTouch ? () => setOpen(false) : undefined}
+      style={{ 
+        willChange: 'width',
+        transform: 'translateZ(0)', // Force GPU acceleration
+        backfaceVisibility: 'hidden'
+      }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       onTouchStart={isTouch ? () => setOpen(true) : undefined}
     >
       <div className="p-4 h-full overflow-y-auto">

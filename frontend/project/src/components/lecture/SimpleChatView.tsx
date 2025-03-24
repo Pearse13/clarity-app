@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import SimpleChatInput from './SimpleChatInput';
-import { API_ENDPOINTS, API_URL } from '../../config/api';
+import { API_ENDPOINTS } from '../../config/api';
 import LoadingSpinner from '../LoadingSpinner';
 
 interface SimpleChatViewProps {
@@ -63,67 +63,41 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
     setError(null);
     
     try {
-      setApiStatus('untested');
+      const token = await getAccessTokenSilently({
+        authorizationParams: {
+          audience: import.meta.env.VITE_AUTH0_AUDIENCE,
+          scope: 'openid profile email offline_access'
+        }
+      });
+      
       console.log("Testing API connection to:", API_ENDPOINTS.chat.health);
       
-      try {
-        const token = await getAccessTokenSilently({
-          authorizationParams: {
-            audience: import.meta.env.VITE_AUTH0_AUDIENCE,
-            scope: 'openid profile email offline_access'
-          }
-        });
+      const response = await fetch(API_ENDPOINTS.chat.health, { 
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      console.log("API health check response:", response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log("API health data:", data);
         
-        console.log("Testing API connection to:", API_ENDPOINTS.chat.health);
-        
-        const response = await fetch(API_ENDPOINTS.chat.health, { 
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        console.log("API health check response:", response.status);
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log("API health data:", data);
-          
-          if (data.status === "healthy") {
-            setApiStatus('available');
-            console.log("Chat API is available");
-          } else {
-            setApiStatus('unavailable');
-            console.log("Chat API is unavailable:", data);
-          }
+        if (data.status === "healthy") {
+          setApiStatus('available');
+          console.log("Chat API is available");
         } else {
           setApiStatus('unavailable');
-          console.log("Chat API health check failed:", response.status);
+          console.log("Chat API is unavailable:", data);
         }
-      } catch (authOrFetchErr: any) {
-        console.error("API connection test error:", authOrFetchErr);
-        
-        // Try without authentication as a fallback
-        console.log("Trying API connection without authentication...");
-        try {
-          const fallbackResponse = await fetch(`${API_URL}/health`);
-          
-          if (fallbackResponse.ok) {
-            console.log("Main API health endpoint is available, but chat API might require auth");
-            setApiStatus('unavailable');
-            setError(`Authentication or endpoint issue. Main API is up.`);
-          } else {
-            setApiStatus('unavailable');
-          }
-        } catch (fallbackErr: any) {
-          console.error("Fallback API test failed:", fallbackErr);
-          setApiStatus('unavailable');
-          setError(`API unreachable. Railway deployment may need update.`);
-        }
+      } else {
+        setApiStatus('unavailable');
+        console.log("Chat API health check failed:", response.status);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error("API connection test error:", err);
       setApiStatus('unavailable');
-      setError(`API connection error: ${err.message}`);
     } finally {
       setIsApiTesting(false);
     }
@@ -325,26 +299,9 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
               Ask questions about your lecture document!
             </p>
             {apiStatus === 'unavailable' && (
-              <div className="text-center mt-4 max-w-md">
-                <p className="text-amber-500 font-medium">
-                  API connection unavailable
-                </p>
-                <p className="text-sm mt-2 text-gray-600">
-                  The backend needs to be deployed to Railway. To deploy:
-                </p>
-                <ol className="text-left text-sm mt-2 space-y-2 text-gray-600">
-                  <li>1. Make sure your code changes are committed to Git</li>
-                  <li>2. Push your changes to the connected GitHub repository</li>
-                  <li>3. Railway will automatically detect and deploy your changes</li>
-                  <li>4. Ensure your Anthropic API key is set in Railway environment variables</li>
-                </ol>
-                <button
-                  onClick={testApiConnection}
-                  className="mt-4 px-4 py-2 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-colors"
-                >
-                  Check Connection Again
-                </button>
-              </div>
+              <p className="text-center text-amber-500 mt-2 max-w-md text-sm">
+                Note: API connection unavailable. Make sure you have configured your Anthropic API key in Railway.
+              </p>
             )}
           </div>
         )}

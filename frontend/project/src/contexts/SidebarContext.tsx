@@ -14,17 +14,18 @@ interface SidebarContextType {
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Start with sidebar closed on touch devices
+  // Start with sidebar closed on all devices
   const isTouch = isTouchDevice();
-  const [isOpen, setIsOpen] = useState(!isTouch);
+  const [isOpen, setIsOpen] = useState(false);
   const isTransitioning = useRef(false);
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Improved debounce for sidebar open/close with touch optimization
   const setOpenWithDebounce = useCallback((open: boolean) => {
     if (isTransitioning.current) return;
     
-    // Clear any pending close timeout
+    // Clear any pending timeouts
     if (closeTimeoutRef.current) {
       clearTimeout(closeTimeoutRef.current);
       closeTimeoutRef.current = null;
@@ -38,25 +39,16 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Reset transition lock after animation completes
       setTimeout(() => {
         isTransitioning.current = false;
-      }, 150);
+      }, 100);
     } else {
-      // For touch devices, close immediately to feel more responsive
-      if (isTouch) {
-        isTransitioning.current = true;
+      // For touch devices or desktop, close quickly
+      isTransitioning.current = true;
+      closeTimeoutRef.current = setTimeout(() => {
         setIsOpen(false);
         setTimeout(() => {
           isTransitioning.current = false;
-        }, 150);
-      } else {
-        // For desktop, use a short delay to prevent accidental closing
-        isTransitioning.current = true;
-        closeTimeoutRef.current = setTimeout(() => {
-          setIsOpen(false);
-          setTimeout(() => {
-            isTransitioning.current = false;
-          }, 150);
         }, 100);
-      }
+      }, 50);
     }
   }, [isTouch]);
   
@@ -73,17 +65,27 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (closeTimeoutRef.current) {
         clearTimeout(closeTimeoutRef.current);
       }
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
     };
   }, []);
   
   // Add event listener for window resize to manage sidebar state
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < 768 && isOpen) {
-        setIsOpen(false);
-      } else if (window.innerWidth >= 1024 && !isOpen) {
-        setIsOpen(true);
+      // Clear any pending resize timeout
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
       }
+      
+      // Debounce resize handling
+      resizeTimeoutRef.current = setTimeout(() => {
+        // Only close on mobile, don't auto-open
+        if (window.innerWidth < 768 && isOpen) {
+          setIsOpen(false);
+        }
+      }, 100);
     };
     
     // Add event listener for visibility change
