@@ -5,11 +5,15 @@ import logging
 from logging.handlers import RotatingFileHandler
 import sentry_sdk
 import re
-
-# Add parent directory to Python path for proper imports
-root_dir = Path(__file__).parent.parent
-sys.path.append(str(root_dir))
-
+from typing import Literal, List, Dict, DefaultDict, Optional, Any, Mapping, cast
+from collections import defaultdict
+import asyncio
+import traceback  # Add traceback import
+import time
+from datetime import datetime, timedelta
+from app.services.openai_service import transform_text_with_gpt
+from pydantic import BaseModel
+from openai import AsyncOpenAI
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.requests import Request
@@ -23,14 +27,11 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 import base64
-from pydantic import BaseModel
-from openai import AsyncOpenAI
-import time
-from datetime import datetime, timedelta
-from typing import Literal, List, Dict, DefaultDict, Optional, Any, Mapping, cast
-from collections import defaultdict
-import asyncio
-from app.services.openai_service import transform_text_with_gpt
+from enum import Enum
+
+# Add parent directory to Python path for proper imports
+root_dir = Path(__file__).parent.parent
+sys.path.append(str(root_dir))
 
 # Set up logging
 log_directory = "logs"
@@ -73,17 +74,22 @@ AUTH0_CLIENT_ID = os.getenv('AUTH0_CLIENT_ID', '')
 AUTH0_CALLBACK_URL = os.getenv('AUTH0_CALLBACK_URL', '')
 
 def create_app() -> FastAPI:
-    app = FastAPI()
-    
+    """Create and configure the FastAPI application."""
+    app = FastAPI(
+        title="Clarity API",
+        description="API for the Clarity educational tool",
+        version="1.0.0"
+    )
+
     # Configure CORS
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=["*"],  # In production, specify the exact origins
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
+    
     # Configure static file serving with absolute path
     from fastapi.staticfiles import StaticFiles
     static_dir = Path(__file__).parent / "static"
@@ -93,7 +99,10 @@ def create_app() -> FastAPI:
     # Include routers
     from app.routers import presentations
     app.include_router(presentations.router)
-
+    
+    # Include the transformer router
+    app.include_router(transformer_router)
+    
     return app
 
 # Create the app instance for direct usage
@@ -105,11 +114,32 @@ def get_application() -> FastAPI:
     app = create_app()
     return app
 
-class TransformRequest(BaseModel):
+class MainTransformationType(str, Enum):
+    SIMPLIFY = "simplify"
+    SOPHISTICATE = "sophisticate"
+    CASUALISE = "casualise"
+    FORMALISE = "formalise"
+
+class MainTransformRequest(BaseModel):
     text: str
-    transformationType: Literal["simplify", "sophisticate", "casualise"]
+    transformationType: MainTransformationType
     level: int
-    isLecture: bool = False  # New field to identify lecture requests
+    isLecture: bool = False
+    documentText: Optional[str] = None
+
+class MainTransformResponse(BaseModel):
+    transformedText: str
+    transformationType: MainTransformationType
+    level: int
+    model: str
+    usage: Dict[str, Any]
+
+try:
+    # Try to import from text_transformer_api, but don't mix types
+    from text_transformer_api import router as transformer_router  
+    print("Successfully imported transformer_router")
+except Exception as e:
+    print(f"Error importing transformer_router: {e}")
 
 # Verify OpenAI API key is set
 if not os.getenv("OPENAI_API_KEY"):
@@ -300,7 +330,7 @@ def get_model_for_transformation(transformation_type: str, level: int) -> str:
     return "gpt-4"
 
 @app.post("/transformText")
-async def transform_text(request: TransformRequest, token_payload: dict = Depends(verify_token)):
+async def transform_text(request: MainTransformRequest, token_payload: dict = Depends(verify_token)):
     start_time = time.time()
     
     # Get user ID from token with default value
@@ -541,6 +571,106 @@ async def logout():
         httponly=True
     )
     return response
+
+# Add direct route implementations in case the router isn't properly included
+app = FastAPI()  # This will be overridden by create_app, but we need it for the route decorators
+
+@app.post("/api/transformer", response_model=MainTransformResponse)
+async def direct_transform_text(request: MainTransformRequest):
+    """Fallback direct implementation of transform_text"""
+    # Simple model selection based on level
+    model = "gpt-3.5-turbo" if request.level <= 2 else "gpt-4"
+    
+    try:
+        if not request.text:
+            logging.warning("Transform request with empty text")
+            raise HTTPException(status_code=400, detail="Text cannot be empty")
+        
+        if len(request.text) > 250:
+            logging.warning(f"Text exceeds character limit: {len(request.text)}")
+            raise HTTPException(status_code=400, detail="Text exceeds maximum length of 250 characters")
+        
+        logging.info(f"Direct transform request - Type: {request.transformationType}, Level: {request.level}")
+        
+        client = AsyncOpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+        
+        # Create system message based on transformation type and level
+        system_message = "You are a helpful assistant that transforms text. "
+        
+        if request.transformationType == MainTransformationType.SIMPLIFY:
+            system_message += f"Simplify the text to a level {request.level} (1=elementary, 5=high school). Maintain key information while making it easier to understand."
+        elif request.transformationType == MainTransformationType.SOPHISTICATE:
+            system_message += f"Make the text more sophisticated to level {request.level} (1=professional, 5=academic expert). Enhance vocabulary and complexity while maintaining clarity."
+        elif request.transformationType == MainTransformationType.CASUALISE:
+            system_message += f"Make the text more casual to level {request.level} (1=friendly, 5=very informal). Maintain meaning while making it more conversational."
+        else:  # formalise
+            system_message += f"Make the text more formal to level {request.level} (1=basic professional, 5=diplomatic/governmental). Enhance the formality while maintaining the core message."
+            
+        # Prepare messages with proper type annotations
+        from openai.types.chat import ChatCompletionSystemMessageParam, ChatCompletionUserMessageParam
+        
+        messages = [
+            ChatCompletionSystemMessageParam(role="system", content=system_message),
+            ChatCompletionUserMessageParam(role="user", content=request.text)
+        ]
+        
+        # Send request to OpenAI
+        response = await client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=0.7,
+            max_tokens=1000,
+            top_p=1.0,
+            frequency_penalty=0.0,
+            presence_penalty=0.0
+        )
+        
+        # Extract response data
+        transformed_text = response.choices[0].message.content if response.choices else ""
+        usage_data = response.usage.model_dump() if response.usage else {}
+        
+        result = {
+            "transformedText": transformed_text,
+            "transformationType": request.transformationType,
+            "level": request.level,
+            "model": model,
+            "usage": usage_data
+        }
+        
+        logging.info("Direct transform complete")
+        return result
+            
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        logging.error(f"Error in direct transform: {str(e)}")
+        logging.error(f"Error details: {type(e).__name__}")
+        logging.error(f"Stack trace: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error transforming text: {str(e)}"
+        )
+
+@app.get("/api/transformer")
+async def direct_transformer_health_check():
+    """Direct health check endpoint for the transformer API"""
+    try:
+        logging.info("Direct transformer health check requested")
+        return {
+            "status": "ok",
+            "message": "Transformer API is running (direct implementation)",
+            "models": {
+                "gpt-3.5-turbo": "Available for levels 1-2",
+                "gpt-4": "Available for levels 3-5"
+            }
+        }
+    except Exception as e:
+        logging.error(f"Health check error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Transformer health check failed: {str(e)}"
+        )
 
 # Make sure app is defined at module level
 __all__ = ['app']
