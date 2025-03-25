@@ -22,7 +22,7 @@ class AnthropicService:
     def __init__(self):
         """Initialize the Anthropic service with API configuration"""
         # Set model first
-        self.model = "claude-3-sonnet-20240307"  # Updated to correct model name
+        self.model = "claude-3-sonnet-20240307"  # Keep existing model name until we confirm the issue
         self.api_url = "https://api.anthropic.com/v1/messages"
         self.api_version = "2024-02-01"  # Updated API version for Claude 3
         
@@ -52,6 +52,9 @@ class AnthropicService:
                 "content-type": "application/json"
             }
             
+            logger.info(f"Attempting health check with API version: {self.api_version}")
+            logger.debug(f"Request headers: {headers}")
+            
             with httpx.Client(timeout=5.0) as client:
                 response = client.get(
                     "https://api.anthropic.com/v1/models",
@@ -59,12 +62,24 @@ class AnthropicService:
                 )
                 
             logger.info(f"Health check response status: {response.status_code}")
+            
+            try:
+                response_data = response.json()
+                logger.info(f"Health check response data: {json.dumps(response_data, indent=2)}")
+            except json.JSONDecodeError:
+                logger.error(f"Failed to parse response as JSON. Raw response: {response.text}")
+            
             if response.status_code != 200:
-                logger.error(f"Health check failed with status {response.status_code}: {response.text}")
+                logger.error(f"Health check failed with status {response.status_code}")
+                logger.error(f"Response headers: {dict(response.headers)}")
+                logger.error(f"Response body: {response.text}")
                 return False
+                
             return True
         except Exception as e:
             logger.error(f"Error checking Anthropic API health: {str(e)}")
+            logger.error(f"Error type: {type(e).__name__}")
+            logger.error(f"Error details: {str(e)}")
             return False
     
     async def chat_completion(
@@ -109,23 +124,17 @@ class AnthropicService:
                 system_prompt += "\n\nThe user has specifically selected this text to ask about:"
                 system_prompt += f"\n\n{selected_text}"
             
-            # Prepare the request payload for Claude 3
-            messages = [
-                {
-                    "role": "user",
-                    "content": message
-                }
-            ]
-            
+            # Prepare the request payload
             payload = {
                 "model": self.model,
-                "messages": messages,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": message
+                    }
+                ],
                 "system": system_prompt,
-                "max_tokens": 1000,
-                "temperature": 0.7,
-                "metadata": {
-                    "source": "clarity-lectures"
-                }
+                "max_tokens": 1000
             }
             
             headers = {
