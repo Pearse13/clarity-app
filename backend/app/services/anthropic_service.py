@@ -21,17 +21,16 @@ class AnthropicService:
     
     def __init__(self):
         """Initialize the Anthropic service with API configuration"""
-        # Check both environment variable names for compatibility
-        self.api_key = os.getenv("anthropic-secret-key") or os.getenv("ANTHROPIC_API_KEY", "")
-        self.api_url = "https://api.anthropic.com/v1/messages"
-        self.model = os.getenv("ANTHROPIC_MODEL", "claude-3-sonnet-20240229")
-        
-        # Log configuration status
+        # Check for API key in environment variables
+        self.api_key = os.getenv("ANTHROPIC_API_KEY", "")
         if not self.api_key:
-            logger.warning("Neither anthropic-secret-key nor ANTHROPIC_API_KEY is set. Chat functionality will be limited.")
+            logger.warning("ANTHROPIC_API_KEY is not set. Chat functionality will be limited.")
         else:
             logger.info(f"Anthropic service initialized with model: {self.model}")
             logger.debug("API key found with length: %d", len(self.api_key))
+
+        self.api_url = "https://api.anthropic.com/v1/messages"
+        self.model = "claude-3-sonnet-20240229"  # Hardcode the correct model name
     
     def health_check(self) -> bool:
         """
@@ -47,7 +46,8 @@ class AnthropicService:
         try:
             headers = {
                 "x-api-key": self.api_key,
-                "anthropic-version": "2023-06-01"
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json"
             }
             
             with httpx.Client(timeout=5.0) as client:
@@ -57,7 +57,10 @@ class AnthropicService:
                 )
                 
             logger.info(f"Health check response status: {response.status_code}")
-            return response.status_code == 200
+            if response.status_code != 200:
+                logger.error(f"Health check failed with status {response.status_code}: {response.text}")
+                return False
+            return True
         except Exception as e:
             logger.error(f"Error checking Anthropic API health: {str(e)}")
             return False
@@ -107,16 +110,19 @@ class AnthropicService:
             # Prepare the request payload
             payload = {
                 "model": self.model,
-                "system": system_prompt,
                 "messages": [
-                    {"role": "user", "content": message}
+                    {
+                        "role": "user",
+                        "content": message
+                    }
                 ],
+                "system": system_prompt,
                 "max_tokens": 1000
             }
             
             headers = {
-                "anthropic-version": "2023-06-01",
                 "x-api-key": self.api_key,
+                "anthropic-version": "2023-06-01",
                 "content-type": "application/json"
             }
             
@@ -141,21 +147,19 @@ class AnthropicService:
                     "usage": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
                 }
             
-            # Extract the response message
-            assistant_message = response_data.get("content", [{"text": "No response received"}])[0]["text"]
-            
-            # Extract usage information
-            usage = {
-                "input_tokens": response_data.get("usage", {}).get("input_tokens", 0),
-                "output_tokens": response_data.get("usage", {}).get("output_tokens", 0),
-                "total_tokens": response_data.get("usage", {}).get("total_tokens", 0)
-            }
+            # Extract the response message and usage information
+            content = response_data.get("content", [{"text": "No response received"}])[0].get("text", "No response received")
+            usage = response_data.get("usage", {})
             
             return {
                 "success": True,
-                "message": assistant_message,
+                "message": content,
                 "model": response_data.get("model", self.model),
-                "usage": usage
+                "usage": {
+                    "input_tokens": usage.get("input_tokens", 0),
+                    "output_tokens": usage.get("completion_tokens", 0),
+                    "total_tokens": usage.get("total_tokens", 0)
+                }
             }
             
         except Exception as e:
