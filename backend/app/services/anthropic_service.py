@@ -24,7 +24,7 @@ class AnthropicService:
         # Set model first
         self.model = "claude-3-sonnet-20240307"  # Keep existing model name until we confirm the issue
         self.api_url = "https://api.anthropic.com/v1/messages"
-        self.api_version = "2024-02-01"  # Updated API version for Claude 3
+        self.api_version = "2023-06-01"  # Using the stable API version
         
         # Check for API key in environment variables
         self.api_key = os.getenv("ANTHROPIC_API_KEY", "")
