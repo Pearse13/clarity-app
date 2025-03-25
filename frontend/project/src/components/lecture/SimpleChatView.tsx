@@ -130,7 +130,7 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
       
       // Prepare the request payload
       const payload = {
-        message: message,
+        message,
         document_text: documentText || undefined,
         selected_text: associatedSelectedText || undefined
       };
@@ -150,7 +150,8 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/json'
             },
             body: JSON.stringify(payload)
           });
@@ -158,7 +159,8 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
           console.log("Chat API response status:", response.status);
           
           if (!response.ok) {
-            const errorData = await response.json();
+            const errorData = await response.json().catch(() => ({}));
+            console.error("Error response:", errorData);
             throw new Error(errorData.detail || `Chat request failed with status ${response.status}`);
           }
           
@@ -181,7 +183,7 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
             ...prev,
             { 
               type: 'assistant', 
-              content: `Error: ${apiError.message || "Failed to get response from API"}\n\nPlease try again or check if the Anthropic API is configured correctly.` 
+              content: `Error: ${apiError.message || "Failed to get response from API"}\n\nPlease try again or check if the API is configured correctly.` 
             }
           ]);
           
