@@ -21,6 +21,10 @@ class AnthropicService:
     
     def __init__(self):
         """Initialize the Anthropic service with API configuration"""
+        # Set model first
+        self.model = "claude-3-sonnet-20240229"  # Hardcode the correct model name
+        self.api_url = "https://api.anthropic.com/v1/messages"
+        
         # Check for API key in environment variables
         self.api_key = os.getenv("ANTHROPIC_API_KEY", "")
         if not self.api_key:
@@ -28,9 +32,6 @@ class AnthropicService:
         else:
             logger.info(f"Anthropic service initialized with model: {self.model}")
             logger.debug("API key found with length: %d", len(self.api_key))
-
-        self.api_url = "https://api.anthropic.com/v1/messages"
-        self.model = "claude-3-sonnet-20240229"  # Hardcode the correct model name
     
     def health_check(self) -> bool:
         """
