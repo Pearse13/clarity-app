@@ -22,7 +22,7 @@ class AnthropicService:
     def __init__(self):
         """Initialize the Anthropic service with API configuration"""
         # Set model first
-        self.model = "claude-3-sonnet-20240229"  # Hardcode the correct model name
+        self.model = "claude-3-sonnet-20240307"  # Updated to correct model name
         self.api_url = "https://api.anthropic.com/v1/messages"
         
         # Check for API key in environment variables
