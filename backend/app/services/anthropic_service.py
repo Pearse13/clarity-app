@@ -109,17 +109,23 @@ class AnthropicService:
                 system_prompt += "\n\nThe user has specifically selected this text to ask about:"
                 system_prompt += f"\n\n{selected_text}"
             
-            # Prepare the request payload
+            # Prepare the request payload for Claude 3
+            messages = [
+                {
+                    "role": "user",
+                    "content": message
+                }
+            ]
+            
             payload = {
                 "model": self.model,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": message
-                    }
-                ],
+                "messages": messages,
                 "system": system_prompt,
-                "max_tokens": 1000
+                "max_tokens": 1000,
+                "temperature": 0.7,
+                "metadata": {
+                    "source": "clarity-lectures"
+                }
             }
             
             headers = {
