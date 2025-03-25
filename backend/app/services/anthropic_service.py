@@ -24,6 +24,7 @@ class AnthropicService:
         # Set model first
         self.model = "claude-3-sonnet-20240307"  # Updated to correct model name
         self.api_url = "https://api.anthropic.com/v1/messages"
+        self.api_version = "2024-02-01"  # Updated API version for Claude 3
         
         # Check for API key in environment variables
         self.api_key = os.getenv("ANTHROPIC_API_KEY", "")
@@ -47,7 +48,7 @@ class AnthropicService:
         try:
             headers = {
                 "x-api-key": self.api_key,
-                "anthropic-version": "2023-06-01",
+                "anthropic-version": self.api_version,
                 "content-type": "application/json"
             }
             
@@ -123,7 +124,7 @@ class AnthropicService:
             
             headers = {
                 "x-api-key": self.api_key,
-                "anthropic-version": "2023-06-01",
+                "anthropic-version": self.api_version,
                 "content-type": "application/json"
             }
             
