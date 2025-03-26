@@ -1,12 +1,11 @@
 import React, { useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import { Upload, AlertCircle, RefreshCw, ChevronLeft, ChevronRight, Download, ZoomIn, ZoomOut } from 'lucide-react';
+import { Upload } from 'lucide-react';
 import { PDFViewer } from '../pdf/PDFViewer';
 import { PowerPointViewer } from '../powerpoint/PowerPointViewer';
 import { WordViewer } from '../word/WordViewer';
 
 // Debug log for environment variables
 console.log('Environment variables:', {
-  VITE_ENV: import.meta.env.VITE_ENV,
   VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
   VITE_PRODUCTION_API_URL: import.meta.env.VITE_PRODUCTION_API_URL
 });
@@ -17,6 +16,8 @@ type PresentationViewerProps = {
   onDocumentTextExtracted?: (text: string | null) => void;
   className?: string;
   onReset?: () => void;
+  isMinimized?: boolean;
+  activeTab?: 'understand' | 'chat' | 'create';
 };
 
 type ApiHealth = {
@@ -76,11 +77,21 @@ const SUPPORTED_FILE_TYPES = {
   '.pdf': 'PDF'
 };
 
+// Update the label element's type definition
+type LabelProps = React.LabelHTMLAttributes<HTMLLabelElement>;
+
 // Export the component with forwardRef to allow parent components to access its methods
 export const PresentationViewer = forwardRef<
   { resetPresentation: () => void },
   PresentationViewerProps
->(({ onTextSelect, onDocumentTextExtracted, className = '', onReset }, ref) => {
+>(({ 
+  onTextSelect, 
+  onDocumentTextExtracted, 
+  className = '', 
+  onReset,
+  isMinimized = false,
+  activeTab = 'understand'
+}, ref) => {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [presentation, setPresentation] = useState<UploadResponse | null>(null);
@@ -912,13 +923,13 @@ export const PresentationViewer = forwardRef<
   }));
 
   return (
-    <div className={`w-full h-full flex flex-col transform-gpu backface-visibility-hidden ${className}`}>
+    <div className={`w-full h-full flex flex-col transform-gpu backface-visibility-hidden ${className} ${activeTab === 'chat' ? 'h-48 transition-all duration-300' : ''}`}>
       {/* File Upload UI */}
       {!presentationData ? (
         // Upload Area
         <label 
           htmlFor="file-upload"
-          className="h-full flex flex-col items-center justify-center gap-4 p-6 bg-white/80 backdrop-blur-xl shadow-sm hover:bg-white/90 transition-colors cursor-pointer relative"
+          className={`h-full flex flex-col items-center justify-center gap-2 p-6 bg-white/80 backdrop-blur-xl shadow-sm hover:bg-white/90 transition-all duration-300 cursor-pointer relative ${activeTab === 'chat' ? 'h-48' : ''}`}
         >
           {uploadError ? (
             <div className="text-red-500 text-xl mb-4">{uploadError}</div>
@@ -949,11 +960,11 @@ export const PresentationViewer = forwardRef<
             </div>
           ) : (
             <>
-              <Upload className="w-8 h-8 text-blue-600 stroke-[1.5]" />
-              <span className="text-[15px] text-gray-900 font-medium tracking-tight">
+              <Upload className={`${activeTab === 'chat' ? 'w-5 h-5' : 'w-8 h-8'} text-blue-600 stroke-[1.5]`} />
+              <span className={`${activeTab === 'chat' ? 'text-[13px]' : 'text-[15px]'} text-gray-900 font-medium tracking-tight text-center`}>
                 Upload Document
               </span>
-              <p className="text-xs text-gray-500">
+              <p className={`${activeTab === 'chat' ? 'text-[11px]' : 'text-xs'} text-gray-500 text-center`}>
                 Supported formats: PowerPoint, Word, PDF
               </p>
             </>
@@ -969,9 +980,9 @@ export const PresentationViewer = forwardRef<
           />
         </label>
       ) : (
-        <div className="flex flex-col flex-grow h-full">
+        <div className={`flex flex-col flex-grow h-full transition-all duration-300 ${activeTab === 'chat' ? 'h-48' : ''}`}>
           {/* Document viewer only - no sidebar */}
-          <div className="flex-grow h-full w-full document-viewer-area relative">
+          <div className={`flex-grow h-full w-full document-viewer-area relative transition-all duration-300 ${activeTab === 'chat' ? 'h-48' : ''}`}>
             {presentationData.type === 'pdf' ? (
               <PDFViewer 
                 url={presentationData.url} 
@@ -979,6 +990,7 @@ export const PresentationViewer = forwardRef<
                 filename={presentationData.filename}
                 onTextSelect={handlePDFTextSelection}
                 onDocumentTextExtracted={onDocumentTextExtracted}
+                defaultZoom={activeTab === 'chat' ? 0.5 : 0.7}
               />
             ) : presentationData.type === 'powerpoint' ? (
               <PowerPointViewer 
@@ -1012,7 +1024,7 @@ export const PresentationViewer = forwardRef<
       
       {/* Error message display */}
       {uploadError && (
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shadow-md">
+        <div className={`absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded shadow-md ${activeTab === 'chat' ? 'scale-75' : ''}`}>
           <p>{uploadError}</p>
           <button 
             className="absolute top-0 right-0 p-2" 

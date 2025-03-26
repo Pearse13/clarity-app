@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { RefreshCw } from 'lucide-react';
 
 export type PowerPointViewerProps = {
@@ -12,6 +12,8 @@ export const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ url, apiUrl,
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState<number>(0);
+  const [iframeHeight, setIframeHeight] = useState<number>(600);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   
   // Force refresh the iframe when retry is clicked
   const refreshKey = `${apiUrl}-${retryCount}-${Date.now()}`;
@@ -40,7 +42,7 @@ export const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ url, apiUrl,
   };
   
   // We'll use the Office viewer by default (no Google viewer)
-  const [useDirectViewer, setUseDirectViewer] = useState<boolean>(false);
+  const [useDirectViewer, setUseDirectViewer] = useState<boolean>(true); // Changed to true to prefer direct viewer
   
   // Get the current viewer URL based on the state
   const getCurrentViewerUrl = () => {
@@ -59,32 +61,88 @@ export const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ url, apiUrl,
     
     setRetryCount(prev => prev + 1);
   };
-  
-  // Log URLs for debugging
-  useEffect(() => {
-    // Make sure we use HTTPS URLs
-    const secureApiUrl = apiUrl ? apiUrl.replace('http://', 'https://') : '';
-    
-    console.log('PowerPointViewer mounted with URLs:', { 
-      viewerUrl: url, 
-      directUrl: secureApiUrl || apiUrl,
-      currentViewerUrl: getCurrentViewerUrl(),
-      usingViewer: useDirectViewer ? 'Direct' : 'Microsoft Office'
-    });
-    
-    // Set a timeout for loading
-    const timeoutId = setTimeout(() => {
-      if (isLoading) {
-        console.log('PowerPoint viewer taking too long to load, showing message');
-        setError('The PowerPoint viewer is taking longer than expected. Please try the alternate viewer.');
-      }
-    }, 15000); // 15 seconds timeout
-    
-    return () => clearTimeout(timeoutId);
-  }, [url, apiUrl, isLoading, useDirectViewer]);
 
+  // Handle messages from the iframe
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Verify origin for security
+      const allowedOrigins = [
+        window.location.origin,
+        'https://clarity-backend-production.up.railway.app'
+      ];
+      
+      if (!allowedOrigins.includes(event.origin)) {
+        console.warn('Received message from unauthorized origin:', event.origin);
+        return;
+      }
+
+      // Handle height updates
+      if (event.data.type === 'resize') {
+        const newHeight = event.data.height;
+        if (typeof newHeight === 'number' && newHeight > 0) {
+          console.log('Updating iframe height to:', newHeight);
+          setIframeHeight(newHeight);
+        }
+      }
+
+      // Handle text selection
+      if (event.data.type === 'textSelection' && onTextSelect) {
+        onTextSelect(event.data.text);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [onTextSelect]);
+
+  // Inject height calculation script into iframe after load
+  const injectHeightScript = () => {
+    if (!iframeRef.current) return;
+    
+    try {
+      const iframe = iframeRef.current;
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      
+      if (!iframeDoc) {
+        console.warn('Could not access iframe document');
+        return;
+      }
+
+      // Add script to calculate and send height
+      const script = iframeDoc.createElement('script');
+      script.textContent = `
+        function updateHeight() {
+          const height = Math.max(
+            document.documentElement.scrollHeight,
+            document.body.scrollHeight
+          );
+          window.parent.postMessage({ type: 'resize', height }, '*');
+        }
+
+        // Update height on load and when content changes
+        window.addEventListener('load', updateHeight);
+        window.addEventListener('resize', updateHeight);
+        
+        // Create observer to watch for DOM changes
+        const observer = new MutationObserver(updateHeight);
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true,
+          attributes: true
+        });
+
+        // Initial height calculation
+        updateHeight();
+      `;
+
+      iframeDoc.body.appendChild(script);
+    } catch (error) {
+      console.error('Error injecting height script:', error);
+    }
+  };
+  
   return (
-    <div className="w-full h-full min-h-[600px] flex flex-col relative transform-gpu backface-visibility-hidden">
+    <div className="w-full flex flex-col relative transform-gpu backface-visibility-hidden">
       {/* Viewer type indicator */}
       <div className="px-8 py-3 bg-blue-50 border-b border-blue-100 text-blue-800 text-sm flex justify-between items-center">
         <span>Using {useDirectViewer ? 'Direct' : 'Microsoft Office Online'} viewer</span>
@@ -137,21 +195,30 @@ export const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ url, apiUrl,
       
       {/* PowerPoint Viewer iframe */}
       <iframe
+        ref={iframeRef}
         key={refreshKey}
         src={getCurrentViewerUrl()}
-        className="w-full h-full flex-grow transform-gpu"
-        style={{ border: 'none', willChange: 'transform' }}
+        className="w-full transform-gpu"
+        style={{ 
+          border: 'none', 
+          willChange: 'transform',
+          height: `${iframeHeight}px`,
+          transition: 'height 0.3s ease'
+        }}
         onLoad={() => {
           console.log(`${useDirectViewer ? 'Direct' : 'Microsoft Office'} PowerPoint viewer loaded successfully`);
           setIsLoading(false);
           setError(null);
+          if (useDirectViewer) {
+            injectHeightScript();
+          }
         }}
         onError={(e) => {
           console.error(`${useDirectViewer ? 'Direct' : 'Microsoft Office'} PowerPoint viewer failed to load:`, e);
           setError(`Failed to load PowerPoint with ${useDirectViewer ? 'Direct' : 'Microsoft Office'} viewer. Try the alternate viewer.`);
           setIsLoading(false);
         }}
-        sandbox={useDirectViewer ? "allow-same-origin" : "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"}
+        sandbox="allow-scripts allow-same-origin allow-forms"
         referrerPolicy="no-referrer"
         title="PowerPoint Presentation"
       />

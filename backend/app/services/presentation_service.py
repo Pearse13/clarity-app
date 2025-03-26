@@ -401,6 +401,31 @@ class PresentationService:
                     margin: 20px 0;
                 }
             </style>
+            <script>
+                // Calculate and report document height to parent
+                function updateHeight() {
+                    const height = Math.max(
+                        document.documentElement.scrollHeight,
+                        document.body.scrollHeight
+                    );
+                    window.parent.postMessage({ type: 'resize', height }, '*');
+                }
+
+                // Update height on load and when content changes
+                window.addEventListener('load', updateHeight);
+                window.addEventListener('resize', updateHeight);
+                
+                // Create observer to watch for DOM changes
+                const observer = new MutationObserver(updateHeight);
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true,
+                    attributes: true
+                });
+
+                // Initial height calculation
+                setTimeout(updateHeight, 100);
+            </script>
             """
             html_content = html_content.replace('</head>', f'{style}</head>')
             
