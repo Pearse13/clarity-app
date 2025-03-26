@@ -19,11 +19,11 @@ RUN chmod +x /usr/bin/libreoffice && \
 WORKDIR /app
 
 # Copy requirements first for better caching
-COPY backend/requirements.txt .
+COPY backend/requirements.txt requirements.txt
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Copy the backend code
-COPY backend/ .
+COPY backend/ ./
 
 # Create necessary directories
 RUN mkdir -p data/temp data/documents data/static
@@ -34,9 +34,10 @@ ENV HOME=/app
 # Set environment variables
 ENV PORT=8000
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
 # Expose the port
 EXPOSE 8000
 
 # Run the server
-CMD ["python3", "run_server.py"] 
+CMD ["python3", "-m", "app.main"] 
