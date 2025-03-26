@@ -6,6 +6,7 @@ class TransformationType(Enum):
     SIMPLIFY = "simplify"
     SOPHISTICATE = "sophisticate"
     CASUALISE = "casualise"
+    FORMALISE = "formalise"
 
 class TransformRequest(BaseModel):
     text: str

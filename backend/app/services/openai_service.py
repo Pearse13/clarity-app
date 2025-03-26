@@ -183,5 +183,7 @@ def get_system_message(transform_type: TransformationType, level: int, is_lectur
         return base_message + f"Make the text more sophisticated to level {level} (1=professional, 5=academic expert). Enhance vocabulary and complexity while maintaining clarity."
     elif transform_type == TransformationType.CASUALISE:
         return base_message + f"Make the text more casual to level {level} (1=friendly, 5=very informal). Maintain meaning while making it more conversational."
+    elif transform_type == TransformationType.FORMALISE:
+        return base_message + f"Make the text more formal to level {level} (1=basic professional, 5=diplomatic). Enhance professionalism and formality while maintaining clarity."
     else:
         raise ValueError(f"Unknown transformation type: {transform_type}") 
