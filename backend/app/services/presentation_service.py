@@ -387,115 +387,20 @@ class PresentationService:
             # Add style to make content fit iframe and handle PowerPoint slides properly
             style = """
             <style>
-                /* Basic reset */
-                html, body {
-                    margin: 0;
-                    padding: 0;
-                    width: 100%;
-                    background: #f5f5f5;
-                    font-family: Arial, sans-serif;
-                }
-                
-                /* Center slides */
+                /* Basic container styling */
                 body {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
+                    margin: 0;
                     padding: 20px;
-                    box-sizing: border-box;
+                    background: #f5f5f5;
                 }
-                
-                /* Slide container - preserve natural dimensions */
-                .slide {
-                    margin: 40px auto;
+
+                /* Simple visual enhancement for slides */
+                div[style*="page-break-before"], h1[style*="page-break-before"] {
                     background: white;
                     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                    border-radius: 4px;
-                    width: fit-content;
-                    position: relative;
-                }
-                
-                /* Hide empty page break markers */
-                h1[style*="page-break-before:always"] {
-                    display: none;
-                }
-                
-                /* Preserve original text styling */
-                p, span {
-                    margin: 0;
-                    position: relative;
-                }
-                
-                /* Images - maintain original dimensions */
-                img {
-                    position: relative;
-                }
-                
-                /* Lists - preserve original positioning */
-                ul, ol {
-                    margin: 0;
-                    padding: 0;
-                    position: relative;
-                }
-                
-                li {
-                    position: relative;
-                }
-                
-                /* Tables - maintain original layout */
-                table {
-                    border-collapse: collapse;
-                    position: relative;
-                }
-                
-                td, th {
-                    padding: 8px;
-                    border: 1px solid #ddd;
-                }
-                
-                /* Preserve original fonts but ensure readability */
-                * {
-                    color: #333;
-                }
-                
-                /* Responsive adjustments - minimal to preserve layout */
-                @media (max-width: 768px) {
-                    body {
-                        padding: 10px;
-                    }
-                    
-                    .slide {
-                        margin: 20px auto;
-                        transform-origin: top center;
-                        transform: scale(var(--slide-scale, 1));
-                    }
-                }
-                
-                /* Add smooth transitions */
-                .slide {
-                    transition: transform 0.3s ease;
+                    margin: 20px 0;
                 }
             </style>
-            
-            <script>
-                // Add responsive scaling for mobile
-                function adjustSlideScale() {
-                    const slides = document.querySelectorAll('.slide');
-                    const viewportWidth = window.innerWidth - 40; // Account for body padding
-                    
-                    slides.forEach(slide => {
-                        if (slide.offsetWidth > viewportWidth) {
-                            const scale = viewportWidth / slide.offsetWidth;
-                            slide.style.setProperty('--slide-scale', scale);
-                        } else {
-                            slide.style.setProperty('--slide-scale', 1);
-                        }
-                    });
-                }
-                
-                window.addEventListener('load', adjustSlideScale);
-                window.addEventListener('resize', adjustSlideScale);
-            </script>
             """
             html_content = html_content.replace('</head>', f'{style}</head>')
             
@@ -503,25 +408,7 @@ class PresentationService:
             if not html_content.strip().startswith('<!DOCTYPE'):
                 html_content = '<!DOCTYPE html>\n' + html_content
             
-            # Fix any remaining absolute positioning
-            html_content = re.sub(r'position:\s*absolute\s*;', 'position: relative;', html_content)
-            
-            # Wrap first slide content (before first page break)
-            html_content = re.sub(
-                r'<body>(.*?)(<h1 style="page-break-before:always; "></h1>)',
-                r'<body><div class="slide">\1</div>\2',
-                html_content,
-                flags=re.DOTALL
-            )
-            
-            # Wrap content between page breaks
-            html_content = re.sub(
-                r'<h1 style="page-break-before:always; "></h1>(.*?)(?=<h1 style="page-break-before:always; "></h1>|</body>)',
-                r'<div class="slide">\1</div>',
-                html_content,
-                flags=re.DOTALL
-            )
-            
+            # Do not modify positioning or structure - let LibreOffice handle it
             logger.info(f"Successfully cleaned HTML content for {content}")
             
             return html_content
