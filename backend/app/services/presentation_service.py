@@ -387,130 +387,80 @@ class PresentationService:
             # Add style to make content fit iframe and handle PowerPoint slides properly
             style = """
             <style>
-                :root {
-                    --slide-ratio: 0.5625; /* 16:9 aspect ratio */
-                    --slide-padding: 20px;
-                }
-                
+                /* Basic reset */
                 html, body {
                     margin: 0;
                     padding: 0;
                     width: 100%;
-                    height: 100%;
-                    overflow-x: hidden;
-                    overflow-y: auto;
                     background: #f5f5f5;
+                    font-family: Arial, sans-serif;
                 }
                 
                 body {
-                    padding: var(--slide-padding);
+                    padding: 20px;
                     box-sizing: border-box;
-                    font-family: Arial, sans-serif;
-                    font-size: 16px;
-                    line-height: 1.5;
                 }
                 
-                /* Slide container */
-                .page-break, div[style*="page-break-before"] {
-                    display: block;
-                    position: relative;
-                    width: calc(100% - 2 * var(--slide-padding));
-                    max-width: 960px; /* Maximum width for slides */
-                    margin: 20px auto;
-                    padding: 0;
+                /* Slide styling */
+                h1[style*="page-break-before:always"],
+                div[style*="page-break-before"] {
+                    margin: 40px auto;
+                    padding: 40px;
+                    max-width: 1024px;
                     background: white;
                     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
                     border-radius: 4px;
-                    overflow: hidden;
                 }
                 
-                /* Maintain aspect ratio */
-                .page-break::before, div[style*="page-break-before"]::before {
-                    content: "";
-                    display: block;
-                    padding-top: calc(var(--slide-ratio) * 100%);
-                }
-                
-                /* Slide content wrapper */
-                .page-break > *, div[style*="page-break-before"] > * {
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
+                /* First slide (no page break) special case */
+                body > h1:first-of-type:not([style*="page-break-before"]) {
+                    margin: 40px auto;
                     padding: 40px;
-                    box-sizing: border-box;
-                    overflow: hidden;
+                    max-width: 1024px;
+                    background: white;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    border-radius: 4px;
                 }
                 
                 /* Text content */
-                p, span {
-                    position: relative !important;
-                    margin: 0 0 0.5em 0 !important;
-                    font-size: 1em !important;
-                    line-height: 1.5 !important;
+                p {
+                    margin: 0.5em 0;
+                    line-height: 1.5;
                 }
                 
                 /* Images */
                 img {
                     max-width: 100%;
                     height: auto;
-                    object-fit: contain;
-                }
-                
-                /* Headings */
-                h1 { font-size: 2em !important; }
-                h2 { font-size: 1.5em !important; }
-                h3 { font-size: 1.17em !important; }
-                h4 { font-size: 1em !important; }
-                h5 { font-size: 0.83em !important; }
-                h6 { font-size: 0.67em !important; }
-                
-                h1, h2, h3, h4, h5, h6 {
-                    margin: 0.5em 0 !important;
-                    line-height: 1.2 !important;
-                    font-weight: bold !important;
                 }
                 
                 /* Lists */
                 ul, ol {
-                    margin: 0.5em 0 0.5em 1.5em !important;
-                    padding: 0 !important;
+                    margin: 0.5em 0 0.5em 1.5em;
+                    padding: 0;
                 }
                 
                 li {
-                    margin: 0.25em 0 !important;
-                    line-height: 1.5 !important;
+                    margin: 0.25em 0;
+                    line-height: 1.5;
                 }
                 
                 /* Tables */
                 table {
                     border-collapse: collapse;
-                    margin: 1em 0 !important;
-                    width: auto !important;
+                    margin: 1em 0;
+                    width: auto;
                 }
                 
                 td, th {
-                    padding: 8px !important;
-                    border: 1px solid #ddd !important;
-                    font-size: 0.9em !important;
-                }
-                
-                /* Fix positioning */
-                [style*="position:"] {
-                    position: relative !important;
-                }
-                
-                [style*="left:"], [style*="top:"] {
-                    left: auto !important;
-                    top: auto !important;
+                    padding: 8px;
+                    border: 1px solid #ddd;
                 }
                 
                 /* Ensure text is readable */
                 * {
-                    font-family: Arial, sans-serif !important;
-                    color: #333 !important;
-                    background: transparent !important;
+                    font-family: Arial, sans-serif;
+                    color: #333;
                 }
                 
                 /* Responsive adjustments */
@@ -519,12 +469,11 @@ class PresentationService:
                         padding: 10px;
                     }
                     
-                    .page-break > *, div[style*="page-break-before"] > * {
+                    h1[style*="page-break-before:always"],
+                    div[style*="page-break-before"],
+                    body > h1:first-of-type:not([style*="page-break-before"]) {
                         padding: 20px;
-                    }
-                    
-                    :root {
-                        --slide-padding: 10px;
+                        margin: 20px auto;
                     }
                 }
             </style>
