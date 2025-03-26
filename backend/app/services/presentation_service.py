@@ -396,60 +396,56 @@ class PresentationService:
                     font-family: Arial, sans-serif;
                 }
                 
+                /* Center slides */
                 body {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
                     padding: 20px;
                     box-sizing: border-box;
                 }
                 
-                /* Slide styling */
-                h1[style*="page-break-before:always"],
-                div[style*="page-break-before"] {
+                /* Slide container - preserve natural dimensions */
+                .slide {
                     margin: 40px auto;
-                    padding: 40px;
-                    max-width: 1024px;
                     background: white;
                     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
                     border-radius: 4px;
+                    width: fit-content;
+                    position: relative;
                 }
                 
-                /* First slide (no page break) special case */
-                body > h1:first-of-type:not([style*="page-break-before"]) {
-                    margin: 40px auto;
-                    padding: 40px;
-                    max-width: 1024px;
-                    background: white;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                    border-radius: 4px;
+                /* Hide empty page break markers */
+                h1[style*="page-break-before:always"] {
+                    display: none;
                 }
                 
-                /* Text content */
-                p {
-                    margin: 0.5em 0;
-                    line-height: 1.5;
+                /* Preserve original text styling */
+                p, span {
+                    margin: 0;
+                    position: relative;
                 }
                 
-                /* Images */
+                /* Images - maintain original dimensions */
                 img {
-                    max-width: 100%;
-                    height: auto;
+                    position: relative;
                 }
                 
-                /* Lists */
+                /* Lists - preserve original positioning */
                 ul, ol {
-                    margin: 0.5em 0 0.5em 1.5em;
+                    margin: 0;
                     padding: 0;
+                    position: relative;
                 }
                 
                 li {
-                    margin: 0.25em 0;
-                    line-height: 1.5;
+                    position: relative;
                 }
                 
-                /* Tables */
+                /* Tables - maintain original layout */
                 table {
                     border-collapse: collapse;
-                    margin: 1em 0;
-                    width: auto;
+                    position: relative;
                 }
                 
                 td, th {
@@ -457,26 +453,49 @@ class PresentationService:
                     border: 1px solid #ddd;
                 }
                 
-                /* Ensure text is readable */
+                /* Preserve original fonts but ensure readability */
                 * {
-                    font-family: Arial, sans-serif;
                     color: #333;
                 }
                 
-                /* Responsive adjustments */
+                /* Responsive adjustments - minimal to preserve layout */
                 @media (max-width: 768px) {
                     body {
                         padding: 10px;
                     }
                     
-                    h1[style*="page-break-before:always"],
-                    div[style*="page-break-before"],
-                    body > h1:first-of-type:not([style*="page-break-before"]) {
-                        padding: 20px;
+                    .slide {
                         margin: 20px auto;
+                        transform-origin: top center;
+                        transform: scale(var(--slide-scale, 1));
                     }
                 }
+                
+                /* Add smooth transitions */
+                .slide {
+                    transition: transform 0.3s ease;
+                }
             </style>
+            
+            <script>
+                // Add responsive scaling for mobile
+                function adjustSlideScale() {
+                    const slides = document.querySelectorAll('.slide');
+                    const viewportWidth = window.innerWidth - 40; // Account for body padding
+                    
+                    slides.forEach(slide => {
+                        if (slide.offsetWidth > viewportWidth) {
+                            const scale = viewportWidth / slide.offsetWidth;
+                            slide.style.setProperty('--slide-scale', scale);
+                        } else {
+                            slide.style.setProperty('--slide-scale', 1);
+                        }
+                    });
+                }
+                
+                window.addEventListener('load', adjustSlideScale);
+                window.addEventListener('resize', adjustSlideScale);
+            </script>
             """
             html_content = html_content.replace('</head>', f'{style}</head>')
             
@@ -486,6 +505,22 @@ class PresentationService:
             
             # Fix any remaining absolute positioning
             html_content = re.sub(r'position:\s*absolute\s*;', 'position: relative;', html_content)
+            
+            # Wrap first slide content (before first page break)
+            html_content = re.sub(
+                r'<body>(.*?)(<h1 style="page-break-before:always; "></h1>)',
+                r'<body><div class="slide">\1</div>\2',
+                html_content,
+                flags=re.DOTALL
+            )
+            
+            # Wrap content between page breaks
+            html_content = re.sub(
+                r'<h1 style="page-break-before:always; "></h1>(.*?)(?=<h1 style="page-break-before:always; "></h1>|</body>)',
+                r'<div class="slide">\1</div>',
+                html_content,
+                flags=re.DOTALL
+            )
             
             logger.info(f"Successfully cleaned HTML content for {content}")
             
