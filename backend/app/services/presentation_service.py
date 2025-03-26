@@ -427,14 +427,6 @@ class PresentationService:
         
         logger.info(f"Starting conversion for file: {file.filename} ({file.content_type})")
         
-        # Determine file type and conversion format
-        file_ext = file.filename.lower().split('.')[-1]
-        
-        # Remove any duplicate extensions
-        if file_ext == 'pptx' and file.filename.endswith('.pptx.pptx'):
-            file_ext = 'pptx'
-            file.filename = file.filename[:-5]
-        
         # Create unique working directory with short name
         presentation_id = str(uuid.uuid4())[:8]
         work_dir = self.temp_dir / presentation_id
@@ -461,61 +453,21 @@ class PresentationService:
             if file_path.stat().st_size == 0:
                 raise HTTPException(status_code=500, detail="Uploaded file is empty")
             
-            # Convert to HTML using LibreOffice
+            # Convert directly to HTML using LibreOffice
             try:
                 logger.info("Starting LibreOffice conversion...")
                 
-                # First, convert to PDF
-                pdf_path = work_dir / f"{file_path.stem}.pdf"
-                pdf_cmd = [
-                    str(self.soffice_path),
-                    '--headless',
-                    '--norestore',
-                    '--nofirststartwizard',
-                    '--convert-to',
-                    'pdf',
-                    '--outdir',
-                    str(work_dir),
-                    str(file_path)
-                ]
-                
-                logger.info(f"Running PDF conversion command: {' '.join(pdf_cmd)}")
-                
-                # Kill any existing LibreOffice processes first
-                process_monitor.cleanup_processes()
-                
-                # Run PDF conversion
-                pdf_process = subprocess.run(
-                    pdf_cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=60,
-                    check=False
-                )
-                
-                if pdf_process.stdout:
-                    logger.info(f"PDF conversion stdout: {pdf_process.stdout}")
-                if pdf_process.stderr:
-                    logger.warning(f"PDF conversion stderr: {pdf_process.stderr}")
-                
-                # Check if PDF was created
-                if not pdf_path.exists():
-                    logger.error("PDF file was not created")
-                    raise HTTPException(status_code=500, detail="Failed to create PDF")
-                
-                logger.info(f"PDF created successfully at: {pdf_path}")
-                
-                # Now convert PDF to HTML
+                # Direct conversion to HTML
                 html_cmd = [
                     str(self.soffice_path),
                     '--headless',
                     '--norestore',
                     '--nofirststartwizard',
                     '--convert-to',
-                    'html',  # Simplified format
+                    'html:HTML',  # Specify HTML format explicitly
                     '--outdir',
                     str(output_dir),
-                    str(pdf_path)
+                    str(file_path)
                 ]
                 
                 logger.info(f"Running HTML conversion command: {' '.join(html_cmd)}")
@@ -572,14 +524,10 @@ class PresentationService:
                     "url": f"/documents/{url_path}"
                 }
                 
-            except HTTPException:
-                raise
             except Exception as e:
                 logger.error(f"Error during conversion: {str(e)}")
                 raise HTTPException(status_code=500, detail=f"Error during conversion: {str(e)}")
             
-        except HTTPException:
-            raise
         except Exception as e:
             logger.error(f"Error in conversion: {e}")
             raise HTTPException(status_code=500, detail=str(e))
