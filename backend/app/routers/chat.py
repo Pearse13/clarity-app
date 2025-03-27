@@ -34,7 +34,7 @@ logger.setLevel(logging.INFO)
 
 # Create router
 router = APIRouter(
-    prefix="/chat",
+    prefix="/api/chat",
     tags=["chat"],
     responses={404: {"description": "Not found"}},
 )
