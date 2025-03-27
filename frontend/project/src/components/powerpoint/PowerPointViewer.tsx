@@ -218,7 +218,7 @@ export const PowerPointViewer: React.FC<PowerPointViewerProps> = ({ url, apiUrl,
           setError(`Failed to load PowerPoint with ${useDirectViewer ? 'Direct' : 'Microsoft Office'} viewer. Try the alternate viewer.`);
           setIsLoading(false);
         }}
-        sandbox="allow-scripts allow-same-origin allow-forms"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
         referrerPolicy="no-referrer"
         title="PowerPoint Presentation"
       />
