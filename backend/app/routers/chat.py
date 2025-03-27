@@ -25,8 +25,7 @@ def get_current_user():
     return User(id="dev-user", email="dev@example.com")
 
 # Import the anthropic service
-from ..services.anthropic_service import AnthropicService
-from ..services.token_tracking_service import token_tracker
+from ..services.anthropic_service import AnthropicService, TokenLimitExceededError
 from ..dependencies.services import get_anthropic_service
 
 # Setup logging
@@ -43,6 +42,12 @@ router = APIRouter(
 # Initialize the Anthropic service
 anthropic_service = AnthropicService()
 
+class TokenUsage(BaseModel):
+    """Schema for token usage information"""
+    prompt_tokens: int = Field(0, description="Number of tokens in the prompt")
+    completion_tokens: int = Field(0, description="Number of tokens in the completion")
+    total_tokens: int = Field(0, description="Total tokens used")
+
 class ChatMessage(BaseModel):
     """Schema for chat message exchange"""
     message: str = Field(..., description="The user's message")
@@ -50,30 +55,18 @@ class ChatMessage(BaseModel):
     selected_text: Optional[str] = Field(None, description="Text specifically selected by the user")
     context_before: Optional[str] = Field(None, description="Text context before the selection")
     context_after: Optional[str] = Field(None, description="Text context after the selection")
-
-class TokenUsage(BaseModel):
-    """Schema for token usage information"""
-    input_tokens: int = Field(0, description="Number of tokens in the prompt")
-    output_tokens: int = Field(0, description="Number of tokens in the completion")
-    total_tokens: int = Field(0, description="Total tokens used")
-
-class RemainingTokens(BaseModel):
-    """Schema for remaining tokens information"""
-    input: int = Field(..., description="Remaining input tokens")
-    output: int = Field(..., description="Remaining output tokens")
     
 class ChatResponse(BaseModel):
     """Schema for chat response from the API"""
     message: str = Field(..., description="Response from the assistant")
     model: str = Field(..., description="Model used for the response")
     token_usage: TokenUsage = Field(..., description="Token usage information")
-    remaining_tokens: RemainingTokens = Field(..., description="Remaining tokens information")
 
-def generate_document_id(document_text: Optional[str]) -> str:
-    """Generate a consistent ID for a document."""
+def generate_document_id(document_text: Optional[str]) -> Optional[str]:
+    """Generate a unique ID for a document based on its content"""
     if not document_text:
-        return "no_document"
-    return hashlib.md5(document_text.encode()).hexdigest()
+        return None
+    return hashlib.sha256(document_text.encode()).hexdigest()[:16]
 
 @router.get("/health")
 def health_check():
@@ -89,43 +82,45 @@ async def chat(message: ChatMessage, anthropic_service: AnthropicService = Depen
     Chat endpoint that forwards messages to Claude and returns responses
     """
     try:
-        # Generate document ID
+        # Generate document ID if document text is provided
         document_id = generate_document_id(message.document_text)
-        
-        # Get current remaining tokens
-        remaining = token_tracker.get_remaining_tokens(document_id)
         
         response = await anthropic_service.chat_completion(
             message=message.message,
             document_text=message.document_text,
             selected_text=message.selected_text,
             context_before=message.context_before,
-            context_after=message.context_after
+            context_after=message.context_after,
+            document_id=document_id
         )
         
-        # Update token usage
-        token_usage = response["usage"]
-        remaining = token_tracker.update_token_usage(
-            document_id,
-            token_usage["input_tokens"],
-            token_usage["output_tokens"]
-        )
+        if not response["success"]:
+            if "token limit exceeded" in response["message"].lower():
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=response["message"]
+                )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=response["message"]
+            )
         
         return ChatResponse(
             message=response["message"],
             model=response["model"],
             token_usage=TokenUsage(
-                input_tokens=token_usage["input_tokens"],
-                output_tokens=token_usage["output_tokens"],
-                total_tokens=token_usage["total_tokens"]
-            ),
-            remaining_tokens=RemainingTokens(
-                input=remaining["input"],
-                output=remaining["output"]
+                prompt_tokens=response["usage"]["input_tokens"],
+                completion_tokens=response["usage"]["output_tokens"],
+                total_tokens=response["usage"]["total_tokens"]
             )
         )
+    except TokenLimitExceededError as e:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(e)
+        )
     except Exception as e:
-        logger.error(f"Error in chat completion: {str(e)}", exc_info=True)
+        logger.error(f"Error in chat endpoint: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to process chat: {str(e)}"
