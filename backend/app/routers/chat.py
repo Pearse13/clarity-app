@@ -76,7 +76,7 @@ def health_check():
         return {"status": "unhealthy", "message": "Anthropic API not configured or unavailable"}
     return {"status": "healthy", "message": "Chat service is operational"}
 
-@router.post("/chat", response_model=ChatResponse)
+@router.post("", response_model=ChatResponse)
 async def chat(message: ChatMessage, anthropic_service: AnthropicService = Depends(get_anthropic_service)) -> ChatResponse:
     """
     Chat endpoint that forwards messages to Claude and returns responses
