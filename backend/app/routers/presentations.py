@@ -183,7 +183,7 @@ async def upload_presentation(
                 logger.info(f"Converting {SUPPORTED_FILE_TYPES[file_ext]} to PDF using LibreOffice: {doc_path}")
                 pdf_path = upload_dir / f"{doc_id}.pdf"
                 
-                # Convert using LibreOffice with optimal settings
+                # Convert using LibreOffice with text layer optimization
                 abs_doc_path = doc_path.absolute()
                 abs_output_dir = upload_dir.absolute()
                 
@@ -217,12 +217,32 @@ async def upload_presentation(
                 for item in upload_dir.glob("**/*"):
                     logger.info(f"  {item.relative_to(upload_dir)} ({item.stat().st_size} bytes)")
 
-                # Prepare conversion command with simplified settings
+                # Prepare conversion command with text layer optimization
                 convert_cmd = [
                     "libreoffice",
                     "--headless",
                     "--norestore",
-                    "--convert-to", "pdf",
+                    "--infilter=impress8",
+                    "--convert-to",
+                    # Enhanced PDF settings for text preservation
+                    "pdf:writer_pdf_Export:" +
+                    "SelectPdfVersion=2;" +  # Use PDF 1.5
+                    "ExportFormFields=false;" +
+                    "ExportBookmarks=false;" +
+                    "ExportNotes=false;" +
+                    "ExportNotesPages=false;" +
+                    "UseTransitionEffects=false;" +
+                    "ExportLinksRelativeFsys=false;" +
+                    "EmbedStandardFonts=true;" +
+                    "EmbedFonts=true;" +
+                    "UseTaggedPDF=true;" +  # Important for text structure
+                    "ExportTextAsShapes=false;" +  # Critical for text selection
+                    "ReduceImageResolution=false;" +
+                    "MaxImageResolution=300;" +
+                    "Quality=100;" +
+                    "PDFUACompliance=true;" +  # For better text accessibility
+                    "UseLosslessCompression=true;" +  # Preserve text quality
+                    "PreservePdfFormats=true",  # Keep text formatting
                     "--outdir", str(abs_output_dir),
                     str(abs_doc_path)
                 ]
@@ -239,8 +259,8 @@ async def upload_presentation(
                         convert_cmd,
                         capture_output=True,
                         text=True,
-                        timeout=120,  # Increased timeout for larger files
-                        cwd=str(work_dir)  # Set working directory
+                        timeout=120,  # 2 minute timeout for larger files
+                        cwd=str(work_dir)
                     )
                     
                     # Log complete process output
