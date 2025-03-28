@@ -199,32 +199,30 @@ async def upload_presentation(
                     logger.error(f"Error checking LibreOffice installation: {str(e)}")
                     raise Exception(f"LibreOffice not properly installed: {str(e)}")
 
+                # Verify file permissions and readability
+                try:
+                    logger.info(f"Verifying file permissions for: {abs_doc_path}")
+                    # Ensure file is readable
+                    os.chmod(abs_doc_path, 0o644)
+                    with open(abs_doc_path, 'rb') as f:
+                        # Read first few bytes to verify access
+                        f.read(1024)
+                    logger.info("File is readable and has correct permissions")
+                except Exception as e:
+                    logger.error(f"File permission/access error: {str(e)}")
+                    raise Exception(f"Cannot access source file: {str(e)}")
+
                 # Log directory contents before conversion
                 logger.info("Directory contents before conversion:")
                 for item in upload_dir.glob("**/*"):
                     logger.info(f"  {item.relative_to(upload_dir)} ({item.stat().st_size} bytes)")
 
-                # Prepare conversion command with optimal settings
+                # Prepare conversion command with simplified settings
                 convert_cmd = [
                     "libreoffice",
                     "--headless",
                     "--norestore",
-                    "--nofirststartwizard",
-                    "--infilter=impress8",  # Force PowerPoint filter
-                    "--convert-to",
-                    # PDF settings optimized for text selection
-                    "pdf:writer_pdf_Export:" +
-                    "SelectPdfVersion=1;" +  # Use PDF 1.7 format
-                    "ExportBookmarks=false;" +  # Disable unnecessary features
-                    "ExportNotes=false;" +
-                    "ExportNotesPages=false;" +
-                    "UseTransitionEffects=false;" +
-                    "EmbedStandardFonts=true;" +  # Ensure fonts are embedded
-                    "EmbedFonts=true;" +
-                    "UseTaggedPDF=true;" +  # Enable tagged PDF for better text structure
-                    "ExportTextAsShapes=false;" +  # Critical: Keep text as text, not shapes
-                    "Quality=100;" +  # Maximum quality
-                    "SinglePageSheets=false",  # Allow multiple pages
+                    "--convert-to", "pdf",
                     "--outdir", str(abs_output_dir),
                     str(abs_doc_path)
                 ]
@@ -232,12 +230,17 @@ async def upload_presentation(
                 logger.info(f"Running conversion command: {' '.join(convert_cmd)}")
                 
                 try:
+                    # Set working directory to input file directory
+                    work_dir = abs_doc_path.parent
+                    logger.info(f"Setting working directory to: {work_dir}")
+                    
                     # Run conversion with timeout and capture output
                     process = subprocess.run(
                         convert_cmd,
                         capture_output=True,
                         text=True,
-                        timeout=120  # Increased timeout for larger files
+                        timeout=120,  # Increased timeout for larger files
+                        cwd=str(work_dir)  # Set working directory
                     )
                     
                     # Log complete process output
@@ -255,23 +258,26 @@ async def upload_presentation(
                     for item in upload_dir.glob("**/*"):
                         logger.info(f"  {item.relative_to(upload_dir)} ({item.stat().st_size} bytes)")
                     
-                    # Verify PDF was created and check its structure
+                    # Look for any PDF file if exact name not found
                     if not pdf_path.exists():
-                        logger.error(f"PDF file not found at expected path: {pdf_path}")
-                        raise Exception("PDF file not created after conversion")
-                    
-                    # Analyze PDF structure to verify text layer
-                    with open(pdf_path, 'rb') as pdf_file:
-                        pdf_reader = PyPDF2.PdfReader(pdf_file)
-                        logger.info(f"PDF Analysis - Pages: {len(pdf_reader.pages)}")
-                        page = pdf_reader.pages[0]
-                        
-                        # Check for text content
-                        text = page.extract_text()
-                        if not text:
-                            logger.warning("No text content found in first page")
+                        logger.warning(f"PDF not found at expected path: {pdf_path}")
+                        # Search for any PDF file
+                        pdf_files = list(upload_dir.glob("*.pdf"))
+                        if pdf_files:
+                            found_pdf = pdf_files[0]
+                            logger.info(f"Found PDF with different name: {found_pdf}")
+                            # Rename to expected name
+                            found_pdf.rename(pdf_path)
+                            logger.info(f"Renamed PDF to: {pdf_path}")
                         else:
-                            logger.info(f"Text content found - First 100 chars: {text[:100]}")
+                            logger.error("No PDF files found in directory")
+                            raise Exception("PDF file not created after conversion")
+                    
+                    # Verify final PDF
+                    if not pdf_path.exists():
+                        raise Exception("PDF file not found after conversion")
+                    
+                    logger.info(f"PDF created successfully at: {pdf_path} ({pdf_path.stat().st_size} bytes)")
                     
                 except subprocess.TimeoutExpired:
                     logger.error("Conversion process timed out")
