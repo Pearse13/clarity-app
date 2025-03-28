@@ -217,14 +217,27 @@ async def upload_presentation(
                 for item in upload_dir.glob("**/*"):
                     logger.info(f"  {item.relative_to(upload_dir)} ({item.stat().st_size} bytes)")
 
-                # Prepare conversion command with reliable settings for LibreOffice 7.3
-                convert_cmd = [
-                    "libreoffice",
-                    "--headless",
-                    "--convert-to", "pdf",
-                    "--outdir", str(abs_output_dir),
-                    str(abs_doc_path)
-                ]
+                # For PowerPoint files, use specific export parameters for better text handling
+                if SUPPORTED_FILE_TYPES[file_ext] == 'PowerPoint':
+                    # Special conversion command for PowerPoint files
+                    convert_cmd = [
+                        "libreoffice",
+                        "--headless", 
+                        "--infilter=impress8",
+                        "--convert-to", 
+                        "pdf:draw_pdf_Export:IsSkipEmptyPages=false;ExportNotesPages=false;ExportNotes=false",
+                        "--outdir", str(abs_output_dir),
+                        str(abs_doc_path)
+                    ]
+                else:
+                    # Standard conversion for other file types
+                    convert_cmd = [
+                        "libreoffice",
+                        "--headless",
+                        "--convert-to", "pdf",
+                        "--outdir", str(abs_output_dir),
+                        str(abs_doc_path)
+                    ]
                 
                 logger.info(f"Running conversion command: {' '.join(convert_cmd)}")
                 
