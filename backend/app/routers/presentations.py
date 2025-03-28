@@ -193,8 +193,8 @@ async def upload_presentation(
                     "--norestore",
                     "--nofirststartwizard",
                     "--infilter=impress8",  # Force PowerPoint filter
-                    "--convert-to", 
-                    "pdf:writer_pdf_Export:SelectPdfVersion=1",  # PDF/A-1a format for better text preservation
+                    "--convert-to",
+                    "pdf:writer_pdf_Export:PDFVersion=1;SelectPdfVersion=1;ExportFormFields=false;ExportBookmarks=false;ExportNotes=false;ExportNotesPages=false;UseTransitionEffects=false;ExportLinksRelativeFsys=false;ExportFilesFS=false;AllowDuplicateFieldNames=false;FormsType=0;EmbedStandardFonts=true;EmbedFonts=true;ExportBookmarksToPDFDestination=false;SinglePageSheets=false;OpenBookmarkLevels=0;UseTaggedPDF=true;PDFUACompliance=true;ExportTextAsShapes=false;ExportPlaceholders=false;ExportComments=false",  # Enhanced PDF settings for better text preservation
                     "--outdir", str(abs_output_dir),
                     str(abs_doc_path)
                 ]
