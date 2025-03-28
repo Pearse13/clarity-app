@@ -219,11 +219,11 @@ async def upload_presentation(
 
                 # Optimize conversion command based on file type
                 if SUPPORTED_FILE_TYPES[file_ext] == 'PowerPoint':
-                    # PowerPoint-specific conversion with optimized settings
+                    # PowerPoint-specific conversion with reliable settings
                     convert_cmd = [
                         "libreoffice",
                         "--headless",
-                        "--convert-to", "pdf:writer_pdf_Export:ExportFormFields=false",
+                        "--convert-to", "pdf",
                         "--outdir", str(abs_output_dir),
                         str(abs_doc_path)
                     ]
