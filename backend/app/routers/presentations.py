@@ -479,6 +479,11 @@ async def get_document_file(doc_id: str, filename: str):
             content_type = "application/octet-stream"
             
         logger.debug(f"Determined content type: {content_type}")
+        
+        # Set content disposition based on file type
+        content_disposition = "inline" if file_path.suffix.lower() == '.pdf' else "attachment"
+        disposition_header = f"{content_disposition}; filename=\"{file_path.name}\""
+        logger.debug(f"Setting Content-Disposition: {disposition_header}")
             
         # Return file with headers optimized for Office Online Viewer
         headers = {
@@ -487,7 +492,7 @@ async def get_document_file(doc_id: str, filename: str):
             "Access-Control-Allow-Headers": "*",
             "Access-Control-Expose-Headers": "Content-Length, Content-Range",
             "Content-Type": content_type,
-            "Content-Disposition": "attachment; filename=" + file_path.name,
+            "Content-Disposition": disposition_header,
             "Cache-Control": "public, max-age=3600",
             "X-Content-Type-Options": "nosniff",
             "Accept-Ranges": "bytes"
@@ -557,6 +562,10 @@ async def head_document_file(doc_id: str, filename: str):
         if not content_type:
             content_type = "application/octet-stream"
             
+        # Set content disposition based on file type
+        content_disposition = "inline" if file_path.suffix.lower() == '.pdf' else "attachment"
+        disposition_header = f"{content_disposition}; filename=\"{file_path.name}\""
+            
         # Return headers only for HEAD request
         headers = {
             "Access-Control-Allow-Origin": "*",
@@ -564,7 +573,7 @@ async def head_document_file(doc_id: str, filename: str):
             "Access-Control-Allow-Headers": "*",
             "Content-Type": content_type,
             "Content-Length": str(file_path.stat().st_size),
-            "Content-Disposition": "attachment",
+            "Content-Disposition": disposition_header,
             "Cache-Control": "public, max-age=3600",
             "X-Content-Type-Options": "nosniff",
             "Accept-Ranges": "bytes"
