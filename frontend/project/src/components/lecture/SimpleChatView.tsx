@@ -3,6 +3,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 import SimpleChatInput from './SimpleChatInput';
 import { API_ENDPOINTS } from '../../config/api';
 import LoadingSpinner from '../LoadingSpinner';
+import ThreeDotsLoader from '../ThreeDotsLoader';
 import { Copy, Check, BookOpen } from 'lucide-react';
 import '../../styles/animations.css';
 
@@ -46,13 +47,12 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
   const [isApiTesting, setIsApiTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [modelUsed, setModelUsed] = useState<string | null>(null);
-  const [tokenUsage, setTokenUsage] = useState<TokenUsage | null>(null);
   const [apiStatus, setApiStatus] = useState<'untested' | 'available' | 'unavailable'>('untested');
   const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null);
   const animationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isGeneratingStudyGuide, setIsGeneratingStudyGuide] = useState(false);
+  const [isTransformButtonActive, setIsTransformButtonActive] = useState(false);
   
   // Handle clicks on the chat area to clear text selection
   const handleAreaClick = (e: React.MouseEvent) => {
@@ -63,9 +63,16 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
       target.tagName === 'INPUT' ||
       target.tagName === 'TEXTAREA' ||
       target.tagName === 'BUTTON' ||
-      target.closest('.chat-input-area') !== null;
+      target.tagName === 'SELECT' ||
+      target.closest('.chat-input-area') !== null ||
+      target.closest('.dropdown-menu') !== null ||
+      target.closest('.transform-button') !== null ||
+      target.closest('.transformation-controls') !== null ||
+      target.closest('.level-select') !== null ||
+      target.closest('.transformation-type-select') !== null ||
+      target.closest('.dropdown') !== null;
 
-    // Only clear selection if clicking outside input areas
+    // Only clear selection if clicking outside input areas and dropdowns
     if (currentText && onClearSelection && !isInputInteraction) {
       onClearSelection();
     }
@@ -316,13 +323,13 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
                             ...prev,
                             {
                                 type: 'assistant' as const,
-                                content: "I apologize, but I've reached the token limit for this document. This limit helps keep costs reasonable. You can:\n\n" +
-                                        "1. Ask more focused questions about specific parts of the document\n" +
-                                        "2. Select smaller portions of text to analyze\n" +
-                                        "3. Start a new chat with a different document"
+                                content: "I apologize, but the token limit has been exceeded for your uploaded document. This means I've reached the maximum amount of text I can process from this document. To continue:\n\n" +
+                                        "1. Upload a new document to start fresh\n" +
+                                        "2. Start a new chat with a different document\n" +
+                                        "3. Contact our team on Instagram (@clarity.api) to discuss options for processing larger documents"
                             }
                         ]);
-                        setError("Token limit exceeded for this document");
+                        setError("Token limit exceeded for your uploaded document");
                         return;
                     }
                     
@@ -347,9 +354,6 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
                     animateTextWordByWord(data.message, newMessages.length - 1);
                     return newMessages;
                 });
-                
-                setModelUsed(data.model);
-                setTokenUsage(data.token_usage);
             } catch (apiError: any) {
                 console.error("API error:", apiError);
                 
@@ -376,8 +380,6 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
                 ...prev,
                 { type: 'assistant' as const, content: fallbackMessage }
             ]);
-            
-            setModelUsed("Unavailable - using fallback");
         }
         
     } catch (err: any) {
@@ -499,16 +501,21 @@ Please format the study guide with clear sections and use markdown for better re
         isStudyGuide: true
       }]);
 
-      // Update model and token usage info
-      setModelUsed(data.model);
-      setTokenUsage(data.token_usage);
-
     } catch (err) {
       console.error('Study guide generation error:', err);
       setError(err instanceof Error ? err.message : 'Failed to generate study guide');
     } finally {
       setIsGeneratingStudyGuide(false);
     }
+  };
+
+  // Function to handle transform button click
+  const handleTransformClick = () => {
+    setIsTransformButtonActive(true);
+    // Reset button color after 3 seconds
+    setTimeout(() => {
+      setIsTransformButtonActive(false);
+    }, 3000);
   };
 
   return (
@@ -539,19 +546,6 @@ Please format the study guide with clear sections and use markdown for better re
         </div>
       </div>
       
-      {/* Model and Token Usage Info */}
-      {(modelUsed || tokenUsage) && (
-        <div className="mb-4 text-xs text-gray-500">
-          {modelUsed && <div>Model: {modelUsed}</div>}
-          {tokenUsage && (
-            <div>
-              Tokens: {tokenUsage.total_tokens} 
-              (Input: {tokenUsage.prompt_tokens}, Output: {tokenUsage.completion_tokens})
-            </div>
-          )}
-        </div>
-      )}
-      
       {/* Selected Text Indicator */}
       {currentText && (
         <div className="mb-4 flex items-center justify-between text-xs text-blue-600">
@@ -579,7 +573,7 @@ Please format the study guide with clear sections and use markdown for better re
           <div className="space-y-6">
             {messages.map((message, index) => (
               <div key={index} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] ${message.type === 'user' ? 'text-right' : 'text-left'}`}>
+                <div className={`max-w-[80%] ${message.type === 'user' ? 'text-right pr-4' : 'text-left'}`}>
                   {message.type === 'user' && message.selectedText && (
                     <div className="mb-1 text-[11px] text-blue-500 flex items-center gap-1">
                       <span className="inline-flex h-1 w-1 rounded-full bg-blue-400"></span>
@@ -626,6 +620,17 @@ Please format the study guide with clear sections and use markdown for better re
                 </div>
               </div>
             ))}
+            {/* Show 3-dot loader when AI is thinking */}
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="max-w-[80%] text-left">
+                  <div className="text-xs text-gray-500 mb-1">Assistant</div>
+                  <div className="flex items-center gap-2 text-gray-800">
+                    <ThreeDotsLoader />
+                  </div>
+                </div>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
         ) : (
@@ -670,6 +675,16 @@ Please format the study guide with clear sections and use markdown for better re
           </button>
         )}
       </div>
+
+      {/* Update the transform button to use the new state */}
+      <button
+        onClick={handleTransformClick}
+        className={`transform-button px-4 py-2 rounded-lg text-white transition-colors ${
+          isTransformButtonActive ? 'bg-blue-700' : 'bg-blue-600 hover:bg-blue-700'
+        }`}
+      >
+        Transform
+      </button>
     </div>
   );
 };
