@@ -190,7 +190,11 @@ async def upload_presentation(
                 cmd = [
                     "libreoffice", 
                     "--headless", 
-                    "--convert-to", "pdf", 
+                    "--norestore",
+                    "--nofirststartwizard",
+                    "--infilter=impress8",  # Force PowerPoint filter
+                    "--convert-to", 
+                    "pdf:writer_pdf_Export:SelectPdfVersion=1",  # PDF/A-1a format for better text preservation
                     "--outdir", str(abs_output_dir),
                     str(abs_doc_path)
                 ]
@@ -346,44 +350,94 @@ async def check_status(doc_id: str) -> JSONResponse:
 
 @router.get("/documents/{doc_id}/{filename}")
 async def get_document_file(doc_id: str, filename: str):
-    """Serve document files with proper CORS headers"""
+    """Get a document file by ID and filename"""
     try:
-        # Construct file path
-        file_path = Path(settings.upload_dir) / doc_id / filename
+        logger.debug(f"Attempting to retrieve document: {doc_id}/{filename}")
         
+        # Get the upload directory using absolute path
+        upload_dir = Path(settings.upload_dir) / doc_id
+        logger.debug(f"Looking for file in: {upload_dir}")
+        
+        # Try to find the exact file first
+        file_path = upload_dir / filename
         if not file_path.exists():
+            # If exact file not found, try to find any file with matching extension
+            logger.debug(f"Exact file not found, searching for files with matching extension")
+            matching_files = list(upload_dir.glob(f"*.{filename.split('.')[-1]}"))
+            if matching_files:
+                file_path = matching_files[0]
+                logger.debug(f"Found matching file: {file_path}")
+            else:
+                logger.error(f"No matching files found in {upload_dir}")
             raise HTTPException(status_code=404, detail="File not found")
             
-        # Create response with file
-        response = FileResponse(
-            file_path,
-            media_type="text/html" if filename.endswith(".html") else "application/octet-stream",
-            filename=filename
+        logger.debug(f"Found file at: {file_path}")
+        
+        # Verify file exists and is readable
+        try:
+            with open(file_path, 'rb') as f:
+                f.read(1)  # Try to read 1 byte to verify file is accessible
+            logger.debug("File is readable")
+        except Exception as e:
+            logger.error(f"File exists but is not readable: {e}")
+            raise HTTPException(status_code=500, detail="File is not accessible")
+                
+        # Determine content type
+        content_type = None
+        if file_path.suffix.lower() in ['.pptx']:
+            content_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        elif file_path.suffix.lower() in ['.ppt']:
+            content_type = "application/vnd.ms-powerpoint"
+        elif file_path.suffix.lower() in ['.docx']:
+            content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        elif file_path.suffix.lower() in ['.doc']:
+            content_type = "application/msword"
+        elif file_path.suffix.lower() in ['.pdf']:
+            content_type = "application/pdf"
+            
+        if not content_type:
+            content_type = "application/octet-stream"
+            
+        logger.debug(f"Determined content type: {content_type}")
+            
+        # Return file with headers optimized for Office Online Viewer
+        headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Expose-Headers": "Content-Length, Content-Range",
+            "Content-Type": content_type,
+            "Content-Disposition": "attachment; filename=" + file_path.name,
+            "Cache-Control": "public, max-age=3600",
+            "X-Content-Type-Options": "nosniff",
+            "Accept-Ranges": "bytes"
+        }
+        
+        logger.debug(f"Serving file with headers: {headers}")
+        return FileResponse(
+            path=file_path,
+            media_type=content_type,
+            headers=headers,
+            filename=file_path.name
         )
         
-        # Add CORS headers
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "*"
-        response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
-        response.headers["Cross-Origin-Embedder-Policy"] = "credentialless"
-        
-        return response
-        
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error serving document file: {str(e)}")
+        logger.error(f"Error retrieving file: {str(e)}")
+        logger.error(f"Stack trace: {''.join(traceback.format_exception(*sys.exc_info()))}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.options("/documents/{doc_id}/{filename}")
 async def options_document_file(doc_id: str, filename: str):
     """Handle OPTIONS requests for document files"""
-    response = Response()
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "*"
-    response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
-    response.headers["Cross-Origin-Embedder-Policy"] = "credentialless"
-    return response
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "*",
+        "Cache-Control": "no-cache"
+    }
+    return JSONResponse(content={}, headers=headers)
 
 @router.head("/documents/{doc_id}/{filename}")
 async def head_document_file(doc_id: str, filename: str):
