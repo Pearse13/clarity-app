@@ -16,6 +16,7 @@ import cloudconvert
 from typing import Optional, cast
 import httpx
 import subprocess
+import PyPDF2
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)  # Ensure debug logging is enabled
@@ -182,7 +183,7 @@ async def upload_presentation(
                 logger.info(f"Converting {SUPPORTED_FILE_TYPES[file_ext]} to PDF using LibreOffice: {doc_path}")
                 pdf_path = upload_dir / f"{doc_id}.pdf"
                 
-                # Convert using LibreOffice with basic settings first
+                # Convert using LibreOffice with enhanced settings
                 abs_doc_path = doc_path.absolute()
                 abs_output_dir = upload_dir.absolute()
                 
@@ -200,13 +201,37 @@ async def upload_presentation(
 
                 # Define conversion command
                 cmd = [
-                    "libreoffice", 
-                    "--headless", 
+                    "libreoffice",
+                    "--headless",
                     "--norestore",
                     "--nofirststartwizard",
                     "--infilter=impress8",  # Force PowerPoint filter
                     "--convert-to",
-                    "pdf",  # Basic PDF conversion first
+                    # Enhanced PDF settings for better text preservation
+                    "pdf:writer_pdf_Export:" +
+                    "PDFVersion=1;" +  # Use PDF 1.5 format
+                    "SelectPdfVersion=1;" +  # Explicitly select PDF version
+                    "ExportBookmarks=false;" +  # Disable bookmarks
+                    "ExportNotes=false;" +  # Disable notes
+                    "ExportNotesPages=false;" +  # Disable notes pages
+                    "UseTransitionEffects=false;" +  # Disable transitions
+                    "ExportFormFields=false;" +  # Disable form fields
+                    "FormsType=0;" +  # No forms
+                    "EmbedStandardFonts=true;" +  # Embed standard fonts
+                    "EmbedFonts=true;" +  # Embed all fonts
+                    "UseTaggedPDF=true;" +  # Enable tagged PDF for better text structure
+                    "ExportTextAsShapes=false;" +  # Keep text as text, not shapes
+                    "ExportPlaceholders=false;" +  # Don't export placeholders
+                    "ExportLinksRelativeFsys=false;" +  # Use absolute links
+                    "SinglePageSheets=false;" +  # Allow multiple pages
+                    "CompressData=false;" +  # Don't compress to preserve quality
+                    "Quality=100;" +  # Maximum quality
+                    "ReduceImageResolution=false;" +  # Keep original image resolution
+                    "MaxImageResolution=300;" +  # Set max image resolution
+                    "UseLayerCompression=false;" +  # Don't compress layers
+                    "ExportBookmarksToPDFDestination=false;" +  # Don't export bookmarks as destinations
+                    "PDFUACompliance=true;" +  # Enable PDF/UA compliance for accessibility
+                    "ExportLinkedImages=true",  # Export linked images
                     "--outdir", str(abs_output_dir),
                     str(abs_doc_path)
                 ]
@@ -260,7 +285,35 @@ async def upload_presentation(
                     cmd = [
                         "libreoffice",
                         "--headless",
-                        "--convert-to", "pdf",
+                        "--norestore",
+                        "--nofirststartwizard",
+                        "--infilter=impress8",  # Force PowerPoint filter
+                        "--convert-to",
+                        # Enhanced PDF settings for better text preservation
+                        "pdf:writer_pdf_Export:" +
+                        "PDFVersion=1;" +  # Use PDF 1.5 format
+                        "SelectPdfVersion=1;" +  # Explicitly select PDF version
+                        "ExportBookmarks=false;" +  # Disable bookmarks
+                        "ExportNotes=false;" +  # Disable notes
+                        "ExportNotesPages=false;" +  # Disable notes pages
+                        "UseTransitionEffects=false;" +  # Disable transitions
+                        "ExportFormFields=false;" +  # Disable form fields
+                        "FormsType=0;" +  # No forms
+                        "EmbedStandardFonts=true;" +  # Embed standard fonts
+                        "EmbedFonts=true;" +  # Embed all fonts
+                        "UseTaggedPDF=true;" +  # Enable tagged PDF for better text structure
+                        "ExportTextAsShapes=false;" +  # Keep text as text, not shapes
+                        "ExportPlaceholders=false;" +  # Don't export placeholders
+                        "ExportLinksRelativeFsys=false;" +  # Use absolute links
+                        "SinglePageSheets=false;" +  # Allow multiple pages
+                        "CompressData=false;" +  # Don't compress to preserve quality
+                        "Quality=100;" +  # Maximum quality
+                        "ReduceImageResolution=false;" +  # Keep original image resolution
+                        "MaxImageResolution=300;" +  # Set max image resolution
+                        "UseLayerCompression=false;" +  # Don't compress layers
+                        "ExportBookmarksToPDFDestination=false;" +  # Don't export bookmarks as destinations
+                        "PDFUACompliance=true;" +  # Enable PDF/UA compliance for accessibility
+                        "ExportLinkedImages=true",  # Export linked images
                         "--outdir", str(abs_output_dir),
                         str(abs_doc_path)
                     ]
@@ -297,6 +350,28 @@ async def upload_presentation(
                         else:
                             print("No PDF files found in directory")
                             raise Exception("PDF not created after conversion")
+                    
+                    # Analyze PDF structure
+                    try:
+                        print("\n=== PDF Analysis ===")
+                        with open(pdf_path, 'rb') as pdf_file:
+                            pdf_reader = PyPDF2.PdfReader(pdf_file)
+                            print(f"Number of pages: {len(pdf_reader.pages)}")
+                            print(f"PDF Version: {pdf_reader.pdf_header}")
+                            print("\nPage 1 Properties:")
+                            page = pdf_reader.pages[0]
+                            print(f"Page size: {page.mediabox}")
+                            print(f"Rotation: {page.get('/Rotate', 0)}")
+                            print(f"Resources: {list(page['/Resources'].keys()) if '/Resources' in page else 'No resources'}")
+                            print(f"Has text: {'/Font' in page['/Resources'] if '/Resources' in page else 'Unknown'}")
+                            print(f"Content streams: {len(page.get_contents())}")
+                            
+                            # Try to extract text from first page
+                            text = page.extract_text()
+                            print(f"\nFirst 200 chars of text layer: {text[:200]}")
+                            print(f"Text extraction successful: {bool(text)}")
+                    except Exception as e:
+                        print(f"PDF analysis error: {str(e)}")
                     
                     print("=== CONVERSION DEBUG END ===")
                     
