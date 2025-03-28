@@ -86,14 +86,15 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
         authorizationParams: {
           audience: import.meta.env.VITE_AUTH0_AUDIENCE,
           scope: 'openid profile email offline_access'
-        }
+        },
+        detailedResponse: true
       });
       
       console.log("Testing API connection to:", API_ENDPOINTS.chat.health);
       
       const response = await fetch(API_ENDPOINTS.chat.health, { 
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token.access_token}`
         }
       });
       
@@ -117,6 +118,10 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
     } catch (err) {
       console.error("API connection test error:", err);
       setApiStatus('unavailable');
+      // Handle refresh token error
+      if (err.message?.includes('Missing Refresh Token')) {
+        setError('Please log in again to continue using the chat feature.');
+      }
     } finally {
       setIsApiTesting(false);
     }
@@ -244,7 +249,8 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
             authorizationParams: {
                 audience: import.meta.env.VITE_AUTH0_AUDIENCE,
                 scope: 'openid profile email offline_access'
-            }
+            },
+            detailedResponse: true
         });
         
         // Get surrounding context if we have selected text and document text
@@ -292,7 +298,7 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`,
+                        'Authorization': `Bearer ${token.access_token}`,
                         'Accept': 'application/json'
                     },
                     body: JSON.stringify(payload)
@@ -378,14 +384,25 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
         console.error('Chat error:', err);
         setError(err.message || 'An error occurred');
         
-        // Add error message to chat
-        setMessages(prev => [
-            ...prev,
-            { 
-                type: 'assistant' as const, 
-                content: `Authentication error: ${err.message || "Failed to authenticate"}\n\nPlease try logging in again.` 
-            }
-        ]);
+        // Handle refresh token error
+        if (err.message?.includes('Missing Refresh Token')) {
+            setMessages(prev => [
+                ...prev,
+                { 
+                    type: 'assistant' as const, 
+                    content: 'Your session has expired. Please log in again to continue using the chat feature.' 
+                }
+            ]);
+        } else {
+            // Add error message to chat
+            setMessages(prev => [
+                ...prev,
+                { 
+                    type: 'assistant' as const, 
+                    content: `Authentication error: ${err.message || "Failed to authenticate"}\n\nPlease try logging in again.` 
+                }
+            ]);
+        }
     } finally {
         setIsLoading(false);
     }
