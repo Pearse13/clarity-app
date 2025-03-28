@@ -183,7 +183,7 @@ async def upload_presentation(
                 logger.info(f"Converting {SUPPORTED_FILE_TYPES[file_ext]} to PDF using LibreOffice: {doc_path}")
                 pdf_path = upload_dir / f"{doc_id}.pdf"
                 
-                # Convert using LibreOffice with text layer optimization
+                # Convert using LibreOffice with reliable settings for LibreOffice 7.3
                 abs_doc_path = doc_path.absolute()
                 abs_output_dir = upload_dir.absolute()
                 
@@ -217,13 +217,11 @@ async def upload_presentation(
                 for item in upload_dir.glob("**/*"):
                     logger.info(f"  {item.relative_to(upload_dir)} ({item.stat().st_size} bytes)")
 
-                # Prepare conversion command with text layer optimization
+                # Prepare conversion command with reliable settings for LibreOffice 7.3
                 convert_cmd = [
                     "libreoffice",
                     "--headless",
-                    "--norestore",
-                    "--infilter=impress8",
-                    "--convert-to", "pdf:writer_pdf_Export:EmbedStandardFonts=true;UseTaggedPDF=true",
+                    "--convert-to", "pdf",
                     "--outdir", str(abs_output_dir),
                     str(abs_doc_path)
                 ]
