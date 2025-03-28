@@ -115,11 +115,11 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
         setApiStatus('unavailable');
         console.log("Chat API health check failed:", response.status);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("API connection test error:", err);
       setApiStatus('unavailable');
       // Handle refresh token error
-      if (err.message?.includes('Missing Refresh Token')) {
+      if (err instanceof Error && err.message?.includes('Missing Refresh Token')) {
         setError('Please log in again to continue using the chat feature.');
       }
     } finally {
@@ -538,6 +538,19 @@ Please format the study guide with clear sections and use markdown for better re
           </button>
         </div>
       </div>
+      
+      {/* Model and Token Usage Info */}
+      {(modelUsed || tokenUsage) && (
+        <div className="mb-4 text-xs text-gray-500">
+          {modelUsed && <div>Model: {modelUsed}</div>}
+          {tokenUsage && (
+            <div>
+              Tokens: {tokenUsage.total_tokens} 
+              (Input: {tokenUsage.prompt_tokens}, Output: {tokenUsage.completion_tokens})
+            </div>
+          )}
+        </div>
+      )}
       
       {/* Selected Text Indicator */}
       {currentText && (
