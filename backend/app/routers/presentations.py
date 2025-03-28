@@ -223,26 +223,7 @@ async def upload_presentation(
                     "--headless",
                     "--norestore",
                     "--infilter=impress8",
-                    "--convert-to",
-                    # Enhanced PDF settings for text preservation
-                    "pdf:writer_pdf_Export:" +
-                    "SelectPdfVersion=2;" +  # Use PDF 1.5
-                    "ExportFormFields=false;" +
-                    "ExportBookmarks=false;" +
-                    "ExportNotes=false;" +
-                    "ExportNotesPages=false;" +
-                    "UseTransitionEffects=false;" +
-                    "ExportLinksRelativeFsys=false;" +
-                    "EmbedStandardFonts=true;" +
-                    "EmbedFonts=true;" +
-                    "UseTaggedPDF=true;" +  # Important for text structure
-                    "ExportTextAsShapes=false;" +  # Critical for text selection
-                    "ReduceImageResolution=false;" +
-                    "MaxImageResolution=300;" +
-                    "Quality=100;" +
-                    "PDFUACompliance=true;" +  # For better text accessibility
-                    "UseLosslessCompression=true;" +  # Preserve text quality
-                    "PreservePdfFormats=true",  # Keep text formatting
+                    "--convert-to", "pdf:writer_pdf_Export:EmbedStandardFonts=true;UseTaggedPDF=true",
                     "--outdir", str(abs_output_dir),
                     str(abs_doc_path)
                 ]
