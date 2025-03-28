@@ -194,7 +194,31 @@ async def upload_presentation(
                     "--nofirststartwizard",
                     "--infilter=impress8",  # Force PowerPoint filter
                     "--convert-to",
-                    "pdf:writer_pdf_Export:PDFVersion=1;SelectPdfVersion=1;ExportFormFields=false;ExportBookmarks=false;ExportNotes=false;ExportNotesPages=false;UseTransitionEffects=false;ExportLinksRelativeFsys=false;ExportFilesFS=false;AllowDuplicateFieldNames=false;FormsType=0;EmbedStandardFonts=true;EmbedFonts=true;ExportBookmarksToPDFDestination=false;SinglePageSheets=false;OpenBookmarkLevels=0;UseTaggedPDF=true;PDFUACompliance=true;ExportTextAsShapes=false;ExportPlaceholders=false;ExportComments=false",  # Enhanced PDF settings for better text preservation
+                    # Enhanced PDF settings for better text preservation and selection
+                    "pdf:writer_pdf_Export:" +
+                    "PDFVersion=1;" +  # Use PDF 1.5 format
+                    "SelectPdfVersion=1;" +  # Explicitly select PDF version
+                    "ExportBookmarks=false;" +  # Disable bookmarks to avoid interference
+                    "ExportNotes=false;" +  # Disable notes export
+                    "ExportNotesPages=false;" +  # Disable notes pages
+                    "UseTransitionEffects=false;" +  # Disable transitions
+                    "ExportFormFields=false;" +  # Disable form fields
+                    "FormsType=0;" +  # No forms
+                    "EmbedStandardFonts=true;" +  # Embed standard fonts
+                    "EmbedFonts=true;" +  # Embed all fonts
+                    "UseTaggedPDF=true;" +  # Enable tagged PDF for better text structure
+                    "ExportTextAsShapes=false;" +  # Keep text as text, not shapes
+                    "ExportPlaceholders=false;" +  # Don't export placeholders
+                    "ExportLinksRelativeFsys=false;" +  # Use absolute links
+                    "SinglePageSheets=false;" +  # Allow multiple pages
+                    "CompressData=false;" +  # Don't compress to preserve quality
+                    "Quality=100;" +  # Maximum quality
+                    "ReduceImageResolution=false;" +  # Keep original image resolution
+                    "MaxImageResolution=300;" +  # Set max image resolution
+                    "UseLayerCompression=false;" +  # Don't compress layers
+                    "ExportBookmarksToPDFDestination=false;" +  # Don't export bookmarks as destinations
+                    "PDFUACompliance=true;" +  # Enable PDF/UA compliance for accessibility
+                    "ExportLinkedImages=true",  # Export linked images
                     "--outdir", str(abs_output_dir),
                     str(abs_doc_path)
                 ]
@@ -203,22 +227,41 @@ async def upload_presentation(
                 process = subprocess.Popen(
                     cmd,
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE
+                    stderr=subprocess.PIPE,
+                    cwd=str(abs_output_dir)  # Set working directory to output directory
                 )
-                stdout, stderr = process.communicate()
-                logger.info(f"Conversion output: {stdout.decode() if stdout else ''}")
+                stdout, stderr = process.communicate(timeout=60)  # Add timeout
+                
+                # Log detailed output
+                if stdout:
+                    logger.info(f"Conversion stdout: {stdout.decode()}")
+                if stderr:
+                    logger.warning(f"Conversion stderr: {stderr.decode()}")
+                    
+                # Log directory contents after conversion
+                logger.info("Directory contents after conversion:")
+                for item in upload_dir.glob("**/*"):
+                    logger.info(f"  {item.relative_to(upload_dir)} ({item.stat().st_size} bytes)")
                 
                 # Check if the conversion was successful
                 if process.returncode != 0:
-                    logger.error(f"Conversion error: {stderr.decode() if stderr else 'Unknown error'}")
-                    raise Exception(f"LibreOffice conversion failed: {stderr.decode() if stderr else 'Unknown error'}")
+                    error_msg = stderr.decode() if stderr else 'Unknown error'
+                    logger.error(f"Conversion failed with return code {process.returncode}: {error_msg}")
+                    raise Exception(f"LibreOffice conversion failed: {error_msg}")
                 
-                # Check if the PDF was created
+                # Check if the PDF was created and is valid
                 if not pdf_path.exists():
                     logger.error(f"PDF not created after conversion: {pdf_path}")
+                    logger.error(f"Working directory contents: {list(Path(abs_output_dir).glob('*'))}")
                     raise Exception("PDF not created after conversion")
                     
-                logger.info(f"{SUPPORTED_FILE_TYPES[file_ext]} successfully converted to PDF: {pdf_path}")
+                # Verify PDF file size
+                pdf_size = pdf_path.stat().st_size
+                if pdf_size == 0:
+                    logger.error(f"Created PDF is empty: {pdf_path}")
+                    raise Exception("Created PDF is empty")
+                    
+                logger.info(f"PDF created successfully: {pdf_path} ({pdf_size} bytes)")
                 
                 # Update the status file
                 status_data["status"] = "ready"
