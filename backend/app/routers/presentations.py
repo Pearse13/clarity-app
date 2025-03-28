@@ -182,11 +182,23 @@ async def upload_presentation(
                 logger.info(f"Converting {SUPPORTED_FILE_TYPES[file_ext]} to PDF using LibreOffice: {doc_path}")
                 pdf_path = upload_dir / f"{doc_id}.pdf"
                 
-                # Convert using LibreOffice
-                # Use absolute paths for reliability
+                # Convert using LibreOffice with basic settings first
                 abs_doc_path = doc_path.absolute()
                 abs_output_dir = upload_dir.absolute()
                 
+                # Check LibreOffice installation first
+                try:
+                    logger.info("Checking LibreOffice installation...")
+                    check_cmd = ["libreoffice", "--version"]
+                    check_process = subprocess.run(check_cmd, capture_output=True, text=True)
+                    logger.info(f"LibreOffice version check output: {check_process.stdout}")
+                    if check_process.stderr:
+                        logger.warning(f"LibreOffice version check stderr: {check_process.stderr}")
+                except Exception as e:
+                    logger.error(f"Error checking LibreOffice installation: {str(e)}")
+                    raise Exception(f"LibreOffice not properly installed: {str(e)}")
+
+                # Define conversion command
                 cmd = [
                     "libreoffice", 
                     "--headless", 
@@ -194,74 +206,105 @@ async def upload_presentation(
                     "--nofirststartwizard",
                     "--infilter=impress8",  # Force PowerPoint filter
                     "--convert-to",
-                    # Enhanced PDF settings for better text preservation and selection
-                    "pdf:writer_pdf_Export:" +
-                    "PDFVersion=1;" +  # Use PDF 1.5 format
-                    "SelectPdfVersion=1;" +  # Explicitly select PDF version
-                    "ExportBookmarks=false;" +  # Disable bookmarks to avoid interference
-                    "ExportNotes=false;" +  # Disable notes export
-                    "ExportNotesPages=false;" +  # Disable notes pages
-                    "UseTransitionEffects=false;" +  # Disable transitions
-                    "ExportFormFields=false;" +  # Disable form fields
-                    "FormsType=0;" +  # No forms
-                    "EmbedStandardFonts=true;" +  # Embed standard fonts
-                    "EmbedFonts=true;" +  # Embed all fonts
-                    "UseTaggedPDF=true;" +  # Enable tagged PDF for better text structure
-                    "ExportTextAsShapes=false;" +  # Keep text as text, not shapes
-                    "ExportPlaceholders=false;" +  # Don't export placeholders
-                    "ExportLinksRelativeFsys=false;" +  # Use absolute links
-                    "SinglePageSheets=false;" +  # Allow multiple pages
-                    "CompressData=false;" +  # Don't compress to preserve quality
-                    "Quality=100;" +  # Maximum quality
-                    "ReduceImageResolution=false;" +  # Keep original image resolution
-                    "MaxImageResolution=300;" +  # Set max image resolution
-                    "UseLayerCompression=false;" +  # Don't compress layers
-                    "ExportBookmarksToPDFDestination=false;" +  # Don't export bookmarks as destinations
-                    "PDFUACompliance=true;" +  # Enable PDF/UA compliance for accessibility
-                    "ExportLinkedImages=true",  # Export linked images
+                    "pdf",  # Basic PDF conversion first
                     "--outdir", str(abs_output_dir),
                     str(abs_doc_path)
                 ]
-                
-                logger.info(f"Running conversion command: {' '.join(cmd)}")
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    cwd=str(abs_output_dir)  # Set working directory to output directory
-                )
-                stdout, stderr = process.communicate(timeout=60)  # Add timeout
-                
-                # Log detailed output
-                if stdout:
-                    logger.info(f"Conversion stdout: {stdout.decode()}")
-                if stderr:
-                    logger.warning(f"Conversion stderr: {stderr.decode()}")
-                    
-                # Log directory contents after conversion
-                logger.info("Directory contents after conversion:")
+
+                # Log directory state before conversion
+                logger.info("Directory contents before conversion:")
                 for item in upload_dir.glob("**/*"):
                     logger.info(f"  {item.relative_to(upload_dir)} ({item.stat().st_size} bytes)")
+
+                # Log the full command and paths
+                logger.info(f"Input file exists: {doc_path.exists()}")
+                logger.info(f"Input file size: {doc_path.stat().st_size} bytes")
+                logger.info(f"Output directory exists: {upload_dir.exists()}")
+                logger.info(f"Output directory is writable: {os.access(upload_dir, os.W_OK)}")
+                logger.info(f"Absolute input path: {abs_doc_path}")
+                logger.info(f"Absolute output path: {abs_output_dir}")
                 
-                # Check if the conversion was successful
-                if process.returncode != 0:
-                    error_msg = stderr.decode() if stderr else 'Unknown error'
-                    logger.error(f"Conversion failed with return code {process.returncode}: {error_msg}")
-                    raise Exception(f"LibreOffice conversion failed: {error_msg}")
-                
-                # Check if the PDF was created and is valid
-                if not pdf_path.exists():
-                    logger.error(f"PDF not created after conversion: {pdf_path}")
-                    logger.error(f"Working directory contents: {list(Path(abs_output_dir).glob('*'))}")
-                    raise Exception("PDF not created after conversion")
+                # Run conversion with more detailed error handling
+                try:
+                    print("=== CONVERSION DEBUG START ===")  # This will show in Railway logs
+                    print(f"Current directory: {os.getcwd()}")
+                    print(f"Input file path: {abs_doc_path}")
+                    print(f"Output directory: {abs_output_dir}")
                     
-                # Verify PDF file size
-                pdf_size = pdf_path.stat().st_size
-                if pdf_size == 0:
-                    logger.error(f"Created PDF is empty: {pdf_path}")
-                    raise Exception("Created PDF is empty")
+                    # First check if LibreOffice exists
+                    libreoffice_check = subprocess.run(
+                        ["which", "libreoffice"],
+                        capture_output=True,
+                        text=True
+                    )
+                    print(f"LibreOffice path check: {libreoffice_check.stdout}")
+                    if libreoffice_check.stderr:
+                        print(f"LibreOffice check error: {libreoffice_check.stderr}")
                     
-                logger.info(f"PDF created successfully: {pdf_path} ({pdf_size} bytes)")
+                    # Try to get LibreOffice version
+                    version_check = subprocess.run(
+                        ["libreoffice", "--version"],
+                        capture_output=True,
+                        text=True
+                    )
+                    print(f"LibreOffice version: {version_check.stdout}")
+                    if version_check.stderr:
+                        print(f"Version check error: {version_check.stderr}")
+                    
+                    # List directory contents before conversion
+                    print("Directory contents before conversion:")
+                    for item in upload_dir.glob("**/*"):
+                        print(f"  {item.name} ({item.stat().st_size} bytes)")
+                    
+                    # Define and run conversion command
+                    cmd = [
+                        "libreoffice",
+                        "--headless",
+                        "--convert-to", "pdf",
+                        "--outdir", str(abs_output_dir),
+                        str(abs_doc_path)
+                    ]
+                    print(f"Running command: {' '.join(cmd)}")
+                    
+                    process = subprocess.Popen(
+                        cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True
+                    )
+                    
+                    stdout, stderr = process.communicate(timeout=60)
+                    print(f"Conversion return code: {process.returncode}")
+                    print(f"Conversion stdout: {stdout}")
+                    print(f"Conversion stderr: {stderr}")
+                    
+                    # List directory contents after conversion
+                    print("Directory contents after conversion:")
+                    for item in upload_dir.glob("**/*"):
+                        print(f"  {item.name} ({item.stat().st_size} bytes)")
+                    
+                    if process.returncode != 0:
+                        print(f"Conversion failed with return code {process.returncode}")
+                        raise Exception(f"LibreOffice conversion failed: {stderr}")
+                    
+                    if not pdf_path.exists():
+                        print(f"PDF not found at expected path: {pdf_path}")
+                        # Check for any PDF files
+                        pdf_files = list(upload_dir.glob("*.pdf"))
+                        if pdf_files:
+                            print(f"Found PDF with different name: {pdf_files[0]}")
+                            pdf_path = pdf_files[0]
+                        else:
+                            print("No PDF files found in directory")
+                            raise Exception("PDF not created after conversion")
+                    
+                    print("=== CONVERSION DEBUG END ===")
+                    
+                except Exception as e:
+                    print(f"=== CONVERSION ERROR ===")
+                    print(f"Error during conversion: {str(e)}")
+                    print(f"Stack trace: {''.join(traceback.format_exception(*sys.exc_info()))}")
+                    raise
                 
                 # Update the status file
                 status_data["status"] = "ready"
