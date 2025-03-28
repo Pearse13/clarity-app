@@ -217,26 +217,14 @@ async def upload_presentation(
                 for item in upload_dir.glob("**/*"):
                     logger.info(f"  {item.relative_to(upload_dir)} ({item.stat().st_size} bytes)")
 
-                # Optimize conversion command based on file type
-                if SUPPORTED_FILE_TYPES[file_ext] == 'PowerPoint':
-                    # PowerPoint-specific conversion with reliable settings
-                    convert_cmd = [
-                        "libreoffice",
-                        "--headless",
-                        "--convert-to", "pdf",
-                        "--outdir", str(abs_output_dir),
-                        str(abs_doc_path)
-                    ]
-                    logger.info("Using PowerPoint-specific conversion settings")
-                else:
-                    # Standard conversion for other file types
-                    convert_cmd = [
-                        "libreoffice",
-                        "--headless",
-                        "--convert-to", "pdf",
-                        "--outdir", str(abs_output_dir),
-                        str(abs_doc_path)
-                    ]
+                # For PowerPoint files, use simple but reliable conversion
+                convert_cmd = [
+                    "libreoffice",
+                    "--headless",
+                    "--convert-to", "pdf",
+                    "--outdir", str(abs_output_dir),
+                    str(abs_doc_path)
+                ]
                 
                 logger.info(f"Running conversion command: {' '.join(convert_cmd)}")
                 
@@ -479,11 +467,6 @@ async def get_document_file(doc_id: str, filename: str):
             content_type = "application/octet-stream"
             
         logger.debug(f"Determined content type: {content_type}")
-        
-        # Set content disposition based on file type
-        content_disposition = "inline" if file_path.suffix.lower() == '.pdf' else "attachment"
-        disposition_header = f"{content_disposition}; filename=\"{file_path.name}\""
-        logger.debug(f"Setting Content-Disposition: {disposition_header}")
             
         # Return file with headers optimized for Office Online Viewer
         headers = {
@@ -492,7 +475,7 @@ async def get_document_file(doc_id: str, filename: str):
             "Access-Control-Allow-Headers": "*",
             "Access-Control-Expose-Headers": "Content-Length, Content-Range",
             "Content-Type": content_type,
-            "Content-Disposition": disposition_header,
+            "Content-Disposition": "attachment; filename=" + file_path.name,
             "Cache-Control": "public, max-age=3600",
             "X-Content-Type-Options": "nosniff",
             "Accept-Ranges": "bytes"
@@ -562,10 +545,6 @@ async def head_document_file(doc_id: str, filename: str):
         if not content_type:
             content_type = "application/octet-stream"
             
-        # Set content disposition based on file type
-        content_disposition = "inline" if file_path.suffix.lower() == '.pdf' else "attachment"
-        disposition_header = f"{content_disposition}; filename=\"{file_path.name}\""
-            
         # Return headers only for HEAD request
         headers = {
             "Access-Control-Allow-Origin": "*",
@@ -573,7 +552,7 @@ async def head_document_file(doc_id: str, filename: str):
             "Access-Control-Allow-Headers": "*",
             "Content-Type": content_type,
             "Content-Length": str(file_path.stat().st_size),
-            "Content-Disposition": disposition_header,
+            "Content-Disposition": "attachment",
             "Cache-Control": "public, max-age=3600",
             "X-Content-Type-Options": "nosniff",
             "Accept-Ranges": "bytes"
