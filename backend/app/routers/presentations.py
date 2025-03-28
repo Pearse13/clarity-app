@@ -217,18 +217,17 @@ async def upload_presentation(
                 for item in upload_dir.glob("**/*"):
                     logger.info(f"  {item.relative_to(upload_dir)} ({item.stat().st_size} bytes)")
 
-                # For PowerPoint files, use specific export parameters for better text handling
+                # Optimize conversion command based on file type
                 if SUPPORTED_FILE_TYPES[file_ext] == 'PowerPoint':
-                    # Special conversion command for PowerPoint files
+                    # PowerPoint-specific conversion with optimized settings
                     convert_cmd = [
                         "libreoffice",
-                        "--headless", 
-                        "--infilter=impress8",
-                        "--convert-to", 
-                        "pdf:draw_pdf_Export:IsSkipEmptyPages=false;ExportNotesPages=false;ExportNotes=false",
+                        "--headless",
+                        "--convert-to", "pdf:writer_pdf_Export:ExportFormFields=false",
                         "--outdir", str(abs_output_dir),
                         str(abs_doc_path)
                     ]
+                    logger.info("Using PowerPoint-specific conversion settings")
                 else:
                     # Standard conversion for other file types
                     convert_cmd = [
