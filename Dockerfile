@@ -3,27 +3,38 @@ FROM ubuntu:22.04
 # Install LibreOffice and dependencies
 RUN apt-get update && apt-get install -y \
     python3 python3-pip python3-dev \
-    libreoffice libreoffice-impress \
+    libreoffice \
+    libreoffice-writer \
+    libreoffice-impress \
+    libreoffice-calc \
+    libreoffice-common \
     fonts-liberation \
+    fonts-liberation2 \
     poppler-utils \
     unoconv \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Make sure LibreOffice is executable
+# Make sure LibreOffice is executable and properly configured
 RUN chmod +x /usr/bin/libreoffice && \
     chmod +x /usr/bin/soffice && \
-    ln -sf /usr/bin/soffice /usr/local/bin/soffice
+    ln -sf /usr/bin/soffice /usr/local/bin/soffice && \
+    mkdir -p /root/.config/libreoffice && \
+    echo '[Bootstrap]' > /root/.config/libreoffice/4/user/registrymodifications.xcu && \
+    echo 'UserInstallation=$SYSUSERCONFIG/libreoffice/4' >> /root/.config/libreoffice/4/user/registrymodifications.xcu
+
+# Create LibreOffice user profile directory
+RUN mkdir -p /app/.config/libreoffice/4/user
 
 # Set up working directory
 WORKDIR /app
 
 # Copy requirements first for better caching
-COPY backend/requirements.txt requirements.txt
+COPY backend/requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Copy the backend code
-COPY backend/ ./
+COPY backend/ .
 
 # Create necessary directories
 RUN mkdir -p data/temp data/documents data/static
@@ -34,10 +45,9 @@ ENV HOME=/app
 # Set environment variables
 ENV PORT=8000
 ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/app
 
 # Expose the port
 EXPOSE 8000
 
 # Run the server
-CMD ["python3", "-m", "app.main"] 
+CMD ["python3", "run_server.py"] 
