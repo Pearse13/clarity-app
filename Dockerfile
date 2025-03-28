@@ -19,12 +19,13 @@ RUN apt-get update && apt-get install -y \
 RUN chmod +x /usr/bin/libreoffice && \
     chmod +x /usr/bin/soffice && \
     ln -sf /usr/bin/soffice /usr/local/bin/soffice && \
-    mkdir -p /root/.config/libreoffice && \
+    mkdir -p /root/.config/libreoffice/4/user && \
     echo '[Bootstrap]' > /root/.config/libreoffice/4/user/registrymodifications.xcu && \
     echo 'UserInstallation=$SYSUSERCONFIG/libreoffice/4' >> /root/.config/libreoffice/4/user/registrymodifications.xcu
 
-# Create LibreOffice user profile directory
-RUN mkdir -p /app/.config/libreoffice/4/user
+# Create LibreOffice user profile directory with proper permissions
+RUN mkdir -p /app/.config/libreoffice/4/user && \
+    chmod -R 777 /app/.config
 
 # Set up working directory
 WORKDIR /app
