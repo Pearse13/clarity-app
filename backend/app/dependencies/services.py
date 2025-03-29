@@ -1,4 +1,4 @@
-from app.services.anthropic_service import AnthropicService
+from ..services.anthropic_service import AnthropicService
 from typing import Optional
 
 # Singleton instance of AnthropicService

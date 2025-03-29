@@ -33,3 +33,6 @@ psutil>=5.9.0
 # Document conversion
 cloudconvert>=2.0.0
 boto3>=1.29.3
+
+# Redis dependency
+redis==5.0.1

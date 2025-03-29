@@ -5,8 +5,8 @@ Clarity is a dual-purpose AI-powered educational platform consisting of two main
 1. **Text Transformer**: An intelligent text refinement tool offering four transformation modes with varying intensity levels for enhancing written communication.
 2. **Clarity Lectures**: An interactive learning companion that transforms educational content into digestible formats with AI-powered comprehension tools. It consists of three distinct modes:
    - **Understand**: Upload and interact with documents by highlighting text to analyze with the Text Transformer
-   - **Chat**: (In Development) AI-powered conversation interface for document-specific queries
-   - **Create**: (In Development) Automated generation of study materials including flashcards and study guides
+   - **Chat**: AI-powered conversation interface for document-specific queries
+   - **Teach Me**: Interactive learning mode where users teach concepts to Clarity, enhancing their own understanding through explanation
 
 **Tech Stack** ✓
 - Frontend: React + Vite (Deployed on Vercel)
@@ -117,16 +117,16 @@ Clarity is a dual-purpose AI-powered educational platform consisting of two main
 
 ### Phase 2: Chat Mode Development
 1. AI Chat Interface
-   - Real-time chat interface
-   - Claude 3.5 Sonnet integration for superior document understanding
-   - Conversation streaming for immediate responses
-   - Support for documents up to 200K tokens (approximately 150 pages)
-   - Contextual awareness across multiple questions
-   - Natural language query processing
-   - Document-specific responses with high accuracy
-   - Chat history management with persistent sessions
-   - Error handling and fallback responses
-   - Cost-efficient processing compared to GPT-4 alternatives
+   - Real-time chat interface (In Development) ✓
+   - Claude 3.5 Sonnet integration (claude-3-5-sonnet-20240620) ✓
+   - Conversation streaming for immediate responses (In Development)
+   - Support for documents up to 200K tokens (approximately 150 pages) ✓
+   - Contextual awareness across multiple questions (In Development)
+   - Natural language query processing (In Development)
+   - Document-specific responses with high accuracy (In Development)
+   - Chat history management with persistent sessions (In Development)
+   - Error handling and fallback responses (In Development)
+   - Cost-efficient processing compared to GPT-4 alternatives ✓
 
 2. Document Context Integration
    - Automatic document content indexing
@@ -149,22 +149,46 @@ Clarity is a dual-purpose AI-powered educational platform consisting of two main
    - Export conversation history options
    - Response rating system for feedback
 
-### Phase 3: Create Mode Development
-1. Study Material Generation
-   - Automated flashcard creation
-   - Study guide compilation
-   - Practice quiz generation
-   - Summary creation
-   - Key concept extraction
-   - Custom template support
+### Phase 3: Teach Me Mode Development
+1. Core Teaching Interaction
+   - Student-teacher role reversal with Clarity as the learner
+   - Document content analysis for key concepts
+   - Progressive concept exploration system
+   - Intelligent question generation based on content
+   - Real-time understanding validation
+   - Knowledge gap identification
 
-2. Content Organization
-   - Material categorization
-   - Topic clustering
-   - Difficulty levels
-   - Progress tracking
-   - Export functionality
-   - Sharing capabilities
+2. Teaching Techniques Support
+   - Concept breakdown prompts
+   - Analogy generation assistance
+   - Connection-drawing exercises
+   - Example creation guidance
+   - Misconception identification
+   - Key point reinforcement tracking
+
+3. Learning Progress System
+   - Concept mastery tracking
+   - Topic relationship mapping
+   - Understanding level assessment
+   - Learning milestone markers
+   - Knowledge gap analysis
+   - Teaching effectiveness feedback
+
+4. Interactive Features
+   - Dynamic concept mapping
+   - Real-time understanding visualization
+   - Teaching strategy suggestions
+   - Progress dashboards
+   - Session summaries
+   - Teaching technique tips
+
+5. Advanced Capabilities
+   - Multi-document concept linking
+   - Teaching style adaptation
+   - Personalized learning paths
+   - Spaced repetition prompts
+   - Expert teaching pattern recognition
+   - Teaching effectiveness analytics
 
 ## 5. Enhanced Features
 1. Text Transformer Improvements
@@ -257,6 +281,10 @@ Clarity is a dual-purpose AI-powered educational platform consisting of two main
 1. Deployment
    - Vercel frontend deployment ✓
    - Railway backend deployment ✓
+     - Production URL: clarity-backend-production.up.railway.app ✓
+     - FastAPI with ASGI server ✓
+     - OpenAI API integration for text transformation ✓
+     - Claude 3.5 Sonnet integration for chat ✓
    - Railway document conversion service ✓
    - Database implementation
    - File storage solution

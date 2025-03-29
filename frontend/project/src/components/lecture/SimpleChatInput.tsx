@@ -1,6 +1,5 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Send, AlertCircle } from 'lucide-react';
-import LoadingSpinner from '../../components/LoadingSpinner';
 
 interface SimpleChatInputProps {
   currentText: string | null;
@@ -18,6 +17,13 @@ const SimpleChatInput: React.FC<SimpleChatInputProps> = ({
   const [inputValue, setInputValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Focus input when component mounts
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, []);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);
   };
@@ -27,6 +33,11 @@ const SimpleChatInput: React.FC<SimpleChatInputProps> = ({
     
     onSendMessage(inputValue.trim());
     setInputValue('');
+    
+    // Refocus the input after sending
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -46,17 +57,17 @@ const SimpleChatInput: React.FC<SimpleChatInputProps> = ({
           value={inputValue}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          placeholder="Ask a question about your document..."
-          className="w-full p-3 pr-12 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder={currentText ? "Ask about the selected text..." : "Ask a question about your document..."}
+          className="w-full p-3 pr-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           disabled={isLoading}
         />
         <button
           onClick={handleSend}
           disabled={!inputValue.trim() || isLoading}
-          className="absolute right-3 top-1/2 transform -translate-y-1/2 p-2 text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+          className="absolute right-2.5 top-1/2 transform -translate-y-1/2 p-1.5 text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed"
           aria-label="Send message"
         >
-          {isLoading ? <LoadingSpinner size="sm" /> : <Send className="w-5 h-5" />}
+          <Send className="w-4 h-4" />
         </button>
       </div>
       

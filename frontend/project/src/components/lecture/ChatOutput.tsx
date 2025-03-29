@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
-import { Send, Bot, User, AlertCircle } from 'lucide-react';
+import { Send, Bot, User, AlertCircle, Copy, Check } from 'lucide-react';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { API_URL } from '../../config/api';
 
@@ -28,9 +28,20 @@ const ChatOutput: React.FC<ChatOutputProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modelUsed, setModelUsed] = useState<string | null>(null);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Reset copied state after 2 seconds
+  useEffect(() => {
+    if (copiedMessageId) {
+      const timer = setTimeout(() => {
+        setCopiedMessageId(null);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [copiedMessageId]);
 
   // Scroll to bottom of messages
   useEffect(() => {
@@ -170,13 +181,23 @@ const ChatOutput: React.FC<ChatOutputProps> = ({
     setModelUsed(null);
   };
 
+  const handleCopyMessage = async (text: string, messageId: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedMessageId(messageId);
+    } catch (err) {
+      console.error('Failed to copy text:', err);
+      setError('Failed to copy text to clipboard');
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-white rounded-lg border-2 border-blue-300 overflow-hidden">
       {/* Chat Header */}
       <div className="bg-blue-600 text-white p-4 flex justify-between items-center">
         <div className="flex items-center gap-2">
           <Bot className="w-5 h-5" />
-          <h2 className="text-lg font-medium">Clarity Lecture Assistant</h2>
+          <h2 className="text-lg font-medium">Clarity AI Assistant</h2>
         </div>
         
         {messages.length > 0 && (
@@ -224,6 +245,21 @@ const ChatOutput: React.FC<ChatOutputProps> = ({
                     </span>
                   </div>
                   <p className="whitespace-pre-line">{message.text}</p>
+                  {message.sender === 'ai' && (
+                    <div className="mt-2 flex justify-end">
+                      <button
+                        onClick={() => handleCopyMessage(message.text, message.id)}
+                        className="p-1 text-gray-500 hover:text-gray-700 rounded transition-colors"
+                        title="Copy response"
+                      >
+                        {copiedMessageId === message.id ? (
+                          <Check className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -239,13 +275,6 @@ const ChatOutput: React.FC<ChatOutputProps> = ({
             <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
             <p className="text-sm">{error}</p>
           </div>
-        </div>
-      )}
-      
-      {/* Model Info */}
-      {modelUsed && (
-        <div className="bg-gray-50 px-4 py-1 text-xs text-gray-500 border-t border-gray-200">
-          Using model: {modelUsed}
         </div>
       )}
       

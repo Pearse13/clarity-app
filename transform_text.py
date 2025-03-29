@@ -33,9 +33,15 @@ def get_transformation_preferences():
     
     return "simplify" if transform_type == "1" else "sophisticate", int(level)
 
+# Get API key from environment variable
+api_key = os.getenv("CLARITY_API_KEY")
+if not api_key:
+    print("Error: CLARITY_API_KEY environment variable not set")
+    sys.exit(1)
+
 headers = {
     "Content-Type": "application/json",
-    "X-API-Key": "clrty-sk-a7a6033a-ae82-4f25-ac37-0d1d023ca642"
+    "X-API-Key": api_key
 }
 
 # Get text from user

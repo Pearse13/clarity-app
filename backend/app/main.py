@@ -9,9 +9,9 @@ import shutil
 from datetime import datetime
 
 # Import routers individually to avoid unknown import symbols
-from .routers import presentations
-from .routers import documents
-from .routers import chat
+from app.routers import presentations
+from app.routers import documents
+from app.routers import chat
 
 from .models import TransformRequest, TransformResponse, TransformationType
 from .services.openai_service import transform_text_with_gpt, call_openai_api

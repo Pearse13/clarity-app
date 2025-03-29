@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
-import { Brain, MessageSquare, Wand2, ChevronDown, Upload } from 'lucide-react';
+import { Brain, MessageSquare, Wand2, ChevronDown, Upload, Copy, Check } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { FileProvider } from '../contexts/FileContext';
 import PresentationViewer from '../components/presentation/PresentationViewer';
 import { TransformationType } from '../components/lecture/UnderstandOutput';
 import SimpleChatView from '../components/lecture/SimpleChatView';
-import { API_ENDPOINTS } from '../config/api';
+import { useSidebar } from '../contexts/SidebarContext';
+import { isTransformResponse, isApiError } from '../types/api';
 
-type ActiveTab = 'understand' | 'chat' | 'create';
+type ActiveTab = 'understand' | 'chat' | 'teach';
 
 const TRANSFORMATION_DETAILS = [
   {
@@ -175,6 +176,7 @@ const escapeHtml = (text: string): string => {
 
 const LecturePage: React.FC = () => {
   const { getAccessTokenSilently } = useAuth0();
+  const { isOpen, toggle } = useSidebar();
   const [activeTab, setActiveTab] = useState<ActiveTab>('understand');
   const [level, setLevel] = useState<number>(1);
   const [transformationType, setTransformationType] = useState<TransformationType>('simplify');
@@ -199,8 +201,15 @@ const LecturePage: React.FC = () => {
     documentTextRef.current = documentText;
   }, [documentText]);
 
-  // Function to animate text word by word
-  const animateTextWordByWord = (text: string) => {
+  // Function to animate text word by word with error handling
+  const animateTextWordByWord = (text: string | undefined) => {
+    // Input validation
+    if (!text) {
+      console.error('Received empty or undefined text for animation');
+      setError('Unable to animate empty text');
+      return;
+    }
+
     // Clear any existing animation
     if (animationIntervalRef.current) {
       clearInterval(animationIntervalRef.current);
@@ -212,42 +221,51 @@ const LecturePage: React.FC = () => {
     
     // Create new interval for word-by-word animation
     const intervalId = setInterval(() => {
-      if (currentWordIndex < words.length) {
-        // We'll now build the HTML with spans for each word
-        const displayedWords = words.slice(0, currentWordIndex + 1);
-        
-        // Create a string with spans for animated words
-        const displayedWordsHtml = displayedWords
-          .map((word, index) => {
-            // Sanitize the word to prevent XSS
-            const safeWord = escapeHtml(word);
-            // Add the 'animated-word' class only to the latest word
-            const isLatestWord = index === currentWordIndex;
-            return isLatestWord 
-              ? `<span class="animated-word">${safeWord}</span>` 
-              : safeWord;
-          })
-          .join(' ');
+      try {
+        if (currentWordIndex < words.length) {
+          // We'll now build the HTML with spans for each word
+          const displayedWords = words.slice(0, currentWordIndex + 1);
           
-        // Use the full string with HTML markup for the animation
-        setAnimatedText(displayedWordsHtml);
-        currentWordIndex++;
-      } else {
-        clearInterval(intervalId);
-        animationIntervalRef.current = null;
-        
-        // Once animation is complete, update the currentText
-        setTimeout(() => {
+          // Create a string with spans for animated words
+          const displayedWordsHtml = displayedWords
+            .map((word, index) => {
+              // Sanitize the word to prevent XSS
+              const safeWord = escapeHtml(word);
+              // Add the 'animated-word' class only to the latest word
+              const isLatestWord = index === currentWordIndex;
+              return isLatestWord 
+                ? `<span class="animated-word">${safeWord}</span>` 
+                : safeWord;
+            })
+            .join(' ');
+            
+            // Use the full string with HTML markup for the animation
+            setAnimatedText(displayedWordsHtml);
+            currentWordIndex++;
+          } else {
+            clearInterval(intervalId);
+            animationIntervalRef.current = null;
+            
+            // Once animation is complete, update the currentText
+            setTimeout(() => {
+              setCurrentText(text);
+              // Clear the animated text
+              setAnimatedText('');
+            }, 300);
+          }
+        } catch (err) {
+          console.error('Animation error:', err);
+          clearInterval(intervalId);
+          animationIntervalRef.current = null;
+          setError('Failed to animate text');
+          // Fallback to displaying the text without animation
           setCurrentText(text);
-          // Clear the animated text
-          setAnimatedText('');
-        }, 300);
-      }
-    }, 40); // Speed of word appearance (milliseconds)
-    
-    // Store interval ID in ref
-    animationIntervalRef.current = intervalId;
-  };
+        }
+      }, 40); // Speed of word appearance (milliseconds)
+      
+      // Store interval ID in ref
+      animationIntervalRef.current = intervalId;
+    };
 
   // Cleanup animation interval on unmount
   useEffect(() => {
@@ -293,134 +311,58 @@ const LecturePage: React.FC = () => {
     }
   };
 
-  // Enhanced text selection handler to work across all tabs
-  const handleGlobalTextSelection = () => {
-    // Don't capture selections if we're already loading or in a transformed state
+  // Simple function to handle text selection
+  const handleTextSelection = () => {
+    // Don't update if we're loading or already showing transformed text
     if (isLoading || isTransformed) return;
-    
-    // Get the current selection
+
     const selection = window.getSelection();
     const selectedText = selection?.toString().trim();
     
-    if (selectedText && selectedText.length > 1) {
-      console.log('LecturePage: Text selected globally:', selectedText);
-      
-      // Check if the selection is from the document viewer area
+    if (selectedText && selectedText.length > 0) {
+      // Check if selection is from the document viewer
       const selectionNode = selection?.anchorNode?.parentElement;
-      const isPdfArea = selectionNode?.closest('.react-pdf__Page') || 
-                       selectionNode?.closest('.document-viewer-area');
+      const isFromDocument = selectionNode?.closest('.react-pdf__Page') || 
+                           selectionNode?.closest('.document-viewer-area');
       
-      if (isPdfArea) {
-        console.log('LecturePage: Selection is from document area');
-        handleTransform(selectedText);
+      if (isFromDocument) {
+        setCurrentText(selectedText);
+        setCharacterCount(selectedText.length);
+        setIsOverLimit(selectedText.length > 1000);
+        setError(null);
       }
     }
   };
 
-  // Function to check if the user is trying to select text by clicking and dragging
+  // Add event listener for text selection
   useEffect(() => {
-    let isSelecting = false;
-    let selectionTimer: NodeJS.Timeout | null = null;
-    let selectionStartTarget: EventTarget | null = null;
-
-    const handleMouseDown = (e: MouseEvent) => {
-      // User has started a potential selection
-      isSelecting = true;
-      selectionStartTarget = e.target;
-      
-      // Clear any existing timer
-      if (selectionTimer) {
-        clearTimeout(selectionTimer);
-      }
-    };
-
-    const handleMouseUp = (e: MouseEvent) => {
-      if (isSelecting) {
-        // Only process if same area or if it's within a PDF viewer
-        const isInDocumentArea = 
-          e.target === selectionStartTarget ||
-          (e.target as HTMLElement).closest('.react-pdf__Page') ||
-          (e.target as HTMLElement).closest('iframe') ||
-          (e.target as HTMLElement).closest('.document-viewer-area');
-        
-        if (isInDocumentArea) {
-          // User has potentially completed a selection, check after a short delay
-          selectionTimer = setTimeout(() => {
-            const selection = window.getSelection();
-            const selectedText = selection?.toString().trim();
-            
-            if (selectedText && selectedText.length > 1) {
-              console.log('LecturePage: Text selected from document:', selectedText);
-              handleTransform(selectedText);
-            }
-          }, 200); // Increased timeout for better selection capture
-        }
-      }
-      
-      isSelecting = false;
-      selectionStartTarget = null;
-    };
-
-    // Add global selection change handler
-    const handleSelectionChange = () => {
-      // Clear any existing timer to prevent duplicates
-      if (selectionTimer) {
-        clearTimeout(selectionTimer);
-      }
-      
-      // Set a new timer to capture the selection after it's complete
-      selectionTimer = setTimeout(handleGlobalTextSelection, 300);
-    };
-
-    // Add the event listeners with capture phase to ensure we get events first
-    document.addEventListener('mousedown', handleMouseDown, true);
-    document.addEventListener('mouseup', handleMouseUp, true);
-    document.addEventListener('selectionchange', handleSelectionChange);
-    
-    return () => {
-      // Clean up
-      document.removeEventListener('mousedown', handleMouseDown, true);
-      document.removeEventListener('mouseup', handleMouseUp, true);
-      document.removeEventListener('selectionchange', handleSelectionChange);
-      
-      if (selectionTimer) {
-        clearTimeout(selectionTimer);
-      }
-    };
+    document.addEventListener('mouseup', handleTextSelection);
+    return () => document.removeEventListener('mouseup', handleTextSelection);
   }, [isLoading, isTransformed]);
 
-  // Add this useEffect to handle document clicks for text unselection
+  // Simple function to handle clicks outside the text area
+  const handleClickOutside = (e: MouseEvent) => {
+    if (isLoading || isTransformed) return;
+
+    const target = e.target as HTMLElement;
+    const isTextArea = target.closest('.text-area') || 
+                      target.closest('.react-pdf__Page') ||
+                      target.closest('.transform-button') ||
+                      target.closest('.transformation-controls') ||
+                      target.closest('.transformed-text') ||
+                      target.closest('.level-select') ||
+                      target.closest('.transformation-type-select');
+
+    if (!isTextArea && currentText) {
+      setCurrentText(null);
+      setCharacterCount(0);
+    }
+  };
+
+  // Add event listener for clearing selection
   useEffect(() => {
-    const handleDocumentClick = (e: MouseEvent) => {
-      // Skip if we're currently loading or showing transformed text - don't clear text
-      if (isLoading || isTransformed) {
-        return;
-      }
-      
-      // Check if the click is outside text areas or selection-related elements
-      const target = e.target as HTMLElement;
-      const isSelectionRelated = 
-        target.closest('.react-pdf__Page') || 
-        target.closest('textarea') ||
-        target.closest('input[type="text"]') ||
-        target.closest('[contenteditable="true"]') ||
-        // Also prevent clearing text when clicking the transform button
-        target.closest('button[id="transform-button"]');
-      
-      // If click is outside selection-related elements, clear the current text
-      if (!isSelectionRelated && currentText) {
-        setCurrentText('');
-        setCharacterCount(0);
-      }
-    };
-    
-    // Add click listener to the document
-    document.addEventListener('mousedown', handleDocumentClick);
-    
-    // Cleanup on unmount
-    return () => {
-      document.removeEventListener('mousedown', handleDocumentClick);
-    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [currentText, isLoading, isTransformed]);
 
   // Add a utility function to limit context to first 150 words
@@ -459,7 +401,12 @@ const LecturePage: React.FC = () => {
       // Get a token for authentication
       let token;
       try {
-        token = await getAccessTokenSilently();
+        token = await getAccessTokenSilently({
+          authorizationParams: {
+            audience: import.meta.env.VITE_AUTH0_AUDIENCE,
+            scope: 'openid profile email offline_access'
+          }
+        });
       } catch (tokenError: any) {
         console.error("Failed to get auth token:", tokenError);
         throw new Error("Authentication failed. Please try logging in again.");
@@ -485,11 +432,6 @@ const LecturePage: React.FC = () => {
         sample: limitedDocumentContext ? limitedDocumentContext.substring(0, 100) + '...' : 'none'
       });
       
-      console.log("Sending request body:", {
-        ...requestBody,
-        documentText: limitedDocumentContext ? `${limitedDocumentContext.length} chars (first 150 words)` : null
-      });
-      
       const response = await fetch('https://clarity-backend-production.up.railway.app/api/transform', {
         method: 'POST',
         headers: {
@@ -500,13 +442,21 @@ const LecturePage: React.FC = () => {
         body: JSON.stringify(requestBody)
       });
       
+      const data = await response.json();
+      
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Error from API: ${response.status} ${response.statusText}`, errorText);
+        // Check if it's a known API error format
+        if (isApiError(data)) {
+          throw new Error(data.detail);
+        }
         throw new Error(`API error: ${response.statusText}`);
       }
       
-      const data = await response.json();
+      // Validate response data
+      if (!isTransformResponse(data)) {
+        throw new Error('Invalid API response format');
+      }
+      
       console.log("Transformed successfully:", data);
       
       // Set the transformed state first for visual indication
@@ -516,8 +466,8 @@ const LecturePage: React.FC = () => {
       // Clear current text to make room for animation
       setCurrentText('');
       
-      // Start the word-by-word animation
-      animateTextWordByWord(data.text);
+      // Start the word-by-word animation with validated response
+      animateTextWordByWord(data.transformedText);
       
     } catch (err: any) {
       console.error("Transform error:", err);
@@ -525,7 +475,7 @@ const LecturePage: React.FC = () => {
       if (err.message.includes('login')) {
         setError('Your session has expired. Please log in again.');
       } else {
-        setError('Failed to transform text. Please try again.');
+        setError(err.message || 'Failed to transform text. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -569,6 +519,90 @@ const LecturePage: React.FC = () => {
     }
   };
 
+  // Add state for panel width
+  const [leftPanelWidth, setLeftPanelWidth] = useState<number>(50);
+  const [isResizing, setIsResizing] = useState(false);
+  
+  // Update leftPanelWidth when tab changes
+  useEffect(() => {
+    if (activeTab === 'chat') {
+      setLeftPanelWidth(30); // Start at 30% width when switching to chat
+    } else {
+      setLeftPanelWidth(50); // Reset to 50% for other tabs
+    }
+  }, [activeTab]);
+  
+  // Add resize handler
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (activeTab !== 'chat') return;
+    setIsResizing(true);
+    e.preventDefault();
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const containerWidth = window.innerWidth;
+      const percentage = (e.clientX / containerWidth) * 100;
+      // Limit range between 30% and 70%
+      setLeftPanelWidth(Math.min(Math.max(percentage, 30), 70));
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
+
+  const [copiedText, setCopiedText] = useState(false);
+
+  // Reset copied state after 2 seconds
+  useEffect(() => {
+    if (copiedText) {
+      const timer = setTimeout(() => {
+        setCopiedText(false);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [copiedText]);
+
+  const handleCopyText = async () => {
+    if (currentText) {
+      try {
+        await navigator.clipboard.writeText(currentText);
+        setCopiedText(true);
+      } catch (err) {
+        console.error('Failed to copy text:', err);
+      }
+    }
+  };
+
+  // Add state for transform button active state
+  const [isTransformButtonActive, setIsTransformButtonActive] = useState(false);
+
+  // Add function to handle transform completion
+  const handleTransformComplete = () => {
+    setIsTransformButtonActive(true);
+    // Reset button color after 3 seconds
+    setTimeout(() => {
+      setIsTransformButtonActive(false);
+    }, 3000);
+  };
+
+  // Add clear transformed text function
+  const handleClearTransformed = () => {
+    setIsTransformed(false);
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'understand':
@@ -607,9 +641,25 @@ const LecturePage: React.FC = () => {
                         </span>
                       )}
                     </label>
-                    <span className={`text-sm ${isOverLimit ? 'text-red-500' : 'text-gray-500'}`}>
-                      {characterCount}/1000 characters
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleCopyText}
+                        className={`p-1.5 text-gray-500 hover:text-gray-700 rounded transition-colors ${
+                          !currentText ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                        disabled={!currentText}
+                        title="Copy text"
+                      >
+                        {copiedText ? (
+                          <Check className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </button>
+                      <span className={`text-sm ${isOverLimit ? 'text-red-500' : 'text-gray-500'}`}>
+                        {characterCount}/1000 characters
+                      </span>
+                    </div>
                   </div>
                   <div className="flex-1 min-h-0">
                     <div 
@@ -642,36 +692,32 @@ const LecturePage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 transformation-controls">
                   <button
-                    type="button"
-                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                      e.preventDefault();
-                      e.stopPropagation();
+                    onClick={() => {
                       handleGenerateTransform();
+                      handleTransformComplete();
                     }}
                     disabled={isLoading || isOverLimit || !currentText}
-                    id="transform-button"
-                    className={`px-4 py-2 rounded-lg text-white font-medium transition-all duration-300 ${
-                      isTransformed 
-                        ? 'bg-green-600 hover:bg-green-700' 
-                        : 'bg-blue-600 hover:bg-blue-700'
-                    } ${(isLoading || isOverLimit || !currentText) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`transform-button px-4 py-2 rounded-lg text-white transition-colors ${
+                      isTransformButtonActive 
+                        ? 'bg-blue-700' 
+                        : isLoading 
+                          ? 'bg-gray-400 cursor-not-allowed' 
+                          : 'bg-blue-600 hover:bg-blue-700'
+                    }`}
                   >
-                    {isLoading ? (
-                      <span className="flex items-center">
-                        <span className="mr-2">Loading...</span>
-                        <span className="animate-spin">⟳</span>
-                      </span>
-                    ) : isTransformed ? (
-                      <span className="flex items-center">
-                        <span className="mr-2">Transformed</span>
-                        <span>✓</span>
-                      </span>
-                    ) : (
-                      'Transform'
-                    )}
+                    {isLoading ? 'Transforming...' : `${TRANSFORMATION_DETAILS.find(t => t.id === transformationType)?.label || 'Transform'}`}
                   </button>
+                  
+                  {isTransformed && (
+                    <button
+                      onClick={handleClearTransformed}
+                      className="px-4 py-2 rounded-lg text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-colors"
+                    >
+                      Clear
+                    </button>
+                  )}
                 </div>
 
                 {error && (
@@ -692,12 +738,12 @@ const LecturePage: React.FC = () => {
             />
           </div>
         );
-      case 'create':
+      case 'teach':
         return (
           <div className="flex-1 p-4">
             <div className="bg-gray-50/80 backdrop-blur-xl rounded-2xl p-6">
               <p className="text-[15px] text-gray-600">
-                Create feature coming soon...
+                Teach Me feature coming soon...
               </p>
             </div>
           </div>
@@ -743,6 +789,28 @@ const LecturePage: React.FC = () => {
             <div className="flex items-center">
               {/* Left half of the header */}
               <div className="w-1/2 flex items-center gap-3">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggle();
+                  }}
+                  className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                  aria-label="Toggle sidebar"
+                >
+                  <svg
+                    className={`w-5 h-5 text-gray-400 transition-transform duration-300 transform-gpu ${isOpen ? '' : 'rotate-180'}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
+                    />
+                  </svg>
+                </button>
                 <h1 className="text-xl font-medium text-gray-900">Document Viewer</h1>
                 {documentText && (
                   <button
@@ -781,47 +849,58 @@ const LecturePage: React.FC = () => {
                     <span>Chat</span>
                   </button>
                   <button
-                    onClick={() => setActiveTab('create')}
+                    onClick={() => setActiveTab('teach')}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${
-                      activeTab === 'create'
+                      activeTab === 'teach'
                         ? 'bg-blue-600 text-white'
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
                   >
                     <Wand2 className="w-4 h-4" />
-                    <span>Create</span>
+                    <span>Teach Me</span>
                   </button>
                 </div>
               </div>
             </div>
           </div>
           
-          <div className="flex-grow grid grid-cols-1 lg:grid-cols-2 h-full overflow-hidden">
-            <div className="h-full overflow-hidden bg-gray-50 flex flex-col p-4">
+          <div className="flex-grow flex h-full overflow-hidden">
+            <div 
+              className="h-[95%] overflow-hidden bg-gray-50 flex flex-col p-4"
+              style={{ width: activeTab === 'chat' ? `${leftPanelWidth}%` : '50%' }}
+            >
               <div className="flex-1 overflow-hidden">
                 <PresentationViewer 
                   ref={presentationViewerRef}
                   onTextSelect={handleTransform}
                   onDocumentTextExtracted={(text) => {
                     if (text) {
-                      console.log('Extracted document text, length:', text.length, 'First 50 chars:', text.substring(0, 50));
                       setDocumentText(text);
-                      
-                      // Verify the ref is updated
-                      setTimeout(() => {
-                        console.log('Document text ref after update:', 
-                          documentTextRef.current ? 
-                          `${documentTextRef.current.length} chars` : 
-                          'null');
-                      }, 100);
                     }
                   }}
                   onReset={() => setDocumentText(null)}
+                  isMinimized={activeTab === 'chat'}
+                  activeTab={activeTab as 'understand' | 'chat' | 'teach'}
                 />
               </div>
             </div>
             
-            <div className="flex-1 flex flex-col h-full overflow-hidden border-l border-gray-200 bg-white">
+            {/* Add resize handle */}
+            {activeTab === 'chat' && (
+              <div
+                className="w-1 cursor-col-resize hover:bg-blue-400 transition-colors"
+                onMouseDown={handleMouseDown}
+                style={{ 
+                  cursor: 'col-resize',
+                  backgroundColor: isResizing ? '#60A5FA' : '#E5E7EB'
+                }}
+              />
+            )}
+            
+            <div 
+              className="flex-1 flex flex-col h-[95%] overflow-hidden border-l border-gray-200 bg-white"
+              style={{ width: activeTab === 'chat' ? `${100 - leftPanelWidth}%` : '50%' }}
+            >
               {renderContent()}
             </div>
           </div>

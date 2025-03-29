@@ -17,7 +17,7 @@ type PresentationViewerProps = {
   className?: string;
   onReset?: () => void;
   isMinimized?: boolean;
-  activeTab?: 'understand' | 'chat' | 'create';
+  activeTab?: 'understand' | 'chat' | 'teach';
 };
 
 type ApiHealth = {

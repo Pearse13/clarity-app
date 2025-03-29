@@ -4,11 +4,11 @@ import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
 import { ZoomIn, ZoomOut, ArrowUp } from 'lucide-react';
 
-// Set worker directly to the public path
+// Configure PDF.js to use the worker from public directory
+// The worker has been copied from node_modules/pdfjs-dist/build/pdf.worker.min.mjs
 pdfjs.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.js`;
 
-// No need for fallback now since we've copied the worker to public
-console.log('PDF Viewer: Using PDF worker version 4.8.69 from public directory');
+console.log('PDF Viewer: Using worker file from public directory (v4.8.69)');
 
 export type PDFViewerProps = {
   url: string;
@@ -16,29 +16,51 @@ export type PDFViewerProps = {
   filename: string;
   onTextSelect?: (text: string, extractedText?: string) => void;
   onDocumentTextExtracted?: (text: string | null) => void;
+  defaultZoom?: number;
 };
 
 export const PDFViewer: React.FC<PDFViewerProps> = ({ 
   url, 
   apiUrl, 
   onTextSelect,
-  onDocumentTextExtracted 
+  onDocumentTextExtracted,
+  defaultZoom = 1
 }) => {
   // PDF viewer states
   const [numPages, setNumPages] = useState<number | null>(null);
-  const [scale, setScale] = useState<number>(1);
+  const [scale, setScale] = useState<number>(defaultZoom);
+  const [zoomLevel, setZoomLevel] = useState<number>(defaultZoom);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [fallbackToIframe, setFallbackToIframe] = useState<boolean>(false);
-  const [documentText, setDocumentText] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [isMouseDownInIframe, setIsMouseDownInIframe] = useState<boolean>(false);
   const [showScrollToTop, setShowScrollToTop] = useState<boolean>(false);
   const viewerContainerRef = useRef<HTMLDivElement>(null);
   
   // Always prefer the direct PDF URL for better text selection
   const pdfUrl = apiUrl || url;
+
+  // Update scale when defaultZoom changes
+  useEffect(() => {
+    setScale(defaultZoom);
+    setZoomLevel(defaultZoom);
+  }, [defaultZoom]);
+
+  // Handle scroll to top visibility
+  useEffect(() => {
+    const handleScroll = () => {
+      if (viewerContainerRef.current) {
+        setShowScrollToTop(viewerContainerRef.current.scrollTop > 200);
+      }
+    };
+
+    const container = viewerContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, []);
 
   // Extract text from PDF document
   const extractTextFromPdf = async (pdf: pdfjs.PDFDocumentProxy) => {
@@ -60,8 +82,6 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
       const fullText = textItems.join('\n\n');
       console.log(`Extracted ${fullText.length} characters of text from PDF`);
       
-      setDocumentText(fullText);
-      
       // Send text to parent component if handler exists
       if (onDocumentTextExtracted) {
         onDocumentTextExtracted(fullText);
@@ -77,231 +97,240 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
     }
   };
 
-  // Handle text selection from the PDF
-  const handleTextSelection = () => {
-    if (!onTextSelect) return;
+  // Add custom styles for text selection and debugging
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      /* Enhanced text layer styles for better selection */
+      .react-pdf__Page__textContent {
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        transform: none !important;
+        line-height: 1.6 !important;
+        pointer-events: none;
+        user-select: text !important;
+        overflow: visible !important;
+        position: absolute !important;
+        z-index: 2 !important;
+      }
+      
+      /* Text spans (line containers) */
+      .react-pdf__Page__textContent > span {
+        position: absolute !important;
+        color: transparent !important;
+        transform-origin: 0% 0% !important;
+        white-space: pre !important;
+        cursor: text !important;
+        transform: none !important;
+        display: block !important;
+        min-height: 1.2em !important;
+        pointer-events: auto !important;
+        user-select: text !important;
+        /* Fix size constraints that cause cutoff */
+        width: auto !important;
+        height: auto !important;
+        min-width: 1em !important;
+        /* Debug border - uncomment to see text boundaries */
+        /* outline: 1px solid rgba(255, 0, 0, 0.1) !important; */
+      }
+      
+      /* Help users see where text is selectable with hover effect */
+      .react-pdf__Page__textContent > span:hover {
+        background-color: rgba(59, 130, 246, 0.1) !important;
+        border-radius: 2px !important;
+        /* Debug outline - shows exact text boundaries on hover */
+        outline: 1px dashed rgba(255, 0, 0, 0.5) !important;
+      }
+      
+      /* Selection styling */
+      .react-pdf__Page__textContent > span::selection,
+      .react-pdf__Page__textContent > span > span::selection {
+        background: rgba(59, 130, 246, 0.3) !important;
+        color: transparent !important;
+      }
+      
+      /* Fix page positioning */
+      .react-pdf__Page {
+        position: relative !important;
+        overflow: visible !important;
+        margin-bottom: 1rem !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24) !important;
+      }
+      
+      /* Ensure canvas is below text for selection */
+      .react-pdf__Page__canvas {
+        z-index: 1 !important;
+      }
+      
+      /* Debug toggle button */
+      .debug-button {
+        position: fixed;
+        bottom: 16px;
+        left: 16px;
+        background-color: rgba(255, 255, 255, 0.8);
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 12px;
+        cursor: pointer;
+        z-index: 9999;
+      }
+      
+      /* Debug mode styles */
+      .debug-mode .react-pdf__Page__textContent > span {
+        outline: 1px solid rgba(255, 0, 0, 0.3) !important;
+        background-color: rgba(255, 255, 0, 0.05) !important;
+      }
+      
+      .debug-mode .react-pdf__Page__textContent > span > span {
+        outline: 1px dotted rgba(0, 0, 255, 0.3) !important;
+        background-color: rgba(0, 255, 255, 0.05) !important;
+      }
+    `;
+    document.head.appendChild(style);
     
-    const selection = window.getSelection();
-    const text = selection?.toString().trim();
-    
-    console.log('PDF Viewer: Selection event triggered, raw text:', text);
-    
-    if (text) {
-      console.log('PDF Viewer: Text selected, sending to parent:', text);
-      onTextSelect(text, documentText || undefined);
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
+  // Add debug mode state
+  const [debugMode, setDebugMode] = useState(false);
+  
+  // Toggle debug mode
+  const toggleDebugMode = () => {
+    setDebugMode(!debugMode);
+    if (containerRef.current) {
+      containerRef.current.classList.toggle('debug-mode');
     }
   };
   
-  // Handle successful PDF document load
-  const onDocumentLoadSuccess = (pdf: pdfjs.PDFDocumentProxy) => {
-    console.log('PDF Viewer: Document loaded successfully with', pdf.numPages, 'pages');
+  // Log text layer positions for debugging
+  const logTextLayerInfo = (pageNumber: number) => {
+    if (!debugMode) return;
+    
+    setTimeout(() => {
+      // Find text spans
+      const textLayer = document.querySelector(`.react-pdf__Page[data-page-number="${pageNumber}"] .react-pdf__Page__textContent`);
+      const spans = textLayer?.querySelectorAll('span');
+      
+      if (spans && spans.length > 0) {
+        console.log(`Page ${pageNumber} has ${spans.length} text spans`);
+        
+        // Find spans near bottom of page
+        const pageHeight = (textLayer as HTMLElement)?.offsetHeight || 0;
+        let bottomSpans = 0;
+        let cutoffSpans = 0;
+        
+        spans.forEach((span, index) => {
+          const spanBottom = (span as HTMLElement).offsetTop + (span as HTMLElement).offsetHeight;
+          
+          // Check if span is near bottom of page
+          if (pageHeight - spanBottom < 50) {
+            bottomSpans++;
+            console.log(`  Bottom span ${index}: `, {
+              text: span.textContent?.slice(0, 20),
+              top: (span as HTMLElement).offsetTop,
+              height: (span as HTMLElement).offsetHeight,
+              bottom: spanBottom,
+              pageHeight,
+              distanceFromBottom: pageHeight - spanBottom
+            });
+          }
+          
+          // Check if span might be cutoff
+          if (spanBottom > pageHeight) {
+            cutoffSpans++;
+            console.log(`  ⚠️ CUTOFF span ${index}: `, {
+              text: span.textContent?.slice(0, 20),
+              offsetTop: (span as HTMLElement).offsetTop,
+              height: (span as HTMLElement).offsetHeight,
+              bottom: spanBottom,
+              pageHeight,
+              overflow: spanBottom - pageHeight
+            });
+          }
+        });
+        
+        console.log(`Page ${pageNumber} summary: ${bottomSpans} spans near bottom, ${cutoffSpans} potentially cutoff spans`);
+      }
+    }, 500); // Delay to ensure text layer is rendered
+  };
+
+  // Add event listener to preserve selection when clicking in chat area
+  useEffect(() => {
+    const handleChatInteraction = (e: MouseEvent) => {
+      // Don't interfere with input elements or the chat area
+      const target = e.target as HTMLElement;
+      if (target.closest('input, textarea, .chat-input-area')) {
+        return;
+      }
+
+      // Only clear selection if clicking outside text layers and input areas
+      if (!target.closest('.react-pdf__Page__textContent')) {
+        window.getSelection()?.removeAllRanges();
+      }
+    };
+
+    // Add the event listener in the capture phase
+    document.addEventListener('mousedown', handleChatInteraction, true);
+    document.addEventListener('click', handleChatInteraction, true);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleChatInteraction, true);
+      document.removeEventListener('click', handleChatInteraction, true);
+    };
+  }, []);
+
+  const handleZoomChange = (newZoom: number) => {
+    setZoomLevel(newZoom);
+    setScale(newZoom);
+  };
+
+  const analyzePDF = async (pdf: pdfjs.PDFDocumentProxy) => {
+    try {
+      const text = await extractTextFromPdf(pdf);
+      return text;
+    } catch (error) {
+      console.error('Error analyzing PDF:', error);
+      return null;
+    }
+  };
+
+  const onDocumentLoadSuccess = async (pdf: pdfjs.PDFDocumentProxy) => {
+    console.log(`PDF loaded with ${pdf.numPages} pages`);
     setNumPages(pdf.numPages);
     setIsLoading(false);
     setPdfError(null);
-
-    // Extract text from the PDF document
-    extractTextFromPdf(pdf);
-
-    // Add a delay to allow the text layers to render fully
-    setTimeout(() => {
-      if (containerRef.current) {
-        // Find all text layers in the document
-        const textLayers = containerRef.current.querySelectorAll('.react-pdf__Page__textContent');
-        console.log('PDF Viewer: Found', textLayers.length, 'text layers');
-        
-        // Add selection listeners to each layer
-        textLayers.forEach((layer, index) => {
-          layer.addEventListener('mouseup', handleTextSelection);
-          (layer as HTMLElement).style.userSelect = 'text';
-          (layer as HTMLElement).style.cursor = 'text';
-          console.log(`PDF Viewer: Added listener to text layer ${index+1}`);
-        });
-      }
-    }, 1000);
+    
+    // Run PDF analysis if in debug mode
+    if (debugMode) {
+      await analyzePDF(pdf);
+    }
+    
+    // Extract text if needed
+    if (onDocumentTextExtracted) {
+      extractTextFromPdf(pdf);
+    }
   };
-  
-  // Handle PDF document load error
+
   const onDocumentLoadError = (error: Error) => {
     console.error('PDF Viewer: Error loading PDF:', error);
-    
-    // Check if it's a version mismatch error
-    if (error.message && error.message.includes('version')) {
-      console.log('PDF Viewer: Version mismatch detected, falling back to iframe viewer');
-      setPdfError('PDF.js version mismatch detected. Using alternative viewer.');
-    } else {
-      setPdfError(`Error loading PDF: ${error.message}`);
-    }
-    
+    setPdfError(error.message);
     setIsLoading(false);
     
-    // Fall back to iframe if react-pdf fails
-    setFallbackToIframe(true);
-  };
-  
-  // Set up iframe mouse tracking to detect selections
-  useEffect(() => {
-    if (!onTextSelect || !containerRef.current) return;
+    if (onDocumentTextExtracted) {
+      onDocumentTextExtracted(null);
+    }
     
-    const container = containerRef.current;
-    
-    // Track mouse down to detect if user is selecting text
-    const handleMouseDown = (e: MouseEvent) => {
-      // Check if the target is the iframe or within the iframe container
-      const isIframeOrContainer = 
-        e.target === iframeRef.current || 
-        container.contains(e.target as Node);
-      
-      if (isIframeOrContainer) {
-        setIsMouseDownInIframe(true);
-        console.log('PDF Viewer: Mouse down in iframe area');
-      } else {
-        setIsMouseDownInIframe(false);
-      }
-    };
-    
-    // Handle mouseup to check for selections
-    const handleMouseUp = () => {
-      if (isMouseDownInIframe) {
-        console.log('PDF Viewer: Mouse up after mousedown in iframe');
-        
-        // Give time for selection to complete
-        setTimeout(() => {
-          const selection = window.getSelection();
-          const selectedText = selection?.toString().trim();
-          
-          if (selectedText) {
-            console.log('PDF Viewer: Text selected after iframe interaction:', selectedText);
-            onTextSelect(selectedText, documentText || undefined);
-          }
-        }, 100);
-      }
-      
-      setIsMouseDownInIframe(false);
-    };
-    
-    // Handle selection change to capture text
-    const handleSelectionChange = () => {
-      if (isMouseDownInIframe) {
-        const selection = window.getSelection();
-        const selectedText = selection?.toString().trim();
-        
-        if (selectedText) {
-          console.log('PDF Viewer: Selection changed with text:', selectedText);
-          // We don't call onTextSelect here to avoid duplicate events
-          // The mouseup handler will handle the final selection
-        }
-      }
-    };
-    
-    // Add the event listeners
-    document.addEventListener('mousedown', handleMouseDown);
-    document.addEventListener('mouseup', handleMouseUp);
-    document.addEventListener('selectionchange', handleSelectionChange);
-    
-    return () => {
-      document.removeEventListener('mousedown', handleMouseDown);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.removeEventListener('selectionchange', handleSelectionChange);
-    };
-  }, [isMouseDownInIframe, onTextSelect, documentText]);
-  
-  // Handle iframe events for fallback mode
-  const handleIframeLoad = () => {
-    console.log('PDF Viewer: Iframe loaded successfully');
-    setIsLoading(false);
-  };
-
-  // Fall back to iframe if react-pdf fails
-  const renderFallbackIframe = () => {
-    return (
-      <div className="w-full h-full">
-        <iframe 
-          ref={iframeRef}
-          src={pdfUrl}
-          className="w-full h-full border-none" 
-          title="PDF Document"
-          onLoad={handleIframeLoad}
-          // Add additional properties to improve accessibility
-          sandbox="allow-same-origin allow-scripts"
-          style={{ pointerEvents: 'auto' }}
-          onError={() => {
-            console.error('PDF Viewer: Iframe failed to load');
-            setPdfError('Failed to load PDF in both viewers. Please check the file format or try a different file.');
-            setIsLoading(false);
-          }}
-        />
-      </div>
-    );
-  };
-  
-  // Clean up blob URLs when component unmounts
-  useEffect(() => {
-    return () => {
-      if (url && url.startsWith('blob:')) {
-        console.log('PDF Viewer: Revoking blob URL:', url);
-        URL.revokeObjectURL(url);
-      }
-    };
-  }, [url]);
-  
-  // Zoom functions
-  const zoomIn = () => {
-    setScale(prevScale => Math.min(prevScale + 0.1, 2.5));
-  };
-  
-  const zoomOut = () => {
-    setScale(prevScale => Math.max(prevScale - 0.1, 0.5));
-  };
-  
-  // When the component mounts, update the document-level event listeners
-  useEffect(() => {
-    console.log('PDF Viewer: Mounted with PDF URL:', pdfUrl);
-    
-    // Set up a document-level selection handler to capture all text selections
-    const handleDocumentSelection = () => {
-      if (!onTextSelect) return;
-      
-      const selection = window.getSelection();
-      const selectedText = selection?.toString().trim();
-      
-      if (selectedText) {
-        console.log('PDF Viewer: Document-level text selection detected:', selectedText);
-        onTextSelect(selectedText, documentText || undefined);
-      }
-    };
-    
-    // Add selection change handler at document level (this works even with iframe content if from same origin)
-    document.addEventListener('selectionchange', handleDocumentSelection);
-    
-    return () => {
-      document.removeEventListener('selectionchange', handleDocumentSelection);
-    };
-  }, [pdfUrl, onTextSelect, documentText]);
-  
-  // Function to scroll to the top of the viewer
-  const scrollToTop = () => {
-    if (viewerContainerRef.current) {
-      viewerContainerRef.current.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-      });
+    // Check for version mismatch error
+    if (error.message.includes('version') || error.message.includes('worker')) {
+      console.warn('PDF Viewer: Version mismatch detected, falling back to iframe viewer');
+      setFallbackToIframe(true);
     }
   };
-
-  // Track scroll position to show/hide the scroll to top button
-  useEffect(() => {
-    const handleScroll = () => {
-      if (viewerContainerRef.current) {
-        setShowScrollToTop(viewerContainerRef.current.scrollTop > 300);
-      }
-    };
-
-    const container = viewerContainerRef.current;
-    if (container) {
-      container.addEventListener('scroll', handleScroll);
-      return () => container.removeEventListener('scroll', handleScroll);
-    }
-  }, []);
 
   return (
     <div className="flex flex-col h-full w-full transform-gpu backface-visibility-hidden" ref={containerRef}>
@@ -337,7 +366,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
           </div>
           <div className="flex items-center">
             <button 
-              onClick={zoomOut} 
+              onClick={() => handleZoomChange(Math.max(0.5, zoomLevel - 0.1))} 
               className="p-1 rounded text-blue-600 hover:bg-blue-100"
               title="Zoom out"
             >
@@ -345,7 +374,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
             </button>
             <span className="mx-2 text-sm">{Math.round(scale * 100)}%</span>
             <button 
-              onClick={zoomIn} 
+              onClick={() => handleZoomChange(Math.min(3, zoomLevel + 0.1))} 
               className="p-1 rounded text-blue-600 hover:bg-blue-100"
               title="Zoom in"
             >
@@ -375,50 +404,70 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
             error={<div className="w-full h-full flex items-center justify-center text-red-500">Could not load PDF.</div>}
             className="flex flex-col items-center pb-4"
           >
-            {!isLoading && numPages && (
+            {numPages && (
               <>
-                {/* Render all pages instead of just the current page */}
+                {/* Render all pages */}
                 {Array.from(new Array(numPages), (_, index) => (
-                  <Page
-                    key={`page_${index + 1}`}
-                    pageNumber={index + 1}
-                    scale={scale}
-                    renderTextLayer={true}
-                    renderAnnotationLayer={true}
-                    className="shadow-md mt-4"
-                    inputRef={(ref) => {
-                      if (ref) {
-                        // Add specific event listeners to the text layer when it's available
-                        const textLayers = ref.querySelectorAll('.react-pdf__Page__textContent');
-                        textLayers.forEach(layer => {
-                          layer.addEventListener('mouseup', handleTextSelection);
-                          // Make text selectable
-                          (layer as HTMLElement).style.userSelect = 'text';
-                          (layer as HTMLElement).style.cursor = 'text';
-                        });
-                      }
-                    }}
-                  />
+                  <div key={`page_${index + 1}`} className="mb-4">
+                    <Page
+                      key={`page_${index + 1}`}
+                      pageNumber={index + 1}
+                      scale={scale}
+                      renderTextLayer={true}
+                      renderAnnotationLayer={true}
+                      className="shadow-md mt-4"
+                      onLoadSuccess={() => {
+                        console.log(`Page ${index + 1} loaded successfully`);
+                        logTextLayerInfo(index + 1);
+                      }}
+                      onRenderSuccess={() => {
+                        console.log(`Page ${index + 1} rendered successfully`);
+                        logTextLayerInfo(index + 1);
+                      }}
+                      onGetTextSuccess={() => {
+                        if (onTextSelect) {
+                          console.log(`Text layer for page ${index + 1} extracted successfully`);
+                        }
+                      }}
+                    />
+                  </div>
                 ))}
               </>
             )}
           </Document>
         ) : (
-          // Fallback to iframe viewer
-          renderFallbackIframe()
-        )}
-        
-        {/* Scroll to top button */}
-        {showScrollToTop && (
-          <button
-            onClick={scrollToTop}
-            className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full shadow-lg z-50"
-            title="Scroll to top"
-          >
-            <ArrowUp className="w-5 h-5" />
-          </button>
+          <iframe
+            ref={iframeRef}
+            src={pdfUrl}
+            className="w-full h-full border-0"
+            title="PDF Viewer (Fallback)"
+            sandbox="allow-scripts allow-same-origin"
+            onLoad={() => setIsLoading(false)}
+          />
         )}
       </div>
+      
+      {/* Scroll to top button */}
+      {showScrollToTop && (
+        <button
+          onClick={() => viewerContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="fixed bottom-6 right-6 bg-blue-600 text-white p-2 rounded-full shadow-md hover:bg-blue-700 focus:outline-none"
+          aria-label="Scroll to top"
+        >
+          <ArrowUp className="w-5 h-5" />
+        </button>
+      )}
+
+      {/* Debug button */}
+      <button
+        onClick={toggleDebugMode}
+        className="debug-button"
+        title="Toggle debug mode"
+      >
+        {debugMode ? 'Disable Debug' : 'Enable Debug'}
+      </button>
     </div>
   );
-}; 
+};
+
+export default PDFViewer; 

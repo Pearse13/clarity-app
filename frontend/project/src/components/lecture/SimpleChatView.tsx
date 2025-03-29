@@ -4,7 +4,7 @@ import SimpleChatInput from './SimpleChatInput';
 import { API_ENDPOINTS } from '../../config/api';
 import LoadingSpinner from '../LoadingSpinner';
 import ThreeDotsLoader from '../ThreeDotsLoader';
-import { Copy, Check, BookOpen } from 'lucide-react';
+import { Copy, Check, BookOpen, X, Loader2, Bot, PoundSterling } from 'lucide-react';
 import '../../styles/animations.css';
 
 interface SimpleChatViewProps {
@@ -21,10 +21,17 @@ interface TokenUsage {
   total_tokens: number;
 }
 
+interface CostInfo {
+  current_cost: number;
+  remaining_budget: number;
+  reset_time: string;
+}
+
 interface ChatApiResponse {
   message: string;
   model: string;
   token_usage: TokenUsage;
+  cost_info: CostInfo;
 }
 
 interface ChatMessage {
@@ -52,29 +59,18 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
   const animationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isGeneratingStudyGuide, setIsGeneratingStudyGuide] = useState(false);
-  const [isTransformButtonActive, setIsTransformButtonActive] = useState(false);
+  const [isGeneratingText, setIsGeneratingText] = useState(false);
+  const [costInfo, setCostInfo] = useState<CostInfo>({
+    current_cost: 0,
+    remaining_budget: 0.80,
+    reset_time: new Date().toISOString()
+  });
   
   // Handle clicks on the chat area to clear text selection
-  const handleAreaClick = (e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    
-    // Check if clicking inside the chat input area or on any input-related elements
-    const isInputInteraction = 
-      target.tagName === 'INPUT' ||
-      target.tagName === 'TEXTAREA' ||
-      target.tagName === 'BUTTON' ||
-      target.tagName === 'SELECT' ||
-      target.closest('.chat-input-area') !== null ||
-      target.closest('.dropdown-menu') !== null ||
-      target.closest('.transform-button') !== null ||
-      target.closest('.transformation-controls') !== null ||
-      target.closest('.level-select') !== null ||
-      target.closest('.transformation-type-select') !== null ||
-      target.closest('.dropdown') !== null;
-
-    // Only clear selection if clicking outside input areas and dropdowns
-    if (currentText && onClearSelection && !isInputInteraction) {
-      onClearSelection();
+  const handleChatAreaClick = () => {
+    const selection = window.getSelection();
+    if (selection) {
+      selection.removeAllRanges();
     }
   };
 
@@ -137,6 +133,7 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
   // Function to animate text word by word
   const animateTextWordByWord = (text: string, messageIndex: number) => {
     if (!text) return;
+    setIsGeneratingText(true);
 
     // Clear any existing animation
     if (animationIntervalRef.current) {
@@ -203,6 +200,7 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
           // Animation complete
           clearInterval(intervalId);
           animationIntervalRef.current = null;
+          setIsGeneratingText(false);
           
           setMessages(prevMessages => {
             const newMessages = [...prevMessages];
@@ -218,7 +216,7 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
           });
         }
       }
-    }, 40); // Speed of word appearance
+    }, 40);
 
     animationIntervalRef.current = intervalId;
   };
@@ -238,177 +236,90 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
     setIsLoading(true);
     setError(null);
     
+    // Create new abort controller for this request
+    const controller = new AbortController();
+    
     // Save the current selected text to associate with this message
     const associatedSelectedText = selectedText;
     
     // Add user message to chat history immediately
     setMessages(prev => [
-        ...prev, 
-        { 
-            type: 'user', 
-            content: message,
-            selectedText: associatedSelectedText
-        }
+      ...prev, 
+      { 
+        type: 'user', 
+        content: message,
+        selectedText: associatedSelectedText
+      }
     ]);
     
     try {
-        const token = await getAccessTokenSilently({
-            authorizationParams: {
-                audience: import.meta.env.VITE_AUTH0_AUDIENCE,
-                scope: 'openid profile email offline_access'
-            },
-            detailedResponse: true
-        });
-        
-        // Get surrounding context if we have selected text and document text
-        let contextBefore = '';
-        let contextAfter = '';
-        
-        if (associatedSelectedText && documentText) {
-            const selectionStart = documentText.indexOf(associatedSelectedText);
-            if (selectionStart !== -1) {
-                // Get 150 words before and after the selection
-                const beforeText = documentText.slice(0, selectionStart);
-                const afterText = documentText.slice(selectionStart + associatedSelectedText.length);
-                
-                const beforeWords = beforeText.split(/\s+/).slice(-150).join(' ');
-                const afterWords = afterText.split(/\s+/).slice(0, 150).join(' ');
-                
-                contextBefore = beforeWords;
-                contextAfter = afterWords;
-            }
-        }
-        
-        // Prepare the request payload
-        const payload = {
-            message,
-            document_text: documentText || undefined,
-            selected_text: associatedSelectedText || undefined,
-            context_before: contextBefore || undefined,
-            context_after: contextAfter || undefined
-        };
-        
-        console.log("Sending chat request with payload:", {
-            message: payload.message,
-            hasDocumentText: !!payload.document_text,
-            hasSelectedText: !!payload.selected_text,
-            hasContextBefore: !!payload.context_before,
-            hasContextAfter: !!payload.context_after
-        });
+      const token = await getAccessTokenSilently({
+        authorizationParams: {
+          audience: import.meta.env.VITE_AUTH0_AUDIENCE,
+          scope: 'openid profile email offline_access'
+        },
+        detailedResponse: true
+      });
 
-        if (apiStatus === 'available') {
-            try {
-                console.log("Sending chat request to:", API_ENDPOINTS.chat.send);
-                
-                // API is available, make the actual request
-                const response = await fetch(API_ENDPOINTS.chat.send, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token.access_token}`,
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                });
-                
-                console.log("Chat API response status:", response.status);
-                
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    console.error("Error response:", errorData);
-                    
-                    // Handle token limit exceeded error
-                    if (response.status === 429 && errorData.detail?.toLowerCase().includes('token limit exceeded')) {
-                        setMessages(prev => [
-                            ...prev,
-                            {
-                                type: 'assistant' as const,
-                                content: "I apologize, but the token limit has been exceeded for your uploaded document. This means I've reached the maximum amount of text I can process from this document. To continue:\n\n" +
-                                        "1. Upload a new document to start fresh\n" +
-                                        "2. Start a new chat with a different document\n" +
-                                        "3. Contact our team on Instagram (@clarity.api) to discuss options for processing larger documents"
-                            }
-                        ]);
-                        setError("Token limit exceeded for your uploaded document");
-                        return;
-                    }
-                    
-                    throw new Error(errorData.detail || `Chat request failed with status ${response.status}`);
-                }
-                
-                const data: ChatApiResponse = await response.json();
-                console.log("Chat API response data:", data);
-                
-                // Add assistant response with empty content
-                setMessages(prev => {
-                    const newMessages = [
-                        ...prev,
-                        { 
-                            type: 'assistant' as const, 
-                            content: '', // Start with empty content
-                            isAnimating: true,
-                            animatedContent: '' // Start with empty animated content
-                        }
-                    ];
-                    // Start animation immediately
-                    animateTextWordByWord(data.message, newMessages.length - 1);
-                    return newMessages;
-                });
-            } catch (apiError: any) {
-                console.error("API error:", apiError);
-                
-                // Add error message to chat
-                setMessages(prev => [
-                    ...prev,
-                    { 
-                        type: 'assistant' as const, 
-                        content: `Error: ${apiError.message || "Failed to get response from API"}\n\nPlease try again or check if the API is configured correctly.` 
-                    }
-                ]);
-                
-                setError(apiError.message || "Failed to get response from API");
-            }
-        } else {
-            // API is not available, use fallback
-            console.log("API not available, using fallback response");
-            
-            // Fallback response
-            const fallbackMessage = "This is a placeholder response. The Claude API is not available at this time. Please check if your Anthropic API key is configured correctly in your Railway environment variables.";
-            
-            // Add fallback response to chat history
-            setMessages(prev => [
-                ...prev,
-                { type: 'assistant' as const, content: fallbackMessage }
-            ]);
+      // Make the API request with the abort signal
+      const response = await fetch(API_ENDPOINTS.chat.send, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token.access_token}`
+        },
+        body: JSON.stringify({
+          message,
+          selectedText: associatedSelectedText,
+          documentText
+        }),
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 429) {
+          throw new Error(errorData.detail || 'Rate limit exceeded. Please try again later.');
         }
-        
-    } catch (err: any) {
-        console.error('Chat error:', err);
-        setError(err.message || 'An error occurred');
-        
-        // Handle refresh token error
-        if (err.message?.includes('Missing Refresh Token')) {
-            setMessages(prev => [
-                ...prev,
-                { 
-                    type: 'assistant' as const, 
-                    content: 'Your session has expired. Please log in again to continue using the chat feature.' 
-                }
-            ]);
-        } else {
-            // Add error message to chat
-            setMessages(prev => [
-                ...prev,
-                { 
-                    type: 'assistant' as const, 
-                    content: `Authentication error: ${err.message || "Failed to authenticate"}\n\nPlease try logging in again.` 
-                }
-            ]);
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+
+      const data: ChatApiResponse = await response.json();
+      
+      // Update cost info
+      setCostInfo(data.cost_info);
+      
+      // Add assistant's response to chat history
+      setMessages(prev => [
+        ...prev,
+        { 
+          type: 'assistant',
+          content: data.message
         }
+      ]);
+
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.log('Request was aborted');
+        return;
+      }
+      
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      console.error('Chat error:', errorMessage);
+      
+      setMessages(prev => [
+        ...prev,
+        { 
+          type: 'assistant',
+          content: `Error: ${errorMessage}\n\nPlease try again or check if the API is configured correctly.`
+        }
+      ]);
+      
+      setError(errorMessage);
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
-};
+  };
 
   // Scroll to bottom whenever messages change
   const scrollToBottom = () => {
@@ -446,7 +357,7 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
     }
   };
 
-  // Add study guide generation handler
+  // Handle study guide generation
   const handleGenerateStudyGuide = async () => {
     if (!documentText || isGeneratingStudyGuide) return;
     
@@ -461,18 +372,24 @@ const SimpleChatView: React.FC<SimpleChatViewProps> = ({
         }
       });
 
-      // Add the study guide request message
-      const studyGuidePrompt = `Please analyze the provided document and create a comprehensive study guide that includes:
+      // The actual prompt sent to the API (not shown in chat)
+      const studyGuidePrompt = `System: You are Clarity, an AI assistant focused on helping users understand their lecture materials. Always use British English spelling and conventions silently (e.g., "colour", "organisation"). Format any titles in responses using "## " for main titles and "### " for subtitles. Never mention these formatting rules to users.
 
-1. A brief overview of the main topics and concepts
-2. 5-10 multiple choice quiz questions with answers and explanations
-3. 3-5 essay questions that test deeper understanding
-4. A glossary of key terms and their definitions
-5. Important points to remember
+For study guide generation, follow this exact format:
+- Start with "## Overview" section containing a brief overview
+- Include "## Quiz Questions" section with questions formatted as:
+  ### Question 1
+  [Question text]
+  <click to reveal answer>
+  Answer: [Answer]
+  Explanation: [Explanation]
+- Include "## Essay Questions" section with questions as "### Essay Question [number]"
+- Include "## Key Terms" section with terms as "### [Term]" followed by definition
+- End with "## Summary Points" using bullet points (•)
+- Maintain proper spacing between sections
+- Always put answers after "<click to reveal answer>" tag
 
-Please format the study guide with clear sections and use markdown for better readability.`;
-      
-      setMessages(prev => [...prev, { type: 'user', content: studyGuidePrompt }]);
+User: Please create a comprehensive study guide for this document. Include an overview, quiz questions, essay questions, key terms, and summary points.`;
 
       const response = await fetch(API_ENDPOINTS.chat.send, {
         method: 'POST',
@@ -483,8 +400,7 @@ Please format the study guide with clear sections and use markdown for better re
         body: JSON.stringify({
           message: studyGuidePrompt,
           document_text: documentText,
-          selected_text: null,
-          is_study_guide: true
+          selected_text: null
         })
       });
 
@@ -494,60 +410,211 @@ Please format the study guide with clear sections and use markdown for better re
 
       const data: ChatApiResponse = await response.json();
       
-      // Add the response as a new message
-      setMessages(prev => [...prev, {
-        type: 'assistant',
-        content: data.message,
-        isStudyGuide: true
-      }]);
+      // Add the response with animation in the normal chat flow
+      setMessages(prev => {
+        const newMessages = [
+          ...prev,
+          {
+            type: 'assistant' as const,
+            content: '',
+            isAnimating: true,
+            animatedContent: ''
+          }
+        ];
+        // Start animation immediately
+        animateTextWordByWord(data.message, newMessages.length - 1);
+        return newMessages;
+      });
 
     } catch (err) {
       console.error('Study guide generation error:', err);
       setError(err instanceof Error ? err.message : 'Failed to generate study guide');
+      
+      // Add error message to chat
+      setMessages(prev => [
+        ...prev,
+        { 
+          type: 'assistant' as const, 
+          content: `Error: Failed to generate study guide. Please try again.`
+        }
+      ]);
     } finally {
       setIsGeneratingStudyGuide(false);
     }
   };
 
-  // Function to handle transform button click
-  const handleTransformClick = () => {
-    setIsTransformButtonActive(true);
-    // Reset button color after 3 seconds
-    setTimeout(() => {
-      setIsTransformButtonActive(false);
-    }, 3000);
+  // Add a function to handle click events for revealing answers
+  const handleAnswerReveal = (e: React.MouseEvent<HTMLElement>) => {
+    const target = e.target as HTMLElement;
+    const button = target.closest('.answer-reveal-button');
+    if (button) {
+      const answerContent = button.nextElementSibling as HTMLElement;
+      if (answerContent) {
+        answerContent.classList.toggle('hidden');
+        // Toggle the arrow rotation
+        const arrow = button.querySelector('.arrow') as HTMLElement;
+        if (arrow) {
+          arrow.style.transform = answerContent.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(90deg)';
+        }
+      }
+    }
+  };
+
+  // Update the formatMessageContent function
+  const formatMessageContent = (content: string): string => {
+    let isInAnswerSection = false;
+    
+    return content
+      .split('\n')
+      .map(line => {
+        // Handle study guide answer reveals
+        if (line.trim() === '<click to reveal answer>') {
+          isInAnswerSection = true;
+          return `
+            <button class="answer-reveal-button text-blue-600 hover:text-blue-800 my-2 flex items-center gap-2 cursor-pointer">
+              <span class="arrow transition-transform duration-200" style="display: inline-block;">▶</span>
+              Click to reveal answer
+            </button>
+            <div class="hidden ml-4 my-2">`;
+        }
+        
+        // Handle main titles
+        if (line.startsWith('## ')) {
+          isInAnswerSection = false;
+          return `<div class="text-xl font-bold my-4 border-b pb-2">${line.substring(3)}</div>`;
+        }
+        
+        // Handle subtitles
+        if (line.startsWith('### ')) {
+          isInAnswerSection = false;
+          return `<div class="text-lg font-bold my-3">${line.substring(4)}</div>`;
+        }
+
+        // Handle bullet points
+        if (line.startsWith('• ')) {
+          return `<div class="ml-4 my-1">• ${line.substring(2)}</div>`;
+        }
+
+        // Close answer section if we hit an empty line after "Explanation:"
+        if (line.trim() === '' && isInAnswerSection && content.split('\n')[content.split('\n').indexOf(line) - 1]?.includes('Explanation:')) {
+          isInAnswerSection = false;
+          return '</div>';
+        }
+
+        // Format answer and explanation lines
+        if (isInAnswerSection) {
+          if (line.startsWith('Answer:') || line.startsWith('Explanation:')) {
+            return `<div class="font-medium">${line}</div>`;
+          }
+        }
+
+        return line;
+      })
+      .join('\n');
+  };
+
+  // Add some CSS to handle the arrow rotation
+  const styles = `
+    <style>
+      .answer-reveal-button[aria-expanded="true"] span {
+        transform: rotate(90deg);
+      }
+      .answer-reveal-button:hover span {
+        transform: translateX(2px);
+      }
+      .answer-reveal-button[aria-expanded="true"]:hover span {
+        transform: rotate(90deg);
+      }
+    </style>
+  `;
+
+  // Add function to stop text generation
+  const stopTextGeneration = () => {
+    if (animationIntervalRef.current) {
+      clearInterval(animationIntervalRef.current);
+      animationIntervalRef.current = null;
+      
+      // Update the last message to show it was interrupted
+      setMessages(prev => {
+        const newMessages = [...prev];
+        const lastMessage = newMessages[newMessages.length - 1];
+        if (lastMessage && lastMessage.isAnimating) {
+          lastMessage.isAnimating = false;
+          lastMessage.content = lastMessage.animatedContent + ' [Generation stopped]';
+          lastMessage.animatedContent = undefined;
+        }
+        return newMessages;
+      });
+      
+      setIsGeneratingText(false);
+    }
   };
 
   return (
     <div 
       className="h-full flex flex-col bg-white rounded-lg shadow-sm p-6"
-      onMouseDown={handleAreaClick}
+      onMouseDown={handleChatAreaClick}
+      onClick={handleAnswerReveal}
     >
+      <div dangerouslySetInnerHTML={{ __html: styles }} />
+      
+      {/* Header with API status and cost info */}
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-medium text-gray-900">
-          Lecture Assistant
-        </h2>
-        <div className="flex items-center gap-2">
-          <span className={`inline-flex h-2 w-2 rounded-full ${
-            apiStatus === 'available' ? 'bg-green-500' : 
-            apiStatus === 'unavailable' ? 'bg-red-500' : 'bg-gray-400'
-          }`}></span>
-          <span className="text-sm text-gray-500">
-            {apiStatus === 'available' ? 'API Connected' : 
-             apiStatus === 'unavailable' ? 'API Unavailable' : 'Checking API...'}
-          </span>
-          <button
-            onClick={testApiConnection}
-            disabled={isApiTesting}
-            className="text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400 ml-2"
-          >
-            {isApiTesting ? <LoadingSpinner size="sm" /> : 'Test'}
-          </button>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Bot className="w-5 h-5" />
+            <h2 className="text-lg font-medium">Clarity AI Assistant</h2>
+          </div>
+          {isGeneratingText && (
+            <button
+              onClick={stopTextGeneration}
+              className="flex items-center gap-2 px-2 py-1 text-sm text-red-600 hover:text-red-800 border border-red-200 rounded-md hover:bg-red-50 transition-colors"
+            >
+              <X className="w-4 h-4" />
+              Stop generating
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-4">
+          {/* Cost info */}
+          <div className="flex items-center gap-2 text-sm">
+            <PoundSterling className="w-4 h-4 text-blue-600" />
+            <span className="text-gray-600">
+              £{costInfo.current_cost.toFixed(2)} / £0.80
+            </span>
+            <div className="h-4 w-[100px] bg-gray-200 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-blue-600 transition-all duration-300"
+                style={{ width: `${(costInfo.current_cost / 0.80) * 100}%` }}
+              />
+            </div>
+            <span className="text-xs text-gray-500">
+              Resets in {new Date(costInfo.reset_time).toLocaleTimeString()}
+            </span>
+          </div>
+          {/* API status */}
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex h-2 w-2 rounded-full ${
+              apiStatus === 'available' ? 'bg-green-500' : 
+              apiStatus === 'unavailable' ? 'bg-red-500' : 'bg-gray-400'
+            }`}></span>
+            <span className="text-sm text-gray-500">
+              {apiStatus === 'available' ? 'API Connected' : 
+               apiStatus === 'unavailable' ? 'API Unavailable' : 'Checking API...'}
+            </span>
+            <button
+              onClick={testApiConnection}
+              disabled={isApiTesting}
+              className="text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400 ml-2"
+            >
+              {isApiTesting ? <LoadingSpinner size="sm" /> : 'Test'}
+            </button>
+          </div>
         </div>
       </div>
       
       {/* Selected Text Indicator */}
-      {currentText && (
+      {currentText ? (
         <div className="mb-4 flex items-center justify-between text-xs text-blue-600">
           <div className="flex items-center gap-2">
             <span className="inline-flex h-1.5 w-1.5 rounded-full bg-blue-500"></span>
@@ -564,6 +631,10 @@ Please format the study guide with clear sections and use markdown for better re
               Clear
             </button>
           )}
+        </div>
+      ) : (
+        <div className="mb-4 text-xs text-gray-500">
+          No text selected. Select text or the area around text from the document to transform it
         </div>
       )}
       
@@ -588,12 +659,13 @@ Please format the study guide with clear sections and use markdown for better re
                       {message.isAnimating && message.animatedContent ? (
                         <div 
                           className="text-gray-800 whitespace-pre-line text-[15px]"
-                          dangerouslySetInnerHTML={{ __html: message.animatedContent }}
+                          dangerouslySetInnerHTML={{ __html: formatMessageContent(message.animatedContent) }}
                         />
                       ) : (
-                        <div className="text-gray-800 whitespace-pre-line text-[15px] animate-fade-in">
-                          {message.content}
-                        </div>
+                        <div 
+                          className="text-gray-800 whitespace-pre-line text-[15px] animate-fade-in"
+                          dangerouslySetInnerHTML={{ __html: formatMessageContent(message.content) }}
+                        />
                       )}
                       {/* Copy button for AI responses */}
                       {message.type === 'assistant' && !message.isAnimating && message.content && (
@@ -636,7 +708,7 @@ Please format the study guide with clear sections and use markdown for better re
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-gray-500">
             <p className="text-center">
-              Ask questions about your lecture document!
+              Hi! I'm Clarity. Ask me questions about your lecture document!
             </p>
             {apiStatus === 'unavailable' && (
               <p className="text-center text-amber-500 mt-2 max-w-md text-sm">
@@ -657,34 +729,34 @@ Please format the study guide with clear sections and use markdown for better re
         />
       </div>
 
-      {/* Chat header with study guide button */}
-      <div className="flex justify-between items-center px-4 py-2 border-t border-gray-200">
-        <div></div>
+      {/* Buttons */}
+      <div className="flex flex-col gap-2 mt-2">
         {documentText && (
-          <button
-            onClick={handleGenerateStudyGuide}
-            disabled={isGeneratingStudyGuide || !documentText}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
-              isGeneratingStudyGuide || !documentText
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
-            }`}
-          >
-            <BookOpen className="w-4 h-4" />
-            {isGeneratingStudyGuide ? 'Generating...' : 'Generate Study Guide'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleGenerateStudyGuide}
+              disabled={isGeneratingStudyGuide || !documentText}
+              className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors flex-1 ${
+                isGeneratingStudyGuide || !documentText
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+              }`}
+            >
+              {isGeneratingStudyGuide ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <BookOpen className="w-4 h-4" />
+                  Generate Study Guide
+                </>
+              )}
+            </button>
+          </div>
         )}
       </div>
-
-      {/* Update the transform button to use the new state */}
-      <button
-        onClick={handleTransformClick}
-        className={`transform-button px-4 py-2 rounded-lg text-white transition-colors ${
-          isTransformButtonActive ? 'bg-blue-700' : 'bg-blue-600 hover:bg-blue-700'
-        }`}
-      >
-        Transform
-      </button>
     </div>
   );
 };

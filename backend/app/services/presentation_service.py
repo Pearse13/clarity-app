@@ -4,7 +4,7 @@ import uuid
 import shutil
 import os
 import asyncio
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, cast
 from fastapi import UploadFile, HTTPException
 import logging
 from threading import Thread
@@ -16,6 +16,11 @@ import atexit
 from datetime import datetime, timedelta
 import json
 import traceback
+from pptx import Presentation
+from pptx.util import Pt, Inches
+from pptx.shapes.base import BaseShape
+from pptx.shapes.autoshape import Shape
+from pptx.shapes.shapetree import SlideShapes
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -155,7 +160,7 @@ class PresentationService:
             temp_path = input_path.parent / f"scaled_{input_path.name}"
             
             # Load the presentation
-            prs = self.Presentation(input_path)
+            prs = self.Presentation(str(input_path))
             
             # Get slide dimensions
             slide_width = prs.slide_width
@@ -167,7 +172,9 @@ class PresentationService:
             # Process each slide
             for slide in prs.slides:
                 # Scale down all shapes on the slide
-                for shape in slide.shapes:
+                shapes: SlideShapes = slide.shapes
+                for shape in shapes:
+                    shape = cast(Shape, shape)
                     # Skip shapes without size
                     if not hasattr(shape, 'width') or not hasattr(shape, 'height'):
                         continue
@@ -187,21 +194,22 @@ class PresentationService:
                     new_top = int(current_top + (current_height - new_height) / 2)
                     
                     # Apply new dimensions and position
-                    shape.width = new_width
-                    shape.height = new_height
-                    shape.left = new_left
-                    shape.top = new_top
+                    shape.width = Pt(new_width)
+                    shape.height = Pt(new_height)
+                    shape.left = Pt(new_left)
+                    shape.top = Pt(new_top)
                     
                     # If it's a text box, increase the text size slightly
                     if hasattr(shape, 'text_frame'):
-                        for paragraph in shape.text_frame.paragraphs:
+                        text_shape = cast(Shape, shape)
+                        for paragraph in text_shape.text_frame.paragraphs:
                             for run in paragraph.runs:
                                 if run.font.size:
                                     # Increase font size by 10% to compensate for scaling
-                                    run.font.size = int(run.font.size * 1.1)
+                                    run.font.size = Pt(int(run.font.size * 1.1))
             
             # Save the modified presentation
-            prs.save(temp_path)
+            prs.save(str(temp_path))
             logger.info(f"Successfully preprocessed PowerPoint: {temp_path}")
             return temp_path
             
@@ -428,7 +436,7 @@ class PresentationService:
             content = content.replace('</head>',
                 '''<style>
                     /* Force text containers to expand */
-                    div[class*="text"], div[class*="content"] {
+                    div[class*="text"], div[style*="page-break-before"] {
                         height: auto !important;
                         max-height: none !important;
                         overflow: visible !important;
