@@ -1,3 +1,7 @@
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
 from pathlib import Path
 import subprocess
 import uuid
@@ -6,7 +10,6 @@ import os
 import asyncio
 from typing import Optional, Dict, Any, cast
 from fastapi import UploadFile, HTTPException
-import logging
 from threading import Thread
 import time
 import re
@@ -16,14 +19,18 @@ import atexit
 from datetime import datetime, timedelta
 import json
 import traceback
-from pptx import Presentation
-from pptx.util import Pt, Inches
-from pptx.shapes.base import BaseShape
-from pptx.shapes.autoshape import Shape
-from pptx.shapes.shapetree import SlideShapes
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+# Make pptx import optional
+try:
+    from pptx import Presentation
+    from pptx.util import Pt, Inches
+    from pptx.shapes.base import BaseShape
+    from pptx.shapes.autoshape import Shape
+    from pptx.shapes.shapetree import SlideShapes
+    HAS_PPTX = True
+except ImportError:
+    logger.warning("python-pptx not available, PowerPoint processing will be limited")
+    HAS_PPTX = False
 
 class ProcessMonitor:
     def __init__(self):
@@ -151,7 +158,7 @@ class PresentationService:
 
     def _preprocess_powerpoint(self, input_path: Path) -> Path:
         """Scale down PowerPoint content to prevent cutoff during conversion"""
-        if not self.has_pptx:
+        if not HAS_PPTX:
             logger.warning("python-pptx not available, skipping preprocessing")
             return input_path
             

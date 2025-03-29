@@ -36,3 +36,6 @@ boto3>=1.29.3
 
 # Redis dependency
 redis==5.0.1
+
+# PowerPoint dependency
+python-pptx==0.6.21
