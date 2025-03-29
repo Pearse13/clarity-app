@@ -132,15 +132,19 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "timestamp": str(datetime.now()),
-        "endpoints": {
-            "chat": "/api/chat",
-            "transform": "/api/transform"
+    """Basic health check endpoint"""
+    try:
+        return {
+            "status": "healthy",
+            "timestamp": str(datetime.now())
         }
-    }
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": str(datetime.now())
+        }
 
 class EmailVerificationRequest(BaseModel):
     email: str
