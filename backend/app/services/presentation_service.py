@@ -132,6 +132,83 @@ class PresentationService:
         
         logger.info(f"Using LibreOffice at: {self.soffice_path}")
 
+        try:
+            # Import python-pptx here to avoid global import issues
+            from pptx import Presentation
+            from pptx.util import Inches, Pt
+            self.Presentation = Presentation
+            self.Inches = Inches
+            self.Pt = Pt
+            self.has_pptx = True
+        except ImportError:
+            logger.warning("python-pptx not available, will skip content scaling")
+            self.has_pptx = False
+
+    def _preprocess_powerpoint(self, input_path: Path) -> Path:
+        """Scale down PowerPoint content to prevent cutoff during conversion"""
+        if not self.has_pptx:
+            logger.warning("python-pptx not available, skipping preprocessing")
+            return input_path
+            
+        try:
+            # Create a temporary file for the processed PowerPoint
+            temp_path = input_path.parent / f"scaled_{input_path.name}"
+            
+            # Load the presentation
+            prs = self.Presentation(input_path)
+            
+            # Get slide dimensions
+            slide_width = prs.slide_width
+            slide_height = prs.slide_height
+            
+            # Calculate scaling factor (90% of original size)
+            scale_factor = 0.9
+            
+            # Process each slide
+            for slide in prs.slides:
+                # Scale down all shapes on the slide
+                for shape in slide.shapes:
+                    # Skip shapes without size
+                    if not hasattr(shape, 'width') or not hasattr(shape, 'height'):
+                        continue
+                        
+                    # Calculate new position to maintain centering
+                    current_left = shape.left
+                    current_top = shape.top
+                    current_width = shape.width
+                    current_height = shape.height
+                    
+                    # Calculate new dimensions
+                    new_width = int(current_width * scale_factor)
+                    new_height = int(current_height * scale_factor)
+                    
+                    # Calculate new position to maintain centering
+                    new_left = int(current_left + (current_width - new_width) / 2)
+                    new_top = int(current_top + (current_height - new_height) / 2)
+                    
+                    # Apply new dimensions and position
+                    shape.width = new_width
+                    shape.height = new_height
+                    shape.left = new_left
+                    shape.top = new_top
+                    
+                    # If it's a text box, increase the text size slightly
+                    if hasattr(shape, 'text_frame'):
+                        for paragraph in shape.text_frame.paragraphs:
+                            for run in paragraph.runs:
+                                if run.font.size:
+                                    # Increase font size by 10% to compensate for scaling
+                                    run.font.size = int(run.font.size * 1.1)
+            
+            # Save the modified presentation
+            prs.save(temp_path)
+            logger.info(f"Successfully preprocessed PowerPoint: {temp_path}")
+            return temp_path
+            
+        except Exception as e:
+            logger.error(f"Error preprocessing PowerPoint: {str(e)}")
+            return input_path
+
     async def _ensure_libreoffice_ready(self):
         """Ensure LibreOffice is in a good state before conversion"""
         try:
@@ -241,14 +318,25 @@ class PresentationService:
             logger.error(f"Failed to update status: {str(e)}")
     
     async def _convert_powerpoint(self, input_path: Path, output_dir: Path, doc_id: str) -> Dict[str, Any]:
-        """Convert PowerPoint to HTML using LibreOffice with custom page settings"""
+        """Convert PowerPoint to HTML using LibreOffice with preprocessing"""
         try:
             # Update status
             self._update_status(output_dir, {
                 "document_id": doc_id,
                 "status": "processing",
-                "progress": 30,
-                "message": "Converting PowerPoint to HTML"
+                "progress": 20,
+                "message": "Preprocessing PowerPoint"
+            })
+            
+            # Preprocess the PowerPoint to scale down content
+            processed_path = self._preprocess_powerpoint(input_path)
+            
+            # Update status
+            self._update_status(output_dir, {
+                "document_id": doc_id,
+                "status": "processing",
+                "progress": 40,
+                "message": "Converting to HTML"
             })
             
             # Create HTML output path
@@ -298,7 +386,7 @@ class PresentationService:
                 '--infilter="impress_html_Export:Format=2"',
                 '--outdir', str(output_dir),
                 '--writer',
-                str(input_path)
+                str(processed_path)
             ]
             
             # Set environment variables
