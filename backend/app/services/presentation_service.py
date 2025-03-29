@@ -241,7 +241,7 @@ class PresentationService:
             logger.error(f"Failed to update status: {str(e)}")
     
     async def _convert_powerpoint(self, input_path: Path, output_dir: Path, doc_id: str) -> Dict[str, Any]:
-        """Convert PowerPoint to HTML using LibreOffice"""
+        """Convert PowerPoint directly to HTML using LibreOffice"""
         try:
             # Update status
             self._update_status(output_dir, {
@@ -266,68 +266,53 @@ class PresentationService:
             # Check if input file is empty
             if input_path.stat().st_size == 0:
                 raise ValueError(f"Input file is empty: {input_path}")
-            
-            # Convert to HTML using LibreOffice
+
+            # Direct PowerPoint to HTML conversion with specific settings
             cmd = [
-                "soffice",
-                "--headless",
-                "--convert-to",
-                "html",
-                "--outdir",
-                str(output_dir),
+                str(self.soffice_path),
+                '--headless',
+                '--norestore',
+                '--nofirststartwizard',
+                '--convert-to',
+                'html:XHTML Writer File:UTF8',  # Use XHTML writer for better text preservation
+                '--infilter="impress_html_Export:EmbedImages=true,Format=2,PageRange=1-999"',  # Specific HTML export settings
+                f'--outdir={output_dir}',
+                '--writer',  # Use Writer engine for better text handling
                 str(input_path)
             ]
             
-            logger.info(f"Running command: {' '.join(cmd)}")
+            # Set environment variables
+            env = os.environ.copy()
+            env['OOO_DISABLE_RECOVERY'] = '1'
+            env['LANG'] = 'en_US.UTF-8'
             
-            # Execute the command
-            process = subprocess.Popen(
+            # Run the conversion
+            logger.info(f"Running conversion command: {' '.join(cmd)}")
+            process = subprocess.run(
                 cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                stdin=subprocess.PIPE
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=120
             )
             
-            # Start a thread to send Enter key presses to handle any dialogs
-            Thread(target=send_enter_key, args=(process,), daemon=True).start()
-            
-            # Wait for process to complete with timeout
-            try:
-                stdout, stderr = process.communicate(timeout=120)
-                stdout_str = stdout.decode() if stdout else ''
-                stderr_str = stderr.decode() if stderr else ''
-                
-                # Log output for debugging
-                logger.debug(f"Command output: {stdout_str}")
-                logger.debug(f"Command error: {stderr_str}")
-            except subprocess.TimeoutExpired:
-                process.kill()
-                logger.error("Command timed out after 120 seconds")
-                raise TimeoutError("Conversion process timed out")
-            
-            # Check if process was successful
             if process.returncode != 0:
-                # Filter out known benign warnings
-                real_errors = [line for line in stderr_str.splitlines() 
-                             if line and not line.startswith('libpng warning: iCCP')]
-                
-                if real_errors:
-                    logger.error(f"Command failed with return code {process.returncode}")
-                    logger.error(f"Errors: {real_errors}")
-                    raise RuntimeError(f"Conversion failed: {'; '.join(real_errors)}")
-                else:
-                    # If only benign warnings, log but continue
-                    logger.warning(f"Process completed with warnings: {stderr_str}")
+                logger.error(f"Conversion failed: {process.stderr}")
+                raise RuntimeError(f"Conversion failed: {process.stderr}")
             
-            # Check if output file exists and is valid
-            output_files = list(output_dir.glob("*.html"))
-            if not output_files:
-                logger.error("No output files generated despite successful return code")
+            # Look for the converted HTML file
+            html_files = list(output_dir.glob('*.html')) + list(output_dir.glob('*.HTML'))
+            if not html_files:
+                logger.error("No HTML files generated")
                 raise FileNotFoundError("No HTML files were generated")
             
-            # Rename the output file to index.html if needed
-            if output_files[0].name != "index.html":
-                output_files[0].rename(html_output)
+            # Rename to index.html if needed
+            if html_files[0].name != "index.html":
+                html_files[0].rename(html_output)
+            
+            # Clean the HTML content
+            cleaned_content = self._clean_html_content(html_output)
+            html_output.write_text(cleaned_content, encoding='utf-8')
             
             # Update status to completed
             result = {
