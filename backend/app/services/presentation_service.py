@@ -241,7 +241,7 @@ class PresentationService:
             logger.error(f"Failed to update status: {str(e)}")
     
     async def _convert_powerpoint(self, input_path: Path, output_dir: Path, doc_id: str) -> Dict[str, Any]:
-        """Convert PowerPoint directly to HTML using LibreOffice"""
+        """Convert PowerPoint to HTML using LibreOffice with custom page settings"""
         try:
             # Update status
             self._update_status(output_dir, {
@@ -254,30 +254,50 @@ class PresentationService:
             # Create HTML output path
             html_output = output_dir / "index.html"
             
-            # Log paths for debugging
-            logger.debug(f"Input path: {input_path.absolute()}")
-            logger.debug(f"Output directory: {output_dir.absolute()}")
-            logger.debug(f"HTML output path: {html_output.absolute()}")
-            
-            # Check if input file exists
-            if not input_path.exists():
-                raise FileNotFoundError(f"Input file not found: {input_path}")
-            
-            # Check if input file is empty
-            if input_path.stat().st_size == 0:
-                raise ValueError(f"Input file is empty: {input_path}")
+            # First create a temporary config file for conversion settings
+            config_file = output_dir / "conversion.xml"
+            config_content = """<?xml version="1.0" encoding="UTF-8"?>
+<oor:component-data xmlns:oor="http://openoffice.org/2001/registry" 
+    xmlns:xs="http://www.w3.org/2001/XMLSchema" 
+    oor:name="Impress" 
+    oor:package="org.openoffice.Office.Impress">
+    <node oor:name="Export">
+        <node oor:name="Impress">
+            <prop oor:name="ScalePagesTo" oor:type="xs:int">
+                <value>0</value>
+            </prop>
+            <prop oor:name="ExportNotesPages" oor:type="xs:boolean">
+                <value>true</value>
+            </prop>
+            <prop oor:name="SaveAsHTML" oor:type="xs:boolean">
+                <value>true</value>
+            </prop>
+            <prop oor:name="Format" oor:type="xs:int">
+                <value>2</value>
+            </prop>
+            <prop oor:name="AutoFitTextFrameHeight" oor:type="xs:boolean">
+                <value>true</value>
+            </prop>
+            <prop oor:name="TextOverflowSupport" oor:type="xs:boolean">
+                <value>true</value>
+            </prop>
+        </node>
+    </node>
+</oor:component-data>"""
+            config_file.write_text(config_content)
 
-            # Direct PowerPoint to HTML conversion with specific settings
+            # Command for conversion with custom settings
             cmd = [
                 str(self.soffice_path),
                 '--headless',
                 '--norestore',
                 '--nofirststartwizard',
+                f'-env:UserInstallation=file://{output_dir}',  # Use custom user profile
                 '--convert-to',
-                'html:XHTML Writer File:UTF8',  # Use XHTML writer for better text preservation
-                '--infilter="impress_html_Export:EmbedImages=true,Format=2,PageRange=1-999"',  # Specific HTML export settings
-                f'--outdir={output_dir}',
-                '--writer',  # Use Writer engine for better text handling
+                'html:XHTML Writer File',
+                '--infilter="impress_html_Export:Format=2"',
+                '--outdir', str(output_dir),
+                '--writer',
                 str(input_path)
             ]
             
@@ -285,6 +305,8 @@ class PresentationService:
             env = os.environ.copy()
             env['OOO_DISABLE_RECOVERY'] = '1'
             env['LANG'] = 'en_US.UTF-8'
+            # Add custom configuration path
+            env['UNO_USER_INSTALLATION_OVERRIDE'] = str(output_dir)
             
             # Run the conversion
             logger.info(f"Running conversion command: {' '.join(cmd)}")
@@ -310,8 +332,34 @@ class PresentationService:
             if html_files[0].name != "index.html":
                 html_files[0].rename(html_output)
             
-            # Clean the HTML content
-            cleaned_content = self._clean_html_content(html_output)
+            # Additional post-processing to ensure text isn't cut off
+            with open(html_output, 'r', encoding='utf-8') as f:
+                content = f.read()
+                
+            # Add specific styles to prevent text cutoff
+            content = content.replace('</head>',
+                '''<style>
+                    /* Force text containers to expand */
+                    div[class*="text"], div[class*="content"] {
+                        height: auto !important;
+                        max-height: none !important;
+                        overflow: visible !important;
+                    }
+                    /* Ensure text boxes expand */
+                    .text-box, [class*="textbox"] {
+                        height: auto !important;
+                        min-height: fit-content !important;
+                    }
+                    /* Handle overflow */
+                    * {
+                        overflow: visible !important;
+                        text-overflow: clip !important;
+                        white-space: normal !important;
+                    }
+                </style></head>''')
+            
+            # Clean and write back the content
+            cleaned_content = self._clean_html_content(content)
             html_output.write_text(cleaned_content, encoding='utf-8')
             
             # Update status to completed
