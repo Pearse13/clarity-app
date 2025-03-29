@@ -387,45 +387,153 @@ class PresentationService:
             # Add style to make content fit iframe and handle PowerPoint slides properly
             style = """
             <style>
-                /* Basic container styling */
-                body {
+                :root {
+                    --slide-ratio: 0.5625; /* 16:9 aspect ratio */
+                    --slide-padding: 20px;
+                }
+                
+                html, body {
                     margin: 0;
-                    padding: 20px;
+                    padding: 0;
+                    width: 100%;
+                    height: 100%;
+                    overflow-x: hidden;
+                    overflow-y: auto;
                     background: #f5f5f5;
                 }
-
-                /* Simple visual enhancement for slides */
-                div[style*="page-break-before"], h1[style*="page-break-before"] {
+                
+                body {
+                    padding: var(--slide-padding);
+                    box-sizing: border-box;
+                    font-family: Arial, sans-serif;
+                    font-size: 16px;
+                    line-height: 1.5;
+                }
+                
+                /* Slide container */
+                .page-break, div[style*="page-break-before"] {
+                    display: block;
+                    position: relative;
+                    width: calc(100% - 2 * var(--slide-padding));
+                    max-width: 960px;
+                    margin: 20px auto;
+                    padding: 0;
                     background: white;
                     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                    margin: 20px 0;
+                    border-radius: 4px;
+                    min-height: calc(var(--slide-ratio) * 100%);
+                }
+                
+                /* Remove fixed aspect ratio to allow content to expand */
+                .page-break::before, div[style*="page-break-before"]::before {
+                    content: none;
+                }
+                
+                /* Slide content wrapper */
+                .page-break > *, div[style*="page-break-before"] > * {
+                    position: relative;  /* Changed from absolute to relative */
+                    width: 100%;
+                    padding: 40px;
+                    box-sizing: border-box;
+                    overflow: visible;  /* Changed from hidden to visible */
+                }
+                
+                /* Text content */
+                p, span {
+                    position: relative !important;
+                    margin: 0 0 0.5em 0 !important;
+                    font-size: 1em !important;
+                    line-height: 1.5 !important;
+                    white-space: normal !important;  /* Ensure text wraps */
+                    overflow-wrap: break-word !important;  /* Handle long words */
+                }
+                
+                /* Images */
+                img {
+                    max-width: 100%;
+                    height: auto;
+                    object-fit: contain;
+                }
+                
+                /* Headings */
+                h1 { font-size: 2em !important; }
+                h2 { font-size: 1.5em !important; }
+                h3 { font-size: 1.17em !important; }
+                h4 { font-size: 1em !important; }
+                h5 { font-size: 0.83em !important; }
+                h6 { font-size: 0.67em !important; }
+                
+                h1, h2, h3, h4, h5, h6 {
+                    margin: 0.5em 0 !important;
+                    line-height: 1.2 !important;
+                    font-weight: bold !important;
+                }
+                
+                /* Lists */
+                ul, ol {
+                    margin: 0.5em 0 0.5em 1.5em !important;
+                    padding: 0 !important;
+                    overflow: visible !important;  /* Ensure lists don't get cut */
+                }
+                
+                li {
+                    margin: 0.25em 0 !important;
+                    line-height: 1.5 !important;
+                    position: relative !important;
+                    overflow: visible !important;
+                }
+                
+                /* Ensure nested lists are visible */
+                li > ul, li > ol {
+                    overflow: visible !important;
+                    margin-top: 0.25em !important;
+                }
+                
+                /* Tables */
+                table {
+                    border-collapse: collapse;
+                    margin: 1em 0 !important;
+                    width: auto !important;
+                }
+                
+                td, th {
+                    padding: 8px !important;
+                    border: 1px solid #ddd !important;
+                    font-size: 0.9em !important;
+                }
+                
+                /* Fix positioning */
+                [style*="position:"] {
+                    position: relative !important;
+                }
+                
+                [style*="left:"], [style*="top:"] {
+                    left: auto !important;
+                    top: auto !important;
+                }
+                
+                /* Ensure text is readable */
+                * {
+                    font-family: Arial, sans-serif !important;
+                    color: #333 !important;
+                    background: transparent !important;
+                }
+                
+                /* Responsive adjustments */
+                @media (max-width: 768px) {
+                    body {
+                        padding: 10px;
+                    }
+                    
+                    .page-break > *, div[style*="page-break-before"] > * {
+                        padding: 20px;
+                    }
+                    
+                    :root {
+                        --slide-padding: 10px;
+                    }
                 }
             </style>
-            <script>
-                // Calculate and report document height to parent
-                function updateHeight() {
-                    const height = Math.max(
-                        document.documentElement.scrollHeight,
-                        document.body.scrollHeight
-                    );
-                    window.parent.postMessage({ type: 'resize', height }, '*');
-                }
-
-                // Update height on load and when content changes
-                window.addEventListener('load', updateHeight);
-                window.addEventListener('resize', updateHeight);
-                
-                // Create observer to watch for DOM changes
-                const observer = new MutationObserver(updateHeight);
-                observer.observe(document.body, {
-                    childList: true,
-                    subtree: true,
-                    attributes: true
-                });
-
-                // Initial height calculation
-                setTimeout(updateHeight, 100);
-            </script>
             """
             html_content = html_content.replace('</head>', f'{style}</head>')
             
@@ -433,7 +541,9 @@ class PresentationService:
             if not html_content.strip().startswith('<!DOCTYPE'):
                 html_content = '<!DOCTYPE html>\n' + html_content
             
-            # Do not modify positioning or structure - let LibreOffice handle it
+            # Fix any remaining absolute positioning
+            html_content = re.sub(r'position:\s*absolute\s*;', 'position: relative;', html_content)
+            
             logger.info(f"Successfully cleaned HTML content for {content}")
             
             return html_content
@@ -451,6 +561,14 @@ class PresentationService:
         await self._ensure_libreoffice_ready()
         
         logger.info(f"Starting conversion for file: {file.filename} ({file.content_type})")
+        
+        # Determine file type and conversion format
+        file_ext = file.filename.lower().split('.')[-1]
+        
+        # Remove any duplicate extensions
+        if file_ext == 'pptx' and file.filename.endswith('.pptx.pptx'):
+            file_ext = 'pptx'
+            file.filename = file.filename[:-5]
         
         # Create unique working directory with short name
         presentation_id = str(uuid.uuid4())[:8]
@@ -478,21 +596,69 @@ class PresentationService:
             if file_path.stat().st_size == 0:
                 raise HTTPException(status_code=500, detail="Uploaded file is empty")
             
-            # Convert directly to HTML using LibreOffice
+            # Convert to HTML using LibreOffice
             try:
                 logger.info("Starting LibreOffice conversion...")
                 
-                # Direct conversion to HTML
+                # First, convert to PDF
+                pdf_path = work_dir / f"{file_path.stem}.pdf"
+                pdf_cmd = [
+                    str(self.soffice_path),
+                    '--headless',
+                    '--norestore',
+                    '--nofirststartwizard',
+                    '--infilter="impress_pdf_Export"',  # Use specific PDF export filter
+                    '--convert-to',
+                    'pdf:writer_pdf_Export',  # Use the Writer PDF export filter for better text handling
+                    '--outdir',
+                    str(work_dir),
+                    '--writer',  # Force using Writer engine for better text preservation
+                    str(file_path)
+                ]
+                
+                # Set environment variables for LibreOffice conversion
+                env = os.environ.copy()
+                env['OOO_DISABLE_RECOVERY'] = '1'  # Disable recovery to prevent dialogs
+                env['PYTHONPATH'] = ''  # Clear PYTHONPATH to prevent conflicts
+                
+                logger.info(f"Running PDF conversion command: {' '.join(pdf_cmd)}")
+                
+                # Kill any existing LibreOffice processes first
+                process_monitor.cleanup_processes()
+                
+                # Run PDF conversion with environment variables
+                pdf_process = subprocess.run(
+                    pdf_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    check=False,
+                    env=env
+                )
+                
+                if pdf_process.stdout:
+                    logger.info(f"PDF conversion stdout: {pdf_process.stdout}")
+                if pdf_process.stderr:
+                    logger.warning(f"PDF conversion stderr: {pdf_process.stderr}")
+                
+                # Check if PDF was created
+                if not pdf_path.exists():
+                    logger.error("PDF file was not created")
+                    raise HTTPException(status_code=500, detail="Failed to create PDF")
+                
+                logger.info(f"PDF created successfully at: {pdf_path}")
+                
+                # Now convert PDF to HTML
                 html_cmd = [
                     str(self.soffice_path),
                     '--headless',
                     '--norestore',
                     '--nofirststartwizard',
                     '--convert-to',
-                    'html:HTML',  # Specify HTML format explicitly
+                    'html',  # Simplified format
                     '--outdir',
                     str(output_dir),
-                    str(file_path)
+                    str(pdf_path)
                 ]
                 
                 logger.info(f"Running HTML conversion command: {' '.join(html_cmd)}")
@@ -549,10 +715,14 @@ class PresentationService:
                     "url": f"/documents/{url_path}"
                 }
                 
+            except HTTPException:
+                raise
             except Exception as e:
                 logger.error(f"Error during conversion: {str(e)}")
                 raise HTTPException(status_code=500, detail=f"Error during conversion: {str(e)}")
             
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Error in conversion: {e}")
             raise HTTPException(status_code=500, detail=str(e))
