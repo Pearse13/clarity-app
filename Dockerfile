@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y \
     fonts-liberation2 \
     poppler-utils \
     unoconv \
+    build-essential \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -31,7 +32,7 @@ RUN mkdir -p /app/.config/libreoffice/4/user && \
 WORKDIR /app
 
 # Copy requirements first for better caching
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Copy the backend code
