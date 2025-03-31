@@ -81,14 +81,29 @@ def create_app() -> FastAPI:
         version="1.0.0"
     )
 
-    # Configure CORS
+    # Configure CORS with specific origins
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # In production, specify the exact origins
+        allow_origins=[os.getenv('FRONTEND_URL', 'http://localhost:5174')],
         allow_credentials=True,
-        allow_methods=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["*"],
+        expose_headers=["*"],
+        max_age=3600
     )
+    
+    # Add security headers middleware
+    @app.middleware("http")
+    async def add_security_headers(request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        return response
     
     # Configure static file serving with absolute path
     from fastapi.staticfiles import StaticFiles

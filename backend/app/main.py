@@ -25,16 +25,22 @@ load_dotenv()
 
 # Configure logging
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
+    logger.info("Starting application initialization...")
+    
     app = FastAPI(
         title="Clarity API",
         description="API for the Clarity educational tool",
         version="1.0.0"
     )
-
+    
+    logger.info("Configuring CORS...")
     # Configure CORS with more specific settings
     origins = [
         "http://localhost:3000",
@@ -53,11 +59,13 @@ def create_app() -> FastAPI:
         expose_headers=["*"]
     )
     
+    logger.info("Configuring static files...")
     # Configure static file serving
     static_dir = Path("data/static")
     static_dir.mkdir(parents=True, exist_ok=True)
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
+    logger.info("Including routers...")
     # Include routers with proper error handling and logging
     try:
         app.include_router(presentations.router)
@@ -80,6 +88,7 @@ def create_app() -> FastAPI:
         logger.error(f"Error including chat router: {str(e)}")
         logger.error(traceback.format_exc())
 
+    logger.info("Application initialization completed successfully")
     return app
 
 # Create the application instance
@@ -133,18 +142,10 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Basic health check endpoint"""
-    try:
-        return {
-            "status": "healthy",
-            "timestamp": str(datetime.now())
-        }
-    except Exception as e:
-        logger.error(f"Health check failed: {str(e)}")
-        return {
-            "status": "unhealthy",
-            "error": str(e),
-            "timestamp": str(datetime.now())
-        }
+    return {
+        "status": "healthy",
+        "timestamp": str(datetime.now())
+    }
 
 class EmailVerificationRequest(BaseModel):
     email: str

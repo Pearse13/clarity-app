@@ -16,19 +16,23 @@ HOURLY_COST_LIMIT = 0.80  # £0.80 per hour
 
 class RateLimitService:
     def __init__(self):
-        # Initialize Redis connection
-        redis_url = os.getenv('REDIS_URL')
+        # Initialize Redis connection using private URL if available
+        redis_private_url = os.getenv('REDIS_PRIVATE_URL')
+        redis_public_url = os.getenv('REDIS_URL')
         self._redis: Optional[Redis] = None
         self._use_redis = False
         self._usage_data: Dict[str, Dict[str, Any]] = {}
 
+        # Try private URL first, fall back to public if needed
+        redis_url = redis_private_url or redis_public_url
+        
         if not redis_url:
-            logger.warning("REDIS_URL not set. Using in-memory storage (not recommended for production).")
+            logger.warning("No Redis URL found. Using in-memory storage (not recommended for production).")
         else:
             try:
                 self._redis = redis.from_url(redis_url)
                 self._use_redis = True
-                logger.info("Successfully connected to Redis")
+                logger.info(f"Successfully connected to Redis using {'private' if redis_private_url else 'public'} URL")
             except RedisError as e:
                 logger.error(f"Failed to connect to Redis: {e}")
     

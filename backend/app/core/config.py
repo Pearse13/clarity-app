@@ -62,10 +62,46 @@ class Settings(BaseSettings):
     auth0_callback_url: str = Field(default="http://localhost:5174/callback", description="Auth0 callback URL")
     auth0_audience: Optional[str] = Field(default=os.getenv("AUTH0_AUDIENCE"), description="Auth0 audience")
     
+    # Rate limiting settings with more granular controls
+    rate_limit_max_requests: int = Field(
+        default=int(os.getenv("RATE_LIMIT_MAX_REQUESTS", "50")),
+        description="Maximum requests per window"
+    )
+    rate_limit_window_ms: int = Field(
+        default=int(os.getenv("RATE_LIMIT_WINDOW_MS", "60000")),
+        description="Rate limit window in milliseconds"
+    )
+    auth_rate_limit_max_requests: int = Field(
+        default=int(os.getenv("AUTH_RATE_LIMIT_MAX_REQUESTS", "10")),
+        description="Maximum auth requests per window"
+    )
+    auth_rate_limit_window_ms: int = Field(
+        default=int(os.getenv("AUTH_RATE_LIMIT_WINDOW_MS", "60000")),
+        description="Auth rate limit window in milliseconds"
+    )
+    
     # Security settings
-    secret_key: str = Field(default="your_secret_key_here", description="Secret key for JWT")
+    secret_key: str = Field(
+        default=os.getenv("SECRET_KEY", "your_secret_key_here"),
+        description="Secret key for JWT"
+    )
     algorithm: str = Field(default="RS256", description="JWT algorithm")
-    access_token_expire_minutes: int = Field(default=1440, description="Access token expiry in minutes")
+    access_token_expire_minutes: int = Field(
+        default=int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440")),
+        description="Access token expiry in minutes"
+    )
+    refresh_token_expire_days: int = Field(
+        default=int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7")),
+        description="Refresh token expiry in days"
+    )
+    password_reset_token_expire_minutes: int = Field(
+        default=int(os.getenv("PASSWORD_RESET_TOKEN_EXPIRE_MINUTES", "15")),
+        description="Password reset token expiry in minutes"
+    )
+    min_password_length: int = Field(
+        default=int(os.getenv("MIN_PASSWORD_LENGTH", "12")),
+        description="Minimum password length"
+    )
     
     # Database settings
     database_url: str = Field(default="sqlite:///./clarity.db", description="Database URL")
@@ -79,16 +115,6 @@ class Settings(BaseSettings):
     
     # Production domain
     production_domain: Optional[str] = Field(default=os.getenv("PRODUCTION_DOMAIN"), description="Production domain")
-    
-    # Rate limiting
-    rate_limit_max_requests: int = Field(
-        default=int(os.getenv("RATE_LIMIT_MAX_REQUESTS", "50")),
-        description="Maximum requests per window"
-    )
-    rate_limit_window_ms: int = Field(
-        default=int(os.getenv("RATE_LIMIT_WINDOW_MS", "60000")),
-        description="Rate limit window in milliseconds"
-    )
     
     # CloudConvert settings
     cloudconvert_api_key: Optional[str] = Field(default=os.getenv("CLOUDCONVERT_API_KEY"))
@@ -124,5 +150,48 @@ class Settings(BaseSettings):
         """Get a setting by name with proper type casting."""
         return getattr(self, name, default)
 
+    def validate_environment_variables(self) -> None:
+        """Validate required environment variables on startup."""
+        required_vars = {
+            'AUTH0_DOMAIN': self.auth0_domain,
+            'AUTH0_CLIENT_ID': self.auth0_client_id,
+            'AUTH0_CLIENT_SECRET': self.auth0_client_secret,
+            'AUTH0_AUDIENCE': self.auth0_audience,
+            'SECRET_KEY': self.secret_key,
+            'OPENAI_API_KEY': self.openai_api_key
+        }
+        
+        missing_vars = [var for var, value in required_vars.items() if not value]
+        
+        if missing_vars:
+            raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
+        
+        # Validate URL format for domains
+        if self.auth0_domain and not self.auth0_domain.startswith(('http://', 'https://')):
+            self.auth0_domain = f"https://{self.auth0_domain}"
+        
+        # Validate token expiry times
+        if self.access_token_expire_minutes < 1:
+            raise ValueError("access_token_expire_minutes must be at least 1")
+        
+        if self.refresh_token_expire_days < 1:
+            raise ValueError("refresh_token_expire_days must be at least 1")
+        
+        # Validate rate limits
+        if self.rate_limit_max_requests < 1:
+            raise ValueError("rate_limit_max_requests must be at least 1")
+        
+        if self.rate_limit_window_ms < 1000:
+            raise ValueError("rate_limit_window_ms must be at least 1000")
+        
+        # Log non-sensitive configuration in development
+        if self.environment == "development":
+            print("Configuration validated successfully")
+            print(f"Environment: {self.environment}")
+            print(f"Debug mode: {self.debug}")
+            print(f"API Version: {self.api_v1_str}")
+            print(f"Rate limit: {self.rate_limit_max_requests} requests per {self.rate_limit_window_ms}ms")
+
 # Initialize settings
-settings = Settings() 
+settings = Settings()
+settings.validate_environment_variables() 

@@ -475,10 +475,13 @@ async def get_document_file(doc_id: str, filename: str):
             "Access-Control-Allow-Headers": "*",
             "Access-Control-Expose-Headers": "Content-Length, Content-Range",
             "Content-Type": content_type,
-            "Content-Disposition": "attachment; filename=" + file_path.name,
+            "Content-Disposition": "inline; filename=" + file_path.name,
             "Cache-Control": "public, max-age=3600",
             "X-Content-Type-Options": "nosniff",
-            "Accept-Ranges": "bytes"
+            "Accept-Ranges": "bytes",
+            "Cross-Origin-Resource-Policy": "cross-origin",
+            "Cross-Origin-Embedder-Policy": "require-corp",
+            "Cross-Origin-Opener-Policy": "same-origin"
         }
         
         logger.debug(f"Serving file with headers: {headers}")
@@ -755,11 +758,17 @@ async def proxy_ppt_file(doc_id: str, filename: str, request: Request):
             media_type=content_type,
             filename=filename,
             headers={
-                "Content-Disposition": f"attachment; filename={filename}",
+                "Content-Disposition": "inline; filename=" + filename,
                 "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
                 "Access-Control-Allow-Headers": "*",
-                "Cache-Control": "public, max-age=3600"
+                "Access-Control-Expose-Headers": "Content-Length, Content-Range",
+                "Cache-Control": "public, max-age=3600",
+                "X-Content-Type-Options": "nosniff",
+                "Accept-Ranges": "bytes",
+                "Cross-Origin-Resource-Policy": "cross-origin",
+                "Cross-Origin-Embedder-Policy": "require-corp",
+                "Cross-Origin-Opener-Policy": "same-origin"
             }
         )
     except Exception as e:
