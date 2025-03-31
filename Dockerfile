@@ -31,14 +31,15 @@ RUN mkdir -p /app/.config/libreoffice/4/user && \
 WORKDIR /app
 
 # Copy requirements first for better caching
-COPY backend/requirements.txt .
+COPY requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Copy the backend code
 COPY backend/ .
 
-# Create necessary directories
-RUN mkdir -p data/temp data/documents data/static
+# Create necessary directories with proper permissions
+RUN mkdir -p data/temp data/documents data/static && \
+    chmod -R 777 data
 
 # Set HOME for LibreOffice user profile
 ENV HOME=/app
@@ -46,6 +47,7 @@ ENV HOME=/app
 # Set environment variables
 ENV PORT=8000
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
 # Expose the port
 EXPOSE 8000
