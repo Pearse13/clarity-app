@@ -2,10 +2,61 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: http:; connect-src 'self' https://*.auth0.com https://dev-8utndajax3l877vt.us.auth0.com http://localhost:8000 https://clarity-backend-production.up.railway.app http://clarity-backend-production.up.railway.app blob: data: https://cdn.jsdelivr.net https://*.jsdelivr.net https://*.cloudflare.com; font-src 'self' data: https://*.auth0.com https://rsms.me https://*.rsms.me; style-src 'self' 'unsafe-inline' https://*.auth0.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.auth0.com https://cdn.auth0.com https://cdn.jsdelivr.net https://*.cloudflare.com https://cdnjs.cloudflare.com https://unpkg.com blob: 'wasm-unsafe-eval'; worker-src 'self' blob: https://cdn.jsdelivr.net https://*.cloudflare.com https://cdnjs.cloudflare.com https://unpkg.com; img-src 'self' data: https://*.auth0.com https://s.gravatar.com blob:; frame-src 'self' http://localhost:8000 https://clarity-backend-production.up.railway.app http://clarity-backend-production.up.railway.app blob: https://*.auth0.com https://dev-8utndajax3l877vt.us.auth0.com https://view.officeapps.live.com https://*.officeapps.live.com https://docs.google.com" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <title>Clarity API - Understand it First</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      connect-src 'self' https://*.auth0.com https://*.us.auth0.com https://clarity-backend-production.up.railway.app wss://clarity-backend-production.up.railway.app;
+      font-src 'self' data: https://*.auth0.com https://rsms.me;
+      style-src 'self' 'unsafe-inline' https://*.auth0.com;
+      script-src 'self' 'unsafe-inline' https://*.auth0.com https://cdn.auth0.com https://cdn.jsdelivr.net 'wasm-unsafe-eval';
+      worker-src 'self' blob: https://cdn.jsdelivr.net;
+      img-src 'self' data: https://*.auth0.com https://s.gravatar.com blob:;
+      frame-src 'self' https://*.auth0.com https://*.us.auth0.com;
+      base-uri 'self';
+      form-action 'self';
+      frame-ancestors 'none';
+      upgrade-insecure-requests;
+      block-all-mixed-content;
+    " />
+    <link rel="icon" type="image/svg+xml" href="/HD Clarity.png" />
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Transform any document into clear, easy-to-understand explanations with Clarity's AI-powered study companion. Get instant answers, study guides, and interactive learning support." />
+    <meta name="keywords" content="AI study tool, document understanding, study companion, learning assistant, education technology" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://clarity-app.vercel.app/" />
+    <meta property="og:title" content="Clarity - AI-Powered Study Companion" />
+    <meta property="og:description" content="Transform any document into clear, easy-to-understand explanations with Clarity's AI-powered study companion. Get instant answers, study guides, and interactive learning support." />
+    <meta property="og:image" content="https://clarity-app.vercel.app/HD Clarity.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://clarity-app.vercel.app/" />
+    <meta property="twitter:title" content="Clarity - AI-Powered Study Companion" />
+    <meta property="twitter:description" content="Transform any document into clear, easy-to-understand explanations with Clarity's AI-powered study companion. Get instant answers, study guides, and interactive learning support." />
+    <meta property="twitter:image" content="https://clarity-app.vercel.app/HD Clarity.png" />
+
+    <!-- Additional SEO -->
+    <link rel="canonical" href="https://clarity-app.vercel.app/" />
+    <meta name="google-site-verification" content="ELQzC_meCW7nQaBRb-9-oYN0yPbPAQNvOhEyPlHosxs" />
+
+    <!-- Favicon -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/android-chrome-512x512.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
+    <link rel="manifest" href="/site.webmanifest">
+    
+    <!-- Primary Meta Tags -->
+    <meta name="theme-color" content="#2563eb">
+    <title>Clarity - AI-Powered Study Companion</title>
     <style>
       @font-face {
         font-family: 'Inter';
@@ -18,17 +69,31 @@
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         overscroll-behavior: none;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
       }
       /* Performance optimizations for smoother animations */
       .transform-gpu {
         transform: translateZ(0);
+        -webkit-transform: translateZ(0);
       }
       .backface-visibility-hidden {
         backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
       }
       /* Prevent layout thrashing during sidebar transitions */
       * {
         box-sizing: border-box;
+        -webkit-overflow-scrolling: touch;
+      }
+      /* iOS-specific optimizations */
+      input, textarea, button, select {
+        -webkit-appearance: none;
+        border-radius: 0;
+      }
+      /* Prevent text size adjustment on orientation change */
+      html {
+        -webkit-text-size-adjust: 100%;
       }
     </style>
     <!-- Performance optimization script -->
