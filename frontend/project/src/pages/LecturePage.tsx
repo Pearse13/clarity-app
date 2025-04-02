@@ -3,11 +3,12 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { Brain, MessageSquare, Wand2, ChevronDown, Upload, Copy, Check } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import { FileProvider } from '../contexts/FileContext';
-import PresentationViewer from '../components/presentation/PresentationViewer';
-import { TransformationType } from '../components/lecture/UnderstandOutput';
+import { PresentationViewer } from '../components/presentation/PresentationViewer';
+import { TransformationType } from '../types/transform';
 import SimpleChatView from '../components/lecture/SimpleChatView';
 import { useSidebar } from '../contexts/SidebarContext';
 import { isTransformResponse, isApiError } from '../types/api';
+import { API_ENDPOINTS } from '../config/api';
 
 type ActiveTab = 'understand' | 'chat' | 'teach';
 
@@ -174,10 +175,19 @@ const escapeHtml = (text: string): string => {
     .replace(/'/g, '&#039;');
 };
 
+interface ChatMessage {
+  type: 'user' | 'assistant';
+  content: string;
+  selectedText?: string | null;
+  isAnimating?: boolean;
+  animatedContent?: string;
+  isStudyGuide?: boolean;
+}
+
 const LecturePage: React.FC = () => {
   const { getAccessTokenSilently } = useAuth0();
   const { isOpen, toggle } = useSidebar();
-  const [activeTab, setActiveTab] = useState<ActiveTab>('understand');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('chat');
   const [level, setLevel] = useState<number>(1);
   const [transformationType, setTransformationType] = useState<TransformationType>('simplify');
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -188,7 +198,28 @@ const LecturePage: React.FC = () => {
   const [documentText, setDocumentText] = useState<string | null>(null);
   const [isTransformed, setIsTransformed] = useState<boolean>(false);
   const [animatedText, setAnimatedText] = useState<string>('');
+  const [isGeneratingStudyGuide, setIsGeneratingStudyGuide] = useState(false);
+  const [isGeneratingBriefing, setIsGeneratingBriefing] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const presentationViewerRef = useRef<PresentationViewerRefType>(null);
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const lastScrollY = useRef(0);
+  
+  // Add scroll handler for header visibility
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
+        setIsHeaderVisible(false);
+      } else {
+        setIsHeaderVisible(true);
+      }
+      lastScrollY.current = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
   
   // Reference for the animation interval
   const animationIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -199,6 +230,20 @@ const LecturePage: React.FC = () => {
   // Update ref when state changes
   useEffect(() => {
     documentTextRef.current = documentText;
+  }, [documentText]);
+
+  // Add logging when document text is set
+  useEffect(() => {
+    // Only log if the value has actually changed
+    if (documentTextRef.current !== documentText) {
+      console.log('LecturePage: documentText state changed:', {
+        hasDocumentText: !!documentText,
+        textLength: documentText?.length || 0,
+        sample: documentText ? documentText.substring(0, 100) + '...' : 'null',
+        timestamp: new Date().toISOString()
+      });
+      documentTextRef.current = documentText;
+    }
   }, [documentText]);
 
   // Function to animate text word by word with error handling
@@ -277,7 +322,12 @@ const LecturePage: React.FC = () => {
   }, []);
 
   const handleTransform = (text: string, extractedText?: string) => {
-    console.log('LecturePage: handleTransform called with text:', text);
+    console.log('LecturePage: handleTransform called:', {
+      hasText: !!text,
+      textLength: text?.length || 0,
+      hasExtractedText: !!extractedText,
+      extractedTextLength: extractedText?.length || 0
+    });
     
     // Clear any ongoing animation when new text is selected
     if (animationIntervalRef.current) {
@@ -342,20 +392,20 @@ const LecturePage: React.FC = () => {
 
   // Simple function to handle clicks outside the text area
   const handleClickOutside = (e: MouseEvent) => {
-    if (isLoading || isTransformed) return;
-
+    // Don't deselect if clicking in chat input or messages
     const target = e.target as HTMLElement;
-    const isTextArea = target.closest('.text-area') || 
-                      target.closest('.react-pdf__Page') ||
-                      target.closest('.transform-button') ||
-                      target.closest('.transformation-controls') ||
-                      target.closest('.transformed-text') ||
-                      target.closest('.level-select') ||
-                      target.closest('.transformation-type-select');
-
-    if (!isTextArea && currentText) {
-      setCurrentText(null);
-      setCharacterCount(0);
+    if (
+      target.closest('.chat-input') || 
+      target.closest('.chat-messages') ||
+      target.closest('.chat-container')
+    ) {
+      return;
+    }
+    
+    // Only deselect if clicking outside the document viewer
+    const documentViewer = document.querySelector('.document-viewer');
+    if (documentViewer && !documentViewer.contains(target as Node)) {
+      window.getSelection()?.removeAllRanges();
     }
   };
 
@@ -502,6 +552,10 @@ const LecturePage: React.FC = () => {
     if (presentationViewerRef.current) {
       presentationViewerRef.current.resetPresentation();
     }
+
+    // Clear chat messages by resetting the SimpleChatView
+    setActiveTab('understand'); // Switch back to understand tab
+    // The chat will be cleared automatically when documentText becomes null
   };
 
   // Function to clear text selection
@@ -533,12 +587,6 @@ const LecturePage: React.FC = () => {
   }, [activeTab]);
   
   // Add resize handler
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (activeTab !== 'chat') return;
-    setIsResizing(true);
-    e.preventDefault();
-  };
-
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
@@ -603,13 +651,211 @@ const LecturePage: React.FC = () => {
     setIsTransformed(false);
   };
 
+  // Handler for generating study guide
+  const handleGenerateStudyGuide = async () => {
+    if (!documentText || isGeneratingStudyGuide) return;
+    
+    setIsGeneratingStudyGuide(true);
+    setError(null);
+
+    try {
+      const token = await getAccessTokenSilently({
+        authorizationParams: {
+          audience: import.meta.env.VITE_AUTH0_AUDIENCE,
+          scope: 'openid profile email offline_access'
+        }
+      });
+
+      const studyGuidePrompt = `Create a comprehensive study guide for this document in the following format:
+
+1. Overview
+- Write 2-3 sentences giving a high-level overview of the document's main topic and purpose
+
+2. Key Terms
+- List 5-10 important terms and their definitions from the document
+- Format as a bullet list with term in bold followed by definition
+
+3. Summary
+- Provide 3-5 main points that summarize the key concepts
+- Format as bullet points
+
+4. Essay Questions
+- Create 2-3 thought-provoking essay questions that test deep understanding
+- Format as a numbered list
+
+5. Quiz
+• Quiz Questions:
+- Create 5-10 multiple choice questions
+- Format each question as:
+Question: [The question text, including all options in the question itself]
+<click to reveal answer>
+Answer: [The correct answer with brief explanation]
+
+CRITICAL FORMATTING RULES FOR MULTIPLE CHOICE QUESTIONS:
+1. ALWAYS include all options directly in the question text
+2. NEVER use separate a), b), c), d) options
+3. Use commas or "or" to separate options
+4. End the question with a question mark
+
+Examples of CORRECT format:
+✅ "Which of the following is not a lobe of the brain: temporal, frontal, occipital, or parietal?"
+✅ "What is the largest organ in the human body: heart, brain, liver, or skin?"
+✅ "Which of these is a primary color: red, blue, green, or yellow?"
+
+Examples of INCORRECT format:
+❌ "Which of the following is not a lobe of the brain?"
+❌ "What is the largest organ in the human body?
+a) heart
+b) brain
+c) liver
+d) skin"
+
+Use bullet points and clear formatting to make each section distinct.`;
+
+      // First add the prompt as a user message
+      setMessages(prev => [
+        ...prev,
+        {
+          type: 'user',
+          content: 'Please generate a study guide for this document.',
+          isStudyGuide: true
+        }
+      ]);
+
+      const response = await fetch(API_ENDPOINTS.chat.send, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          message: studyGuidePrompt,
+          document_text: documentText
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate study guide');
+      }
+
+      const data = await response.json();
+
+      // Add the response to the chat messages
+      setMessages(prev => [
+        ...prev,
+        {
+          type: 'assistant',
+          content: data.message,
+          isStudyGuide: true
+        }
+      ]);
+
+    } catch (error) {
+      console.error('Study guide generation error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to generate study guide');
+      
+      // Add error message to chat
+      setMessages(prev => [
+        ...prev,
+        {
+          type: 'assistant',
+          content: `Error: ${error instanceof Error ? error.message : 'Failed to generate study guide'}. Please try again.`,
+          isStudyGuide: true
+        }
+      ]);
+    } finally {
+      setIsGeneratingStudyGuide(false);
+    }
+  };
+
+  // Handler for generating briefing document
+  const handleGenerateBriefing = async () => {
+    if (!documentText || isGeneratingBriefing) return;
+    
+    setIsGeneratingBriefing(true);
+    setError(null);
+
+    try {
+      const token = await getAccessTokenSilently({
+        authorizationParams: {
+          audience: import.meta.env.VITE_AUTH0_AUDIENCE,
+          scope: 'openid profile email offline_access'
+        }
+      });
+
+      const briefingPrompt = `Please create a concise briefing document that summarizes the key points of this text. Include:
+
+1. Core Concepts (2-3 main ideas)
+2. Key Themes (2-3 themes)
+3. Practical Applications
+4. Critical Considerations
+5. Summary Implications
+
+Format the output with clear headers and bullet points for readability.`;
+
+      // First add the prompt as a user message
+      setMessages(prev => [
+        ...prev,
+        {
+          type: 'user',
+          content: 'Please generate a briefing document.',
+          isStudyGuide: false
+        }
+      ]);
+
+      const response = await fetch(API_ENDPOINTS.chat.send, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          message: briefingPrompt,
+          document_text: documentText
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate briefing');
+      }
+
+      const data = await response.json();
+
+      // Add the response to the chat messages
+      setMessages(prev => [
+        ...prev,
+        {
+          type: 'assistant',
+          content: data.message,
+          isStudyGuide: false
+        }
+      ]);
+
+    } catch (error) {
+      console.error('Briefing generation error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to generate briefing');
+      
+      // Add error message to chat
+      setMessages(prev => [
+        ...prev,
+        {
+          type: 'assistant',
+          content: `Error: ${error instanceof Error ? error.message : 'Failed to generate briefing'}. Please try again.`,
+          isStudyGuide: false
+        }
+      ]);
+    } finally {
+      setIsGeneratingBriefing(false);
+    }
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'understand':
         return (
-          <div className="p-4 h-full">
+          <div className="p-4 h-full overflow-hidden">
             <div className="bg-white rounded-lg shadow-sm p-6 h-full flex flex-col">
-              <div className="flex flex-col gap-4 flex-1">
+              <div className="flex flex-col gap-4 flex-1 min-h-0">
                 <div className="flex flex-wrap gap-4">
                   <div className="flex-1 min-w-[200px]">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -631,7 +877,7 @@ const LecturePage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-2 flex-1">
+                <div className="flex flex-col gap-2 flex-1 min-h-0">
                   <div className="flex justify-between items-center">
                     <label className="text-sm font-medium text-gray-700 flex items-center">
                       <span>{isTransformed ? 'Transformed Text' : 'Selected Text'}</span>
@@ -661,7 +907,7 @@ const LecturePage: React.FC = () => {
                       </span>
                     </div>
                   </div>
-                  <div className="flex-1 min-h-0">
+                  <div className="flex-1 min-h-0 overflow-hidden">
                     <div 
                       className={`h-full overflow-y-auto p-4 border rounded-lg transition-all duration-500 ${
                         isTransformed 
@@ -692,7 +938,7 @@ const LecturePage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 transformation-controls">
+                <div className="flex items-center gap-2 transformation-controls mt-4">
                   <button
                     onClick={() => {
                       handleGenerateTransform();
@@ -735,6 +981,12 @@ const LecturePage: React.FC = () => {
               documentText={documentText}
               selectedText={currentText}
               onClearSelection={clearSelection}
+              isGeneratingStudyGuide={isGeneratingStudyGuide}
+              isGeneratingBriefing={isGeneratingBriefing}
+              onGenerateStudyGuide={handleGenerateStudyGuide}
+              onGenerateBriefing={handleGenerateBriefing}
+              messages={messages}
+              setMessages={setMessages}
             />
           </div>
         );
@@ -752,6 +1004,20 @@ const LecturePage: React.FC = () => {
         return null;
     }
   };
+
+  // Add isMobile state at the top of the component with other state declarations
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  // Add useEffect for mobile detection
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Check initial size
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   return (
     <FileProvider>
@@ -782,53 +1048,400 @@ const LecturePage: React.FC = () => {
               color: #059669;
               font-weight: 500;
             }
+
+            /* Add vertical mode styles */
+            .content-container {
+              display: flex;
+              height: calc(100vh - 56px);
+              overflow: hidden;
+              margin-top: 0;
+            }
+
+            .content-container.vertical-mode {
+              flex-direction: column;
+            }
+
+            /* Desktop Styles */
+            @media (min-width: 769px) {
+              .header-container {
+                padding: 0.5rem 1rem; /* Consistent padding */
+              }
+
+              .header-left {
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+              }
+
+              .header-right {
+                margin-left: auto;
+              }
+
+              .header-tabs {
+                display: flex;
+                gap: 0.75rem;
+              }
+
+              .document-panel {
+                width: 50%;
+                height: 100%;
+                background-color: rgb(249, 250, 251);
+                overflow: hidden;
+                transition: all 0.3s ease;
+              }
+
+              .content-panel {
+                width: 50%;
+                height: 100%;
+                border-left: 1px solid #e5e7eb;
+                background-color: white;
+                overflow: hidden;
+                transition: all 0.3s ease;
+              }
+
+              /* Vertical mode panel styles */
+              .vertical-mode .document-panel {
+                width: 100%;
+                height: 100vh; /* Full viewport height */
+                border-bottom: 1px solid #e5e7eb;
+              }
+
+              .vertical-mode .content-panel {
+                width: 100%;
+                height: 100vh; /* Full viewport height */
+                border-left: none;
+              }
+
+              /* Document viewer area */
+              .document-viewer-area {
+                height: 100%;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+              }
+
+              /* Chat Mode Styles */
+              .chat-mode .document-panel {
+                width: var(--panel-width, 30%);
+                overflow: hidden;
+              }
+
+              .chat-mode .content-panel {
+                width: calc(100% - var(--panel-width, 30%));
+                overflow: hidden;
+              }
+
+              /* Vertical mode chat styles */
+              .vertical-mode.chat-mode .document-panel {
+                width: 100%;
+                height: 100vh;
+              }
+
+              .vertical-mode.chat-mode .content-panel {
+                width: 100%;
+                height: 100vh;
+                margin-top: 1rem;
+              }
+
+              .upload-area {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                min-height: calc(100vh - 180px);
+                margin: 1rem;
+                padding: 2rem;
+                background: white;
+                border: 2px dashed #e5e7eb;
+                border-radius: 0.5rem;
+                transition: all 0.3s ease;
+              }
+
+              .upload-area:hover {
+                border-color: #60A5FA;
+                background-color: #F8FAFC;
+              }
+
+              .upload-icon-container {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 1rem;
+                text-align: center;
+              }
+
+              .upload-icon {
+                width: 48px;
+                height: 48px;
+                padding: 12px;
+                border-radius: 50%;
+                background-color: #EFF6FF;
+                color: #3B82F6;
+                margin-bottom: 1rem;
+              }
+
+              .upload-text {
+                font-size: 1.125rem;
+                font-weight: 500;
+                color: #1F2937;
+                margin-bottom: 0.5rem;
+              }
+
+              .upload-subtext {
+                font-size: 0.875rem;
+                color: #6B7280;
+              }
+            }
+
+            /* Mobile Styles */
+            @media (max-width: 768px) {
+              .header-container {
+                display: flex;
+                flex-direction: column;
+                padding: 0.5rem;
+                gap: 0.5rem;
+                height: auto;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                z-index: 50;
+                background: white;
+              }
+
+              .header-left {
+                width: 100%;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+              }
+
+              .header-center {
+                width: 100%;
+                padding-right: 0;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 0.5rem;
+              }
+
+              .header-tabs {
+                width: 100%;
+                display: flex;
+                gap: 0.5rem;
+                padding: 0.25rem 0;
+              }
+
+              .header-right {
+                position: static;
+                width: 100%;
+                transform: none;
+              }
+
+              /* Main container adjustments */
+              .flex-grow.flex.flex-col.h-full {
+                min-height: 100vh !important;
+                padding-top: 88px; /* Account for two-row header */
+              }
+
+              /* Content container adjustments */
+              .content-container {
+                display: flex !important;
+                flex-direction: column !important;
+                height: auto !important;
+                min-height: calc(100vh - 88px) !important;
+                padding: 1rem;
+                position: relative;
+                overflow: visible !important;
+              }
+
+              /* Document panel styles */
+              .document-panel {
+                width: 100% !important;
+                height: auto !important;
+                min-height: auto !important;
+                position: relative !important;
+                flex-shrink: 0;
+                background: white;
+              }
+
+              /* Document panel when has document */
+              .document-panel.has-document {
+                height: 300px !important;
+                min-height: 300px !important;
+                max-height: 300px !important;
+                overflow-y: auto;
+              }
+
+              /* Content panel styles */
+              .content-panel {
+                width: 100% !important;
+                height: auto !important;
+                min-height: 0 !important;
+                flex: 1;
+                margin-top: 1rem;
+                position: relative;
+                background: white;
+                border: 1px solid #e5e7eb;
+                border-radius: 0.5rem;
+                overflow: hidden;
+              }
+
+              /* Chat container */
+              .SimpleChatView {
+                height: calc(100vh - 450px) !important;
+                min-height: 400px;
+                max-height: none;
+                display: flex;
+                flex-direction: column;
+              }
+
+              /* Chat messages area */
+              .chat-messages {
+                flex: 1;
+                overflow-y: auto !important;
+                -webkit-overflow-scrolling: touch;
+                padding: 1rem;
+                background: white;
+              }
+
+              /* Chat input container */
+              .chat-input-container {
+                position: sticky;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                padding: 1rem;
+                background: white;
+                border-top: 1px solid #e5e7eb;
+                z-index: 3;
+              }
+
+              /* Upload area */
+              .upload-area {
+                width: 100%;
+                min-height: 200px;
+                padding: 1.5rem;
+                margin: 0;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                gap: 1rem;
+                background: white;
+                border: 2px dashed #e5e7eb;
+                border-radius: 0.5rem;
+              }
+            }
+
+            /* Header Styles */
+            .header-container {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              align-items: center;
+              padding: 0.5rem 1rem;
+              gap: 1rem;
+              position: relative;
+              height: 56px;
+            }
+
+            .header-left {
+              display: flex;
+              align-items: center;
+              gap: 1rem;
+            }
+
+            .header-left h1 {
+              font-size: 1rem;
+              line-height: 1.5;
+            }
+
+            .header-center {
+              justify-self: center;
+              padding-right: 6rem;
+            }
+
+            .header-right {
+              position: absolute;
+              right: 1rem;
+              top: 50%;
+              transform: translateY(-50%);
+            }
+
+            .header-tabs {
+              display: flex;
+              gap: 0.5rem;
+            }
+
+            /* Content container adjustments */
+            .content-container {
+              display: flex;
+              height: calc(100vh - 56px);
+              overflow: hidden;
+              margin-top: 0;
+            }
+
+            /* Update the flex-none div containing the header */
+            .flex-none {
+              height: 56px;
+              padding: 0 !important;
+            }
+
+            /* Mobile Styles */
+            @media (max-width: 768px) {
+              .header-container {
+                height: auto;
+                padding: 0.5rem;
+                gap: 0.5rem;
+              }
+
+              .content-container {
+                height: calc(100vh - 56px);
+              }
+            }
           `
         }} />
-        <div className="flex-grow flex flex-col h-full overflow-hidden">
-          <div className="flex-none bg-white border-b border-gray-200 px-6 py-4">
-            <div className="flex items-center">
-              {/* Left half of the header */}
-              <div className="w-1/2 flex items-center gap-3">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggle();
-                  }}
-                  className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-                  aria-label="Toggle sidebar"
-                >
-                  <svg
-                    className={`w-5 h-5 text-gray-400 transition-transform duration-300 transform-gpu ${isOpen ? '' : 'rotate-180'}`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
-                    />
-                  </svg>
-                </button>
-                <h1 className="text-xl font-medium text-gray-900">Document Viewer</h1>
-                {documentText && (
+        <div className="flex-grow flex flex-col h-full">
+          {/* Header */}
+          <div className={`flex-none bg-white border-b border-gray-200 px-4 sm:px-6 py-4 ${
+            isOpen ? 'md:ml-64' : ''
+          } transition-[margin] duration-300`}>
+            <div className={`header-container ${!isHeaderVisible ? 'hidden' : ''}`}>
+              {/* Left section with Document Viewer title */}
+              <div className="header-left">
+                <div className="flex items-center gap-3">
                   <button
-                    onClick={handleUploadAnother}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggle();
+                    }}
+                    className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors md:hidden"
+                    aria-label="Toggle sidebar"
                   >
-                    <Upload className="w-4 h-4" />
-                    <span>Upload Another</span>
+                    <svg
+                      className={`w-5 h-5 text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
+                      />
+                    </svg>
                   </button>
-                )}
+                  <h1 className="text-lg font-medium text-gray-900">Document Viewer</h1>
+                </div>
               </div>
               
-              {/* Right half of the header */}
-              <div className="w-1/2 flex justify-center">
-                <div className="flex gap-4">
+              {/* Center section with navigation tabs */}
+              <div className="header-center">
+                <div className="header-tabs">
                   <button
                     onClick={() => setActiveTab('understand')}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
                       activeTab === 'understand'
                         ? 'bg-blue-600 text-white'
                         : 'text-gray-600 hover:bg-gray-100'
@@ -839,7 +1452,7 @@ const LecturePage: React.FC = () => {
                   </button>
                   <button
                     onClick={() => setActiveTab('chat')}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
                       activeTab === 'chat'
                         ? 'bg-blue-600 text-white'
                         : 'text-gray-600 hover:bg-gray-100'
@@ -850,7 +1463,7 @@ const LecturePage: React.FC = () => {
                   </button>
                   <button
                     onClick={() => setActiveTab('teach')}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
                       activeTab === 'teach'
                         ? 'bg-blue-600 text-white'
                         : 'text-gray-600 hover:bg-gray-100'
@@ -861,47 +1474,63 @@ const LecturePage: React.FC = () => {
                   </button>
                 </div>
               </div>
+
+              {/* Right section with upload button */}
+              <div className="header-right">
+                <button
+                  onClick={handleUploadAnother}
+                  className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 px-3 py-1.5 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>Upload Another</span>
+                </button>
+              </div>
             </div>
           </div>
           
-          <div className="flex-grow flex h-full overflow-hidden">
-            <div 
-              className="h-[95%] overflow-hidden bg-gray-50 flex flex-col p-4"
-              style={{ width: activeTab === 'chat' ? `${leftPanelWidth}%` : '50%' }}
-            >
-              <div className="flex-1 overflow-hidden">
+          {/* Main content area */}
+          <div className="flex-1 overflow-hidden">
+            <div className="content-container">
+              {/* Document viewer panel */}
+              <div 
+                className="document-panel bg-gray-50"
+                style={{
+                  '--panel-width': activeTab === 'chat' ? `${leftPanelWidth}%` : '50%'
+                } as React.CSSProperties}
+              >
+                <div className="h-full">
                 <PresentationViewer 
                   ref={presentationViewerRef}
                   onTextSelect={handleTransform}
-                  onDocumentTextExtracted={(text) => {
-                    if (text) {
-                      setDocumentText(text);
-                    }
-                  }}
+                    onDocumentTextExtracted={setDocumentText}
                   onReset={() => setDocumentText(null)}
-                  isMinimized={activeTab === 'chat'}
-                  activeTab={activeTab as 'understand' | 'chat' | 'teach'}
                 />
               </div>
             </div>
             
-            {/* Add resize handle */}
-            {activeTab === 'chat' && (
-              <div
-                className="w-1 cursor-col-resize hover:bg-blue-400 transition-colors"
-                onMouseDown={handleMouseDown}
+              {/* Resize handle */}
+              {!isMobile && activeTab === 'chat' && (
+                <div
+                  className="w-1 cursor-col-resize hover:bg-blue-400 transition-colors"
+                  onMouseDown={(e) => {
+                    setIsResizing(true);
+                    e.preventDefault();
+                  }}
                 style={{ 
-                  cursor: 'col-resize',
                   backgroundColor: isResizing ? '#60A5FA' : '#E5E7EB'
                 }}
               />
             )}
             
-            <div 
-              className="flex-1 flex flex-col h-[95%] overflow-hidden border-l border-gray-200 bg-white"
-              style={{ width: activeTab === 'chat' ? `${100 - leftPanelWidth}%` : '50%' }}
+              {/* Content panel */}
+              <div 
+                className="content-panel bg-white border-l border-gray-200"
+                style={{
+                  '--panel-width': activeTab === 'chat' ? `${100 - leftPanelWidth}%` : '50%'
+                } as React.CSSProperties}
             >
               {renderContent()}
+              </div>
             </div>
           </div>
         </div>

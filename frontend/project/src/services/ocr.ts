@@ -5,13 +5,13 @@ interface OcrProgress {
   progress: number;
 }
 
-const STATUS_MAP: { [key: string]: string } = {
-  'loading tesseract core': 'Initializing OCR...',
-  'initializing api': 'Setting up...',
-  'loading language traineddata': 'Loading language data...',
-  'initializing lstm': 'Preparing recognition...',
-  'recognizing text': 'Reading text...',
-};
+// const STATUS_MAP: { [key: string]: string } = {
+//   'loading tesseract core': 'Initializing OCR...',
+//   'initializing api': 'Setting up...',
+//   'loading language traineddata': 'Loading language data...',
+//   'initializing lstm': 'Preparing recognition...',
+//   'recognizing text': 'Reading text...',
+// };
 
 export class OcrService {
   private scheduler: any = null;

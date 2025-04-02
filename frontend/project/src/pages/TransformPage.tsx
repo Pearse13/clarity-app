@@ -17,6 +17,7 @@ const TransformPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [modelUsed, setModelUsed] = useState<string | null>(null);
+  const [isOpen, setIsOpen] = useState(true);
 
   // Add keyboard shortcuts
   useKeyboardShortcuts([
@@ -198,12 +199,42 @@ const TransformPage: React.FC = () => {
     }
   };
 
+  const toggle = () => {
+    setIsOpen(!isOpen);
+  };
+
   return (
     <DashboardLayout>
       <div className="flex-1 flex flex-col h-full">
         {/* Header with proper vertical centering and title moved 10% right */}
-        <div className="flex items-center h-16 border-b border-gray-200 dark:border-gray-700 mb-6 pl-[10%]">
-          <h1 className="text-2xl font-semibold">Clarity Text Transformer</h1>
+        <div className="flex items-center h-16 bg-gradient-to-r from-blue-50 to-white dark:from-gray-800 dark:to-gray-900 border-b border-gray-200/80 dark:border-gray-700/80 mb-6">
+          <div className="flex items-center gap-2 pl-6">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toggle();
+              }}
+              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors md:hidden"
+              aria-label="Toggle sidebar"
+            >
+              <svg
+                className={`w-5 h-5 text-gray-400 transition-transform duration-300 transform-gpu ${isOpen ? '' : 'rotate-180'}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
+                />
+              </svg>
+            </button>
+            <h1 className="text-[1.75rem] font-medium tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-800 dark:from-blue-400 dark:to-blue-600">
+              Clarity Text Transformer
+            </h1>
+          </div>
         </div>
         
         {/* Main content area */}

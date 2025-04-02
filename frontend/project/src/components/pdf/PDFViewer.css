@@ -1,0 +1,62 @@
+/* PDF viewer container styles */
+.pdf-viewer-container {
+  background: #f5f5f5;
+  min-height: 100%;
+  position: relative;
+}
+
+/* Page styles */
+.react-pdf__Page {
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+  background: white;
+}
+
+/* Native text layer styles */
+.react-pdf__Page__textContent {
+  cursor: text;
+}
+
+/* Selection color */
+::selection {
+  background: rgba(59, 130, 246, 0.3);
+  color: inherit;
+}
+
+/* Loading state */
+.pdf-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+/* Error state */
+.pdf-error {
+  color: #ef4444;
+  text-align: center;
+  padding: 2rem;
+}
+
+/* Zoom controls */
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Scroll to top button */
+.scroll-to-top {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  background: white;
+  border-radius: 9999px;
+  padding: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.2s;
+}
+
+.scroll-to-top:hover {
+  background-color: #f3f4f6;
+} 

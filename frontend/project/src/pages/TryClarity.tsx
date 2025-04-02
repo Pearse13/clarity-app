@@ -2,24 +2,32 @@ import React from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { motion } from 'framer-motion';
 
-const FeatureCard: React.FC<{ title: string; description: string; icon: JSX.Element; isLarge?: boolean }> = ({ 
+const FeatureCard: React.FC<{ 
+  title: string; 
+  description: string; 
+  icon: JSX.Element; 
+  isLarge?: boolean;
+  children?: React.ReactNode;
+}> = ({ 
   title, 
   description,
   icon,
-  isLarge = false
+  isLarge = false,
+  children
 }) => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
     whileInView={{ opacity: 1, y: 0 }}
     viewport={{ once: false, amount: 0.3 }}
     transition={{ duration: 0.6, ease: "easeOut" }}
-    className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-card p-5 rounded-xl shadow-sm"
+    className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-card p-5 rounded-xl shadow-sm relative"
   >
     <div className="text-blue-600 dark:text-blue-400 mb-3">
       {icon}
     </div>
     <h3 className={`${isLarge ? 'text-xl' : 'text-lg'} font-medium text-gray-900 dark:text-white mb-2`}>{title}</h3>
     <p className="text-gray-600 dark:text-gray-300">{description}</p>
+    {children}
   </motion.div>
 );
 
@@ -50,18 +58,21 @@ const TryClarity: React.FC = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}
-        className="flex flex-col items-center justify-center px-6 pt-14 pb-16"
+        className="flex flex-col items-center justify-center px-6 pt-14 pb-16 text-center"
       >
-        <div className="flex items-center gap-2 mb-6">
-          <h1 className="text-[5.1rem] font-medium tracking-tight text-gray-900 dark:text-white">
-            Clarity API
+        <div className="flex flex-col md:flex-row items-center gap-4 md:gap-3 mb-12">
+          <h1 className="text-5xl md:text-[6rem] font-bold tracking-tight text-gray-900 dark:text-white">
+            Clarity
+          </h1>
+          <h1 className="text-5xl md:text-[6rem] font-bold tracking-tight text-gray-900 dark:text-white">
+            API
           </h1>
         </div>
         <motion.p 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.8 }}
-          className="text-xl text-black dark:text-white text-center max-w-2xl mb-6 text-[1.93em] font-semibold"
+          className="text-xl text-black dark:text-white text-center max-w-2xl mb-12 md:mb-16 text-[1.93em] font-semibold mt-8"
         >
           Understand it First
         </motion.p>
@@ -143,7 +154,9 @@ const TryClarity: React.FC = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
           </svg>}
           isLarge={true}
-        />
+        >
+          <span className="absolute top-2 right-2 text-sm text-green-600 font-medium">In development</span>
+        </FeatureCard>
       </div>
 
       {/* Text Transformation Section */}

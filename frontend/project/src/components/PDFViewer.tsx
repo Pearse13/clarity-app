@@ -1,6 +1,17 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
+import 'react-pdf/dist/esm/Page/TextLayer.css';
+import './PDFViewer.css';
 import styled from 'styled-components';
-import { Document, Page } from 'react-pdf';
-import { useEffect, useRef } from 'react';
+
+// Configure PDF.js worker
+if (typeof window !== 'undefined') {
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.min.js',
+    import.meta.url,
+  ).toString();
+}
 
 interface PDFViewerProps {
   file: string | { url: string } | { data: Uint8Array };
@@ -79,6 +90,7 @@ const PDFContainer = styled.div`
 
 const PDFViewer: React.FC<PDFViewerProps> = ({ file, onTextSelect }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [numPages, setNumPages] = useState<number>(0);
 
   // Handle text selection
   useEffect(() => {
@@ -98,10 +110,24 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ file, onTextSelect }) => {
     };
   }, [onTextSelect]);
 
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    setNumPages(numPages);
+  };
+
   return (
     <PDFContainer ref={containerRef}>
-      <Document file={file}>
-        {/* ... existing PDF viewer content ... */}
+      <Document 
+        file={file}
+        onLoadSuccess={onDocumentLoadSuccess}
+      >
+        {Array.from(new Array(numPages), (_, index) => (
+          <Page
+            key={`page_${index + 1}`}
+            pageNumber={index + 1}
+            renderTextLayer={true}
+            renderAnnotationLayer={true}
+          />
+        ))}
       </Document>
     </PDFContainer>
   );

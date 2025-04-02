@@ -1,10 +1,18 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Upload, X } from 'lucide-react';
 import { useFiles } from '../../contexts/FileContext';
 import FileViewer from './FileViewer';
 import * as pdfjsLib from 'pdfjs-dist';
+import configurePdfWorker from '../../utils/pdfConfig';
 
-interface FileUploadProps {
+// Add type definition for the upload response
+interface UploadResponse {
+  status: 'ready' | 'error';
+  file_url?: string;
+  error?: string;
+}
+
+export interface FileUploadProps {
   onTextLoaded: (text: string) => void;
 }
 
@@ -24,14 +32,13 @@ const SUPPORTED_FORMATS = [
 ];
 
 const FileUpload: React.FC<FileUploadProps> = ({ onTextLoaded }) => {
-  const { files, uploadFile } = useFiles();
+  const { files, uploadFile, updateFileProgress } = useFiles();
   const hasFile = files.length > 0;
+  const [currentUploadId, setCurrentUploadId] = useState<string | null>(null);
 
   // Initialize PDF.js worker
   useEffect(() => {
-    // Set up PDF.js worker using CDN for reliability
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 
-      `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+    configurePdfWorker();
   }, []);
 
   const validateFile = (file: File) => {
@@ -146,7 +153,78 @@ Note: This is a smart sample of the document optimized for GPT-4 analysis. The s
         }
       }
       
-      // Handle Word documents - use presentations API endpoint like PowerPoint files
+      // Handle PowerPoint files
+      if (file.type === 'application/vnd.ms-powerpoint' || 
+          file.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
+        
+        console.log("Processing PowerPoint file using presentations API...");
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const apiBase = import.meta.env.VITE_API_BASE_URL || 'https://clarity-backend-production.up.railway.app';
+        const uploadEndpoint = `${apiBase}/api/presentations/upload`;
+        
+        console.log(`Uploading PowerPoint to: ${uploadEndpoint}`);
+        
+        try {
+          // Initialize file in context and get ID
+          const fileId = await uploadFile(file);
+          setCurrentUploadId(fileId);
+
+          // Create XMLHttpRequest to track progress
+          const xhr = new XMLHttpRequest();
+          
+          // Track upload progress
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const progress = Math.round((event.loaded / event.total) * 100);
+              updateFileProgress(fileId, progress);
+            }
+          };
+          
+          // Create promise to handle the upload
+          const uploadPromise = new Promise<UploadResponse>((resolve, reject) => {
+            xhr.open('POST', uploadEndpoint);
+            xhr.setRequestHeader('Accept', 'application/json');
+            xhr.setRequestHeader('Origin', window.location.origin);
+            
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(JSON.parse(xhr.responseText));
+              } else {
+                reject(new Error(`Upload failed: ${xhr.statusText}`));
+              }
+            };
+            
+            xhr.onerror = () => reject(new Error('Upload failed'));
+            xhr.send(formData);
+          });
+          
+          const data = await uploadPromise;
+          console.log("PowerPoint conversion response:", data);
+          
+          if (data.status === 'ready' && data.file_url) {
+            url = data.file_url;
+            preview = `PowerPoint converted: ${file.name}\nSize: ${(file.size / 1024 / 1024).toFixed(2)} MB\nConversion successful!`;
+            // Update progress to 100% on success
+            updateFileProgress(fileId, 100);
+          } else if (data.status === 'error') {
+            throw new Error(`Conversion error: ${data.error || 'Unknown error'}`);
+          }
+          
+          setCurrentUploadId(null);
+          
+        } catch (error) {
+          console.error("Error during PowerPoint conversion:", error);
+          if (currentUploadId) {
+            updateFileProgress(currentUploadId, 0);
+          }
+          setCurrentUploadId(null);
+          throw error;
+        }
+      }
+
+      // Handle Word documents
       if (file.type === 'application/msword' || 
           file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
         
@@ -195,13 +273,6 @@ Note: This is a smart sample of the document optimized for GPT-4 analysis. The s
           preview = `Word document loaded (local): ${file.name}\nSize: ${(file.size / 1024 / 1024).toFixed(2)} MB\nNote: Server conversion failed, using local preview.`;
         }
       }
-      
-      // Handle PowerPoint files
-      if (file.type === 'application/vnd.ms-powerpoint' || 
-          file.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
-        url = URL.createObjectURL(file);
-        preview = `PowerPoint file loaded: ${file.name}\nSize: ${(file.size / 1024 / 1024).toFixed(2)} MB`;
-      }
 
       // Upload file and handle text content
       await uploadFile(file, text, url);
@@ -217,8 +288,12 @@ Note: This is a smart sample of the document optimized for GPT-4 analysis. The s
     } catch (error) {
       console.error('Error processing file:', error);
       alert(error instanceof Error ? error.message : 'Error processing file. Please try again.');
+      if (currentUploadId) {
+        updateFileProgress(currentUploadId, 0);
+      }
+      setCurrentUploadId(null);
     }
-  }, [uploadFile, onTextLoaded]);
+  }, [uploadFile, onTextLoaded, updateFileProgress]);
 
   const handleFileDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -263,12 +338,12 @@ Note: This is a smart sample of the document optimized for GPT-4 analysis. The s
         ) : (
           <div className="h-full flex flex-col items-center justify-center p-6">
             <div
-              className="w-full h-full border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
+              className="w-full h-full border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer pulse-button"
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleFileDrop}
               onClick={() => document.getElementById('file-input')?.click()}
             >
-              <Upload size={48} className="text-gray-500 mb-4" />
+              <Upload size={48} className="text-blue-600 mb-4" />
               <h3 className="text-lg font-medium text-gray-700 mb-2">Drag &amp; Drop File</h3>
               <p className="text-sm text-gray-500 mb-1">
                 Supported formats:

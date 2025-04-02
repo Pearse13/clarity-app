@@ -1,6 +1,7 @@
-import React, { memo, useRef, useEffect } from 'react';
+import React, { memo, useRef, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSidebar } from '../contexts/SidebarContext';
+import { FileText, Brain, Settings } from 'lucide-react';
 
 // Detect if device is touch-based
 const isTouchDevice = () => {
@@ -15,8 +16,21 @@ const PrimarySidebar: React.FC = memo(() => {
   const sidebarRef = useRef<HTMLDivElement>(null);
   const isTouch = isTouchDevice();
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   
   const isActive = (path: string) => location.pathname === path;
+
+  // Check if device is mobile
+  useEffect(() => {
+    const checkIfMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    checkIfMobile();
+    window.addEventListener('resize', checkIfMobile);
+
+    return () => window.removeEventListener('resize', checkIfMobile);
+  }, []);
 
   // Add focus tracking to close sidebar when focus leaves
   useEffect(() => {
@@ -82,33 +96,54 @@ const PrimarySidebar: React.FC = memo(() => {
     }
   };
 
-  const navItems = [
+  const navigationItems = [
     {
-      name: "Clarity Lectures",
       path: '/lecture',
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-        </svg>
-      )
+      icon: <FileText />,
+      label: 'Lecture'
     },
     {
-      name: "Clarity Text Transformer",
-      path: '/transform',
-      icon: (
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-        </svg>
-      )
+      path: '/learn',
+      icon: <Brain />,
+      label: 'Learn'
+    },
+    {
+      path: '/settings',
+      icon: <Settings />,
+      label: 'Settings'
     }
   ];
+
+  // Add mobile-friendly styles to the sidebar
+  const sidebarClasses = `
+    h-full bg-white flex flex-col border-r border-gray-200
+    ${isOpen ? 'w-64' : 'w-20'}
+    transition-all duration-300 ease-in-out
+    overflow-hidden
+    ${isMobile ? 'shadow-lg' : ''}
+  `;
+
+  // Add touch-friendly padding to nav items
+  const navItemClasses = `
+    flex items-center gap-3
+    text-gray-700 hover:text-blue-600 hover:bg-blue-50
+    transition-colors duration-200
+    ${isMobile ? 'py-4' : 'py-3'}
+    ${isOpen ? 'px-6' : 'justify-center px-3'}
+    ${isActive(location.pathname) ? 'bg-blue-50 text-blue-600' : ''}
+  `;
+
+  // Add larger touch targets for mobile
+  const iconClasses = `
+    ${isMobile ? 'w-6 h-6' : 'w-5 h-5'}
+    ${isOpen ? 'mr-3' : 'mr-0'}
+    transition-all duration-300
+  `;
 
   return (
     <div 
       ref={sidebarRef}
-      className={`fixed md:relative h-screen bg-white border-r border-gray-200
-                 transition-all will-change-transform backface-visibility-hidden transform-gpu
-                 duration-150 ease-out z-10 overflow-hidden ${isOpen ? 'w-72' : 'w-16'}`}
+      className={sidebarClasses}
       style={{ 
         willChange: 'width',
         transform: 'translateZ(0)', // Force GPU acceleration
@@ -118,35 +153,23 @@ const PrimarySidebar: React.FC = memo(() => {
       onMouseLeave={handleMouseLeave}
       onTouchStart={isTouch ? () => setOpen(true) : undefined}
     >
-      <div className="p-4 h-full overflow-y-auto">
-        <div className="space-y-1">
-          {navItems.map((item) => (
+      <div className="flex-1 overflow-y-auto">
+        <nav className="mt-4 space-y-1">
+          {navigationItems.map((item) => (
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className={`w-full flex items-center rounded-lg 
-                         ${isOpen 
-                           ? 'px-4 gap-3 justify-start' 
-                           : 'px-0 justify-center'} 
-                         py-3 text-sm font-medium transition-all
-                         ${isActive(item.path)
-                           ? 'bg-blue-50 text-blue-600'
-                           : 'text-gray-600 hover:bg-gray-50'}`}
+              className={navItemClasses}
             >
-              <div className={`flex-shrink-0 transform-gpu transition-transform duration-150 ${!isOpen ? 'scale-110' : ''}`}>
+              <div className={iconClasses}>
                 {item.icon}
               </div>
-              <span 
-                className={`whitespace-nowrap transform-gpu transition-opacity duration-150
-                           ${isOpen 
-                             ? 'opacity-100 max-w-full' 
-                             : 'opacity-0 max-w-0 overflow-hidden'}`}
-              >
-                {item.name}
-              </span>
+              {isOpen && (
+                <span className="whitespace-nowrap">{item.label}</span>
+              )}
             </button>
           ))}
-        </div>
+        </nav>
       </div>
     </div>
   );

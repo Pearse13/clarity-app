@@ -1,7 +1,3 @@
-import { Auth0ClientOptions } from '@auth0/auth0-spa-js';
-
-const isDevelopment = import.meta.env.VITE_ENV === 'development';
-
 // Log all Auth0 configuration for debugging
 console.log('Auth0 Environment Variables:', {
   domain: import.meta.env.VITE_AUTH0_DOMAIN,
@@ -10,31 +6,29 @@ console.log('Auth0 Environment Variables:', {
   env: import.meta.env.VITE_ENV
 });
 
-// Build auth params, always including audience and scope
-const authorizationParams: any = {
-  redirect_uri: import.meta.env.VITE_AUTH0_CALLBACK_URL || `${window.location.origin}/callback`,
-  scope: 'openid profile email offline_access',
-  audience: import.meta.env.VITE_AUTH0_AUDIENCE
-};
-
-const config: Auth0ClientOptions = {
+// Auth0 Configuration
+export const AUTH0_CONFIG = {
   domain: import.meta.env.VITE_AUTH0_DOMAIN,
   clientId: import.meta.env.VITE_AUTH0_CLIENT_ID,
-  authorizationParams,
+  authorizationParams: {
+    audience: import.meta.env.VITE_AUTH0_AUDIENCE,
+    redirect_uri: typeof window !== 'undefined' ? window.location.origin + '/callback' : undefined,
+    scope: 'openid profile email offline_access'
+  },
+  cacheLocation: 'localstorage',
   useRefreshTokens: true,
-  cacheLocation: 'localstorage'
-};
+  useRefreshTokensFallback: true
+} as const;
 
-// Log configuration in development only
-if (isDevelopment) {
-  console.log('Auth0 Config:', {
-    domain: import.meta.env.VITE_AUTH0_DOMAIN,
-    clientId: import.meta.env.VITE_AUTH0_CLIENT_ID,
-    redirect_uri: authorizationParams.redirect_uri,
-    audience: authorizationParams.audience,
-    scope: authorizationParams.scope,
-    environment: import.meta.env.VITE_ENV
+// Log configuration in development
+if (import.meta.env.DEV) {
+  console.log('Auth0 Configuration:', {
+    domain: AUTH0_CONFIG.domain,
+    clientId: AUTH0_CONFIG.clientId,
+    audience: AUTH0_CONFIG.authorizationParams.audience,
+    redirect_uri: AUTH0_CONFIG.authorizationParams.redirect_uri,
+    mode: import.meta.env.MODE
   });
 }
 
-export default config;
+export default AUTH0_CONFIG;

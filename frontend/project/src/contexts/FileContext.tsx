@@ -19,7 +19,7 @@ interface FileContextType {
   updateFileProgress: (id: string, progress: number) => void;
   setFileError: (id: string, error: string) => void;
   setFileTextContent: (id: string, content: string) => void;
-  uploadFile: (file: File, extractedText?: string, fileUrl?: string) => Promise<void>;
+  uploadFile: (file: File, extractedText?: string, fileUrl?: string) => Promise<string>;
 }
 
 const FileContext = createContext<FileContextType | undefined>(undefined);
@@ -69,12 +69,14 @@ export const FileProvider: React.FC<{ children: React.ReactNode }> = ({ children
       progress: 0,
       file,
       textContent: extractedText,
-      url: fileUrl || URL.createObjectURL(file)
+      url: fileUrl
     };
 
     addFile(newFile);
-    updateFileProgress(id, 100);
-  }, [addFile, updateFileProgress]);
+    
+    // Return the file ID so it can be used to update progress
+    return id;
+  }, [addFile]);
 
   // Memoize context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({

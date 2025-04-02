@@ -39,12 +39,6 @@ const Auth0ProviderWithNavigate = ({ children }: { children: React.ReactNode }) 
     navigate(appState?.returnTo || '/lecture', { replace: true });
   };
 
-  // Add error event handler
-  const onError = (error: Error) => {
-    console.error('Auth0 error:', error);
-    navigate('/callback?error=auth0_error&error_description=' + encodeURIComponent(error.message));
-  };
-
   // Add event listener for Auth0 errors
   useEffect(() => {
     const handleAuth0Error = (event: ErrorEvent) => {

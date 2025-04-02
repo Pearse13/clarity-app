@@ -8,6 +8,11 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const isProd = mode === 'production';
 
+  // Define the API URL based on environment
+  const apiUrl = isProd 
+    ? 'https://clarity-backend-production.up.railway.app'
+    : 'http://localhost:8000';
+
   // Security headers based on environment
   const securityHeaders = {
     'Cross-Origin-Embedder-Policy': isProd ? 'require-corp' : 'unsafe-none',
@@ -34,8 +39,15 @@ export default defineConfig(({ mode }) => {
         'react', 
         'react-dom', 
         'react-router-dom', 
-        '@auth0/auth0-react'
-      ]
+        '@auth0/auth0-react',
+        'react-pdf',
+        'pdfjs-dist'
+      ],
+      esbuildOptions: {
+        define: {
+          global: 'globalThis'
+        }
+      }
     },
     resolve: {
       alias: {
@@ -93,8 +105,9 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       global: 'globalThis',
+      __API_URL__: JSON.stringify(apiUrl),
       'process.env': {
-        NODE_ENV: '"development"'
+        NODE_ENV: JSON.stringify(mode)
       }
     },
     css: {
@@ -113,13 +126,12 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             vendor: ['react', 'react-dom', 'react-router-dom'],
             auth: ['@auth0/auth0-react'],
-            pdf: ['pdfjs-dist']
-          },
-          input: {
-            main: resolve(__dirname, 'index.html')
+            pdfjs: ['pdfjs-dist']
           }
         }
-      }
+      },
+      assetsDir: 'assets',
+      outDir: 'dist'
     },
     esbuild: {
       logOverride: { 'this-is-undefined-in-esm': 'silent' }
@@ -127,6 +139,8 @@ export default defineConfig(({ mode }) => {
     worker: {
       format: 'es',
       plugins: () => [react()]
-    }
+    },
+    // Copy PDF.js worker to output directory
+    publicDir: 'public',
   };
 });

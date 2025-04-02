@@ -1,4 +1,4 @@
-import { TransformationType } from '../components/lecture/UnderstandOutput';
+import { TransformationType } from './transform';
 
 export interface TokenUsage {
   completion_tokens: number;

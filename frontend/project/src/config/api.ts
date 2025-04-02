@@ -1,10 +1,13 @@
 // API configuration
-const isDevelopment = import.meta.env.MODE === 'development';
+declare const __API_URL__: string;
 
-// API URL is different for development vs. production
-export const API_URL = 'https://clarity-backend-production.up.railway.app';
+// Use the API URL defined at build time
+export const API_URL = __API_URL__;
 
-console.log(`Using API URL: ${API_URL}`);
+console.log(`API Configuration:`, {
+  apiUrl: API_URL,
+  mode: import.meta.env.MODE
+});
 
 // API endpoints
 export const API_ENDPOINTS = {
@@ -12,7 +15,7 @@ export const API_ENDPOINTS = {
   transformer: `${API_URL}/api/transformer`,
   upload: `${API_URL}/api/presentations/create`,
   document: `${API_URL}/api/documents/create`,
-  health: `${API_URL}/health`,
+  health: `${API_URL}/api/health`,
   chat: {
     send: `${API_URL}/api/chat`,
     health: `${API_URL}/api/chat/health`
@@ -21,7 +24,7 @@ export const API_ENDPOINTS = {
 
 // Verify API configuration
 export function verifyApiConfig(): void {
-  const requiredEnvVars = [
+  const requiredEnvVars: string[] = [
     'VITE_AUTH0_DOMAIN',
     'VITE_AUTH0_CLIENT_ID',
     'VITE_AUTH0_AUDIENCE'
@@ -45,6 +48,6 @@ export function verifyApiConfig(): void {
   console.log('API Configuration:', {
     apiUrl: API_URL,
     endpoints: API_ENDPOINTS,
-    isDevelopment
+    mode: import.meta.env.MODE
   });
 } 

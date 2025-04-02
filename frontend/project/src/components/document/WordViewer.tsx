@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { PDFViewer } from '../pdf/PDFViewer';
-import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import { Alert } from '../ui/alert';
 import { Progress } from '../ui/progress';
 import { Button } from '../ui/button';
-import { ReloadIcon } from '@radix-ui/react-icons';
+import { Loader2 } from 'lucide-react';
 
 interface WordViewerProps {
   url?: string;
@@ -228,11 +228,11 @@ export function WordViewer({ url, apiUrl, filename }: WordViewerProps) {
 
   if (!apiAccessible) {
     return (
-      <Alert variant="destructive" className="mb-4">
-        <AlertTitle>Backend API Not Accessible</AlertTitle>
-        <AlertDescription>
+      <Alert type="error" className="mb-4">
+        <div className="font-semibold">Backend API Not Accessible</div>
+        <div>
           Could not connect to the backend API. Please check your connection and try again.
-        </AlertDescription>
+        </div>
       </Alert>
     );
   }
@@ -241,9 +241,9 @@ export function WordViewer({ url, apiUrl, filename }: WordViewerProps) {
     <div className="flex flex-col h-full">
       {/* Error message */}
       {error && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
+        <Alert type="error" className="mb-4">
+          <div className="font-semibold">Error</div>
+          <div className="flex items-center">
             {error}
             <Button 
               variant="outline" 
@@ -253,7 +253,7 @@ export function WordViewer({ url, apiUrl, filename }: WordViewerProps) {
             >
               Dismiss
             </Button>
-          </AlertDescription>
+          </div>
         </Alert>
       )}
 
@@ -284,7 +284,7 @@ export function WordViewer({ url, apiUrl, filename }: WordViewerProps) {
         <div className="flex-grow h-full">
           {iframeLoading && (
             <div className="flex justify-center items-center h-full">
-              <ReloadIcon className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               <span>Loading document...</span>
             </div>
           )}

@@ -1,8 +1,12 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect } from 'react';
 
-// Detect if device is touch-based
+// Detect if device is touch-based with improved iPad support
 const isTouchDevice = () => {
-  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  return (
+    'ontouchstart' in window ||
+    navigator.maxTouchPoints > 0 ||
+    /iPad|iPhone|iPod/.test(navigator.userAgent)
+  );
 };
 
 interface SidebarContextType {
@@ -21,8 +25,17 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Improved debounce for sidebar open/close with touch optimization
-  const setOpenWithDebounce = useCallback((open: boolean) => {
+  // Use useCallback to memoize functions
+  const toggle = useCallback(() => {
+    // Force immediate state change for toggle
+    isTransitioning.current = true;
+    setIsOpen(prev => !prev);
+    setTimeout(() => {
+      isTransitioning.current = false;
+    }, 50);
+  }, []); // Remove dependencies since we're using prev state
+  
+  const setOpen = useCallback((open: boolean) => {
     if (isTransitioning.current) return;
     
     // Clear any pending timeouts
@@ -31,33 +44,24 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
       closeTimeoutRef.current = null;
     }
     
-    if (open) {
-      // Open immediately 
+    // For touch devices or explicit toggle, change state immediately
+    if (isTouch || typeof open === 'boolean') {
       isTransitioning.current = true;
-      setIsOpen(true);
-      
-      // Reset transition lock after animation completes
+      setIsOpen(open);
       setTimeout(() => {
         isTransitioning.current = false;
-      }, 100);
+      }, 50);
     } else {
-      // For touch devices or desktop, close quickly
+      // For desktop hover, use a short debounce
       isTransitioning.current = true;
       closeTimeoutRef.current = setTimeout(() => {
-        setIsOpen(false);
+        setIsOpen(open);
         setTimeout(() => {
           isTransitioning.current = false;
-        }, 100);
-      }, 50);
+        }, 50);
+      }, 25);
     }
   }, [isTouch]);
-  
-  // Use useCallback to memoize functions
-  const toggle = useCallback(() => {
-    setOpenWithDebounce(!isOpen);
-  }, [setOpenWithDebounce, isOpen]);
-  
-  const setOpen = useCallback((open: boolean) => setOpenWithDebounce(open), [setOpenWithDebounce]);
   
   // Clean up timeouts on unmount
   useEffect(() => {
@@ -85,7 +89,7 @@ export const SidebarProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (window.innerWidth < 768 && isOpen) {
           setIsOpen(false);
         }
-      }, 100);
+      }, 50); // Reduced from 100ms to 50ms for faster response
     };
     
     // Add event listener for visibility change

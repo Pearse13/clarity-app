@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { ApiRequestError, StreamProgressCallback } from '../types/api';
 
 // Use Vite environment variables instead of process.env
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -28,12 +27,6 @@ interface TransformResponse {
 }
 
 class ApiService {
-  private onProgress: StreamProgressCallback | null = null;
-
-  setProgressCallback(callback: StreamProgressCallback) {
-    this.onProgress = callback;
-  }
-
   async transformText(request: TransformRequest): Promise<TransformResponse> {
     console.log('Transform request:', request);
     try {
