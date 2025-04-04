@@ -49,7 +49,7 @@ export const LoginError: React.FC = () => {
         <div className="flex flex-col justify-center space-y-8">
           <div className="flex items-center gap-3">
             <img 
-              src="/HD Clarity.png.png" 
+              src="/HD Clarity.png" 
               alt="Clarity Logo"
               className="w-12 h-12 object-cover rounded-lg" 
               onError={(e) => {
