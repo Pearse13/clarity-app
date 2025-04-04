@@ -1,40 +1,39 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import { resolve } from 'path';
 
-// https://vitejs.dev/config/
+// Security headers
+const securityHeaders = {
+  'Content-Security-Policy': `
+    default-src 'self';
+    connect-src 'self' https://*.auth0.com https://*.us.auth0.com https://clarity-backend-production.up.railway.app wss://clarity-backend-production.up.railway.app;
+    font-src 'self' data: https://*.auth0.com https://rsms.me;
+    style-src 'self' 'unsafe-inline' https://*.auth0.com;
+    script-src 'self' 'unsafe-inline' https://*.auth0.com https://cdn.auth0.com https://cdn.jsdelivr.net 'wasm-unsafe-eval';
+    worker-src 'self' blob: https://cdn.jsdelivr.net;
+    img-src 'self' data: https://*.auth0.com https://s.gravatar.com blob:;
+    frame-src 'self' https://*.auth0.com https://*.us.auth0.com;
+    base-uri 'self';
+    form-action 'self';
+    frame-ancestors 'none';
+    upgrade-insecure-requests;
+    block-all-mixed-content;
+  `.replace(/\s+/g, ' ').trim(),
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'X-XSS-Protection': '1; mode=block',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+};
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const isProd = mode === 'production';
-
-  // Define the API URL based on environment
-  const apiUrl = isProd 
-    ? 'https://clarity-backend-production.up.railway.app'
-    : 'http://localhost:8000';
-
-  // Security headers based on environment
-  const securityHeaders = {
-    'Cross-Origin-Embedder-Policy': isProd ? 'require-corp' : 'unsafe-none',
-    'Cross-Origin-Opener-Policy': isProd ? 'same-origin' : 'unsafe-none',
-    'Cross-Origin-Resource-Policy': isProd ? 'cross-origin' : 'cross-origin',
-    'Access-Control-Allow-Origin': isProd ? env.VITE_ALLOWED_ORIGINS : '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-    'Strict-Transport-Security': isProd ? 'max-age=31536000; includeSubDomains' : '',
-    'X-Content-Type-Options': 'nosniff',
-    'X-Frame-Options': 'DENY',
-    'X-XSS-Protection': '1; mode=block',
-    'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'Content-Security-Policy': isProd 
-      ? `default-src 'self' https://${env.VITE_AUTH0_DOMAIN}; script-src 'self' https://${env.VITE_AUTH0_DOMAIN} https://cdn.auth0.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com blob: 'wasm-unsafe-eval' 'unsafe-eval'; worker-src 'self' blob: data: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; connect-src 'self' https://${env.VITE_AUTH0_DOMAIN} ${env.VITE_API_URL} blob: data: https://cdn.jsdelivr.net https://*.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.auth0.com https://s.gravatar.com blob:; font-src 'self' data:; frame-src 'self' https://${env.VITE_AUTH0_DOMAIN}; upgrade-insecure-requests;`
-      : `default-src 'self' http: https: data: blob: 'unsafe-inline' 'unsafe-eval'; script-src 'self' 'unsafe-inline' 'unsafe-eval' http: https: blob: 'wasm-unsafe-eval'; worker-src 'self' blob: data: http: https:; connect-src 'self' http: https: ws: wss: blob: data:;`
-  };
+  const apiUrl = env.VITE_API_URL || 'http://localhost:8000';
 
   return {
     plugins: [react()],
     optimizeDeps: {
-      exclude: ['pdfjs-dist'],
       include: [
         'react', 
         'react-dom', 
@@ -75,7 +74,7 @@ export default defineConfig(({ mode }) => {
       cors: true,
       proxy: {
         '/api': {
-          target: 'http://127.0.0.1:8000',
+          target: 'http://localhost:8000',
           changeOrigin: true,
           secure: false,
           timeout: 120000,
@@ -131,7 +130,10 @@ export default defineConfig(({ mode }) => {
         }
       },
       assetsDir: 'assets',
-      outDir: 'dist'
+      outDir: 'dist',
+      commonjsOptions: {
+        include: [/pdfjs-dist/]
+      }
     },
     esbuild: {
       logOverride: { 'this-is-undefined-in-esm': 'silent' }
@@ -140,7 +142,6 @@ export default defineConfig(({ mode }) => {
       format: 'es',
       plugins: () => [react()]
     },
-    // Copy PDF.js worker to output directory
     publicDir: 'public',
   };
 });

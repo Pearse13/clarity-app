@@ -25,7 +25,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
       icon: FileText
     },
     {
-      name: 'Lectures',
+      name: 'Clarity Lectures',
       path: '/lecture',
       icon: BookOpen
     }

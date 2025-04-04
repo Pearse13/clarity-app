@@ -37,9 +37,14 @@ const App: React.FC = () => {
         <nav className="py-2 px-3 flex justify-between items-center bg-white shadow-sm border-b border-blue-300">
           <div className="flex items-center gap-2">
             <img 
-              src="/clarity-logo.jpg" 
+              src="/HD Clarity.png.png" 
               alt="Clarity Logo" 
               className="w-7 h-7 object-contain"
+              onError={(e) => {
+                const img = e.target as HTMLImageElement;
+                img.onerror = null; // Prevent infinite loop
+                img.src = '/web-app-manifest-192x192.png'; // Fallback to manifest icon
+              }}
             />
             <span className="text-logo font-medium tracking-tight">
               Clarity<span className="text-[0.425rem] align-top ml-1 text-blue-400">© 2025</span>

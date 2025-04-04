@@ -1,4 +1,15 @@
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /callback
+Disallow: /login
+Disallow: /error
+Disallow: /_next/
+Disallow: /static/
+Disallow: /node_modules/
+Disallow: /src/
+Disallow: /.env
+Disallow: /package.json
+Disallow: /package-lock.json
 
-Sitemap: https://clarity-app.vercel.app/sitemap.xml 
+Sitemap: https://clarity-api.com/sitemap.xml

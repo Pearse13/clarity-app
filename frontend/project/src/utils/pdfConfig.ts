@@ -2,12 +2,8 @@ import * as pdfjsLib from 'pdfjs-dist';
 
 export const configurePdfWorker = () => {
   try {
-    // Use dynamic import for the worker
-    const workerUrl = new URL(
-      'pdfjs-dist/build/pdf.worker.min.js',
-      import.meta.url
-    ).toString();
-    pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+    // Use the worker file from the public directory
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
   } catch (error) {
     console.error('Error configuring PDF.js worker:', error);
     // Fallback to CDN with specific version

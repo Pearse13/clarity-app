@@ -4,14 +4,10 @@ import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
 import './PDFViewer.css';
 import styled from 'styled-components';
+import configurePdfWorker from '../utils/pdfConfig';
 
 // Configure PDF.js worker
-if (typeof window !== 'undefined') {
-  pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.min.js',
-    import.meta.url,
-  ).toString();
-}
+configurePdfWorker();
 
 interface PDFViewerProps {
   file: string | { url: string } | { data: Uint8Array };

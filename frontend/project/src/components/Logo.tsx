@@ -53,8 +53,8 @@ export function Logo({ size = 32, color = "#2563eb", downloadable = false }: Log
           
           // Create download link
           const link = document.createElement('a');
-          link.download = 'clarity-logo.jpg';
-          link.href = canvas.toDataURL('image/jpeg', 0.9);
+          link.download = 'HD Clarity.png';
+          link.href = canvas.toDataURL('image/png', 0.9);
           link.click();
           
           // Cleanup
