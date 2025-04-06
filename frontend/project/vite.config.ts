@@ -34,14 +34,12 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     optimizeDeps: {
-      exclude: ['pdfjs-dist'],
       include: [
         'react', 
         'react-dom', 
         'react-router-dom', 
         '@auth0/auth0-react',
-        'react-pdf',
-        'pdfjs-dist'
+        'react-pdf'
       ],
       esbuildOptions: {
         define: {
@@ -125,8 +123,7 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks: {
             vendor: ['react', 'react-dom', 'react-router-dom'],
-            auth: ['@auth0/auth0-react'],
-            pdfjs: ['pdfjs-dist']
+            auth: ['@auth0/auth0-react']
           }
         }
       },
@@ -140,7 +137,6 @@ export default defineConfig(({ mode }) => {
       format: 'es',
       plugins: () => [react()]
     },
-    // Copy PDF.js worker to output directory
-    publicDir: 'public',
+    publicDir: 'public'
   };
 });

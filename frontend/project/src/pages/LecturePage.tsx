@@ -1333,69 +1333,116 @@ Format the output with clear headers and bullet points for readability.`;
               }
             }
 
-            /* Header Styles */
+            /* Update the header container and layout styles */
             .header-container {
               display: grid;
-              grid-template-columns: 1fr 1fr;
+              grid-template-columns: 50% 50%;
               align-items: center;
-              padding: 0.5rem 1rem;
-              gap: 1rem;
+              height: clamp(48px, 5vw, 56px);
+              background: white;
+              border-bottom: 1px solid #e5e7eb;
               position: relative;
-              height: 56px;
             }
 
             .header-left {
+              padding-left: clamp(1rem, 2vw, 1.5rem);
               display: flex;
               align-items: center;
-              gap: 1rem;
+              justify-content: space-between;
+              gap: clamp(0.5rem, 1vw, 1rem);
             }
 
             .header-left h1 {
-              font-size: 1rem;
-              line-height: 1.5;
+              font-size: clamp(0.875rem, 1.2vw, 1.125rem);
+              white-space: nowrap;
             }
 
             .header-center {
-              justify-self: center;
-              padding-right: 6rem;
-            }
-
-            .header-right {
-              position: absolute;
-              right: 1rem;
-              top: 50%;
-              transform: translateY(-50%);
+              position: relative;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              width: 100%;
+              height: 100%;
             }
 
             .header-tabs {
               display: flex;
-              gap: 0.5rem;
+              gap: clamp(0.25rem, 0.75vw, 0.75rem);
+              justify-content: center;
+              align-items: center;
             }
 
-            /* Content container adjustments */
-            .content-container {
+            /* Update button styles for proportional scaling */
+            .header-tabs button {
+              padding: clamp(0.375rem, 0.5vw, 0.5rem) clamp(0.75rem, 1vw, 1rem);
+              font-size: clamp(0.75rem, 0.875vw, 0.875rem);
+              border-radius: clamp(0.375rem, 0.5vw, 0.5rem);
               display: flex;
-              height: calc(100vh - 56px);
-              overflow: hidden;
-              margin-top: 0;
+              align-items: center;
+              gap: clamp(0.25rem, 0.375vw, 0.375rem);
+              white-space: nowrap;
+              transition: all 0.15s ease;
+              transform-origin: center;
             }
 
-            /* Update the flex-none div containing the header */
-            .flex-none {
-              height: 56px;
-              padding: 0 !important;
+            .header-tabs button svg {
+              width: clamp(0.875rem, 1vw, 1rem);
+              height: clamp(0.875rem, 1vw, 1rem);
+              flex-shrink: 0;
             }
 
-            /* Mobile Styles */
+            /* Update Upload Another button styles */
+            .header-left button.upload-button {
+              padding: clamp(0.375rem, 0.5vw, 0.5rem) clamp(0.75rem, 1vw, 1rem);
+              font-size: clamp(0.75rem, 0.875vw, 0.875rem);
+              display: flex;
+              align-items: center;
+              gap: clamp(0.25rem, 0.375vw, 0.375rem);
+              white-space: nowrap;
+              transition: all 0.15s ease;
+              border-radius: 9999px;
+              color: #2563eb;
+              background-color: #f3f4f6;
+            }
+
+            .header-left button.upload-button svg {
+              width: clamp(0.875rem, 1vw, 1rem);
+              height: clamp(0.875rem, 1vw, 1rem);
+              flex-shrink: 0;
+            }
+
+            .header-left button.upload-button:hover {
+              background-color: #e5e7eb;
+            }
+
+            /* Mobile adjustments */
             @media (max-width: 768px) {
               .header-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto;
                 height: auto;
                 padding: 0.5rem;
                 gap: 0.5rem;
               }
 
-              .content-container {
-                height: calc(100vh - 56px);
+              .header-left {
+                padding-left: 0.5rem;
+                width: 100%;
+                justify-content: space-between;
+              }
+
+              .header-center {
+                width: 100%;
+                justify-content: flex-start;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                padding: 0.25rem 0;
+              }
+
+              .header-tabs {
+                width: max-content;
+                padding-bottom: 0.25rem;
               }
             }
           `
@@ -1406,7 +1453,7 @@ Format the output with clear headers and bullet points for readability.`;
             isOpen ? 'md:ml-64' : ''
           } transition-[margin] duration-300`}>
             <div className={`header-container ${!isHeaderVisible ? 'hidden' : ''}`}>
-              {/* Left section with Document Viewer title */}
+              {/* Left section with Document Viewer title and Upload Another button */}
               <div className="header-left">
                 <div className="flex items-center gap-3">
                   <button
@@ -1434,56 +1481,52 @@ Format the output with clear headers and bullet points for readability.`;
                   </button>
                   <h1 className="text-lg font-medium text-gray-900">Document Viewer</h1>
                 </div>
+                <button
+                  onClick={handleUploadAnother}
+                  className="upload-button"
+                >
+                  <Upload />
+                  <span>Upload Another</span>
+                </button>
               </div>
               
-              {/* Center section with navigation tabs */}
+              {/* Center section with navigation tabs - now in right half */}
               <div className="header-center">
                 <div className="header-tabs">
                   <button
                     onClick={() => setActiveTab('understand')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                    className={`transition-colors flex items-center ${
                       activeTab === 'understand'
                         ? 'bg-blue-600 text-white'
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
                   >
-                    <Brain className="w-4 h-4" />
+                    <Brain />
                     <span>Understand</span>
                   </button>
                   <button
                     onClick={() => setActiveTab('chat')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                    className={`transition-colors flex items-center ${
                       activeTab === 'chat'
                         ? 'bg-blue-600 text-white'
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
                   >
-                    <MessageSquare className="w-4 h-4" />
+                    <MessageSquare />
                     <span>Chat</span>
                   </button>
                   <button
                     onClick={() => setActiveTab('teach')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                    className={`transition-colors flex items-center ${
                       activeTab === 'teach'
                         ? 'bg-blue-600 text-white'
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
                   >
-                    <Wand2 className="w-4 h-4" />
+                    <Wand2 />
                     <span>Teach Me</span>
                   </button>
                 </div>
-              </div>
-
-              {/* Right section with upload button */}
-              <div className="header-right">
-                <button
-                  onClick={handleUploadAnother}
-                  className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 px-3 py-1.5 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
-                >
-                  <Upload className="w-4 h-4" />
-                  <span>Upload Another</span>
-                </button>
               </div>
             </div>
           </div>
