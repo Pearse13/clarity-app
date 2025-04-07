@@ -37,7 +37,7 @@ const App: React.FC = () => {
         <nav className="py-2 px-3 flex justify-between items-center bg-white shadow-sm border-b border-blue-300">
           <div className="flex items-center gap-2">
             <img 
-              src="/clarity-logo.jpg" 
+              src="/HD Clarity.png.png" 
               alt="Clarity Logo" 
               className="w-7 h-7 object-contain"
             />
