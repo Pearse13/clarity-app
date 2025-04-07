@@ -1,7 +1,7 @@
 {
-  "framework": "vite",
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
+  "version": 2,
+  "buildCommand": "cd frontend/project && npm install && npm run build",
+  "outputDirectory": "frontend/project/dist",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ],
@@ -39,5 +39,12 @@
     "VITE_AUTH0_AUDIENCE": "https://clarity-api.com",
     "VITE_AUTH0_CALLBACK_URL": "https://clarity-app.vercel.app/callback",
     "VITE_ENV": "production"
-  }
+  },
+  "builds": [
+    {
+      "src": "frontend/project/package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "dist" }
+    }
+  ]
 } 
