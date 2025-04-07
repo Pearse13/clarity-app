@@ -32,5 +32,12 @@
         }
       ]
     }
-  ]
+  ],
+  "env": {
+    "VITE_AUTH0_DOMAIN": "dev-8utndajax3l877vt.us.auth0.com",
+    "VITE_AUTH0_CLIENT_ID": "eLvP3nx8vXQoopKdQESozCJmJAqZiPLg",
+    "VITE_AUTH0_AUDIENCE": "https://clarity-api.com",
+    "VITE_AUTH0_CALLBACK_URL": "https://clarity-app.vercel.app/callback",
+    "VITE_ENV": "production"
+  }
 } 
