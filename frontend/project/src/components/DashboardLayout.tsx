@@ -38,16 +38,17 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
       {/* Sidebar */}
       <aside 
         className={`
+          sidebar
           fixed md:static inset-y-0 left-0
           flex flex-col
           bg-white border-r border-gray-200
           transition-all duration-300 ease-in-out
-          ${isOpen ? 'w-64' : 'w-20'}
+          ${isOpen ? 'w-64 open' : 'w-20'}
           ${isMobile ? 'z-50' : 'z-0'}
         `}
       >
-        {/* Toggle button */}
-        <div className="px-4 py-3 border-b border-gray-200">
+        {/* Toggle button - hidden on mobile as we have a separate mobile toggle */}
+        <div className="px-4 py-3 border-b border-gray-200 md:block hidden">
           <button
             onClick={toggle}
             className="flex items-center gap-3 w-full text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-colors duration-200 rounded-lg p-2"
@@ -77,7 +78,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
         </div>
 
         {/* Navigation items */}
-        <nav className="flex-1 overflow-hidden">
+        <nav className="flex-1 overflow-hidden pt-4">
           <ul className="space-y-1">
             {navigationItems.map((item) => {
               const Icon = item.icon;
@@ -132,10 +133,10 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
         </main>
       </div>
 
-      {/* Mobile overlay */}
+      {/* Mobile overlay - using a proper class for the overlay */}
       {isOpen && isMobile && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40"
+          className="sidebar-overlay"
           onClick={toggle}
         />
       )}

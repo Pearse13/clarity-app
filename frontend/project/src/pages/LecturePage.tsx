@@ -1036,72 +1036,202 @@ Format the output with clear headers and bullet points for readability.`;
             <div className="px-4 py-4 flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <h1 className="text-lg font-medium text-gray-900">Document Viewer</h1>
-                <button
+                  <button
                   onClick={handleUploadAnother}
                   className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
                 >
                   <Upload className="w-4 h-4" />
                   Upload Another
-                </button>
-              </div>
+                  </button>
+                </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setActiveTab('understand')}
+                  <button
+                    onClick={() => setActiveTab('understand')}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                    activeTab === 'understand'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <Brain className="w-4 h-4" />
+                      activeTab === 'understand'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Brain className="w-4 h-4" />
                   Understand
-                </button>
-                <button
-                  onClick={() => setActiveTab('chat')}
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('chat')}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                    activeTab === 'chat'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <MessageSquare className="w-4 h-4" />
+                      activeTab === 'chat'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    <MessageSquare className="w-4 h-4" />
                   Chat
-                </button>
-                <button
-                  onClick={() => setActiveTab('teach')}
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('teach')}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                    activeTab === 'teach'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <Wand2 className="w-4 h-4" />
+                      activeTab === 'teach'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Wand2 className="w-4 h-4" />
                   Teach Me
                 </button>
               </div>
             </div>
           </div>
-
-          {/* Main content area */}
+          
+          {/* Mobile sidebar toggle button - centered on left edge */}
+          <div className="fixed left-0 top-1/2 transform -translate-y-1/2 z-50 md:hidden">
+            <button
+              onClick={toggle}
+              className="bg-white rounded-r-lg shadow-md p-2 flex items-center justify-center"
+              aria-label="Toggle sidebar"
+            >
+              <svg
+                className={`w-6 h-6 text-gray-600 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d={isOpen ? 'M15 19l-7-7 7-7' : 'M9 5l7 7-7 7'}
+                />
+              </svg>
+            </button>
+          </div>
+          
+          {/* Main content area - Modified to maintain horizontal layout on all screen sizes */}
           <div className="flex-1 overflow-hidden">
-            <div className="flex h-full">
-              {/* Document Viewer (Left Panel) */}
+            <div className="flex h-full flex-row">
+              {/* Document Viewer (Left Panel) - Modified width for smaller screens */}
               <div className="w-1/2 h-full border-r">
-                <PresentationViewer
+                <PresentationViewer 
                   ref={presentationViewerRef}
                   onTextSelect={handleTransform}
-                  onDocumentTextExtracted={setDocumentText}
+                    onDocumentTextExtracted={setDocumentText}
                   onReset={() => setDocumentText(null)}
                 />
-              </div>
-
+            </div>
+            
               {/* Right Panel */}
               <div className="w-1/2 h-full">
-                {renderContent()}
+              {renderContent()}
               </div>
             </div>
           </div>
         </div>
+        
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            /* Override mobile styles to maintain horizontal layout */
+            @media (max-width: 768px) {
+              .header-container {
+                display: flex !important;
+                flex-direction: row !important;
+                padding: 0.5rem 1rem !important;
+                height: auto !important;
+                position: relative !important;
+                z-index: 10 !important;
+              }
+              
+              .header-left {
+                width: auto !important;
+                display: flex !important;
+                align-items: center !important;
+              }
+              
+              .header-center {
+                width: auto !important;
+                margin-left: auto !important;
+              }
+              
+              .header-tabs {
+                display: flex !important;
+                gap: 0.5rem !important;
+              }
+              
+              /* Force horizontal layout */
+              .content-container {
+                display: flex !important;
+                flex-direction: row !important;
+                height: 100% !important;
+                padding: 0 !important;
+                overflow: hidden !important;
+              }
+              
+              /* Document panel styles */
+              .document-panel {
+                width: 50% !important;
+                height: 100% !important;
+                min-height: 100% !important;
+                position: relative !important;
+                overflow: hidden !important;
+              }
+              
+              /* Content panel styles */
+              .content-panel {
+                width: 50% !important;
+                height: 100% !important;
+                min-height: 100% !important;
+                border-left: 1px solid #e5e7eb !important;
+                margin-top: 0 !important;
+                border-radius: 0 !important;
+              }
+              
+              /* Ensure chat view has proper height */
+              .SimpleChatView {
+                height: 100% !important;
+                display: flex !important;
+                flex-direction: column !important;
+              }
+              
+              /* Mobile sidebar styles - overlay rather than push content */
+              .sidebar {
+                position: fixed !important;
+                z-index: 100 !important;
+                top: 0 !important;
+                left: 0 !important;
+                bottom: 0 !important;
+                width: 280px !important;
+                transform: translateX(-100%) !important;
+                transition: transform 0.3s ease-in-out !important;
+                box-shadow: none !important;
+              }
+              
+              .sidebar.open {
+                transform: translateX(0) !important;
+                box-shadow: 4px 0 10px rgba(0, 0, 0, 0.1) !important;
+              }
+              
+              /* When sidebar is open on mobile, add overlay behind it */
+              .sidebar-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: rgba(0, 0, 0, 0.5);
+                z-index: 99;
+                animation: fadeIn 0.3s ease-in-out;
+              }
+              
+              .sidebar.open + .sidebar-overlay {
+                display: block;
+              }
+              
+              @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+              }
+            }
+          `
+        }} />
       </DashboardLayout>
     </FileProvider>
   );
