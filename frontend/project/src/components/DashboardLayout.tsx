@@ -34,16 +34,50 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
   const isActive = (path: string) => location.pathname.startsWith(path);
 
   return (
-    <div className="h-screen flex overflow-hidden bg-gray-50">
-      {/* Sidebar - fixed on mobile, relative on desktop */}
-      <div
-        className={`${isMobile ? 'fixed' : 'relative'} inset-y-0 left-0 transform ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        } ${!isMobile && 'transform-none'} transition-transform duration-300 ease-in-out z-40
-        w-64 bg-white border-r border-gray-200 flex flex-col`}
+    <div className="h-screen flex bg-gray-50">
+      {/* Sidebar */}
+      <aside 
+        className={`
+          fixed md:static inset-y-0 left-0
+          flex flex-col
+          bg-white border-r border-gray-200
+          transition-all duration-300 ease-in-out
+          ${isOpen ? 'w-64' : 'w-20'}
+          ${isMobile ? 'z-50' : 'z-0'}
+        `}
       >
+        {/* Toggle button */}
+        <div className="px-4 py-3 border-b border-gray-200">
+          <button
+            onClick={toggle}
+            className="flex items-center gap-3 w-full text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-colors duration-200 rounded-lg p-2"
+          >
+            <svg
+              className={`w-5 h-5 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
+              />
+            </svg>
+            <span 
+              className={`
+                whitespace-nowrap overflow-hidden transition-all duration-300
+                ${isOpen ? 'opacity-100 max-w-[200px]' : 'opacity-0 max-w-0'}
+              `}
+            >
+              Collapse Sidebar
+            </span>
+          </button>
+        </div>
+
         {/* Navigation items */}
-        <nav className="flex-1 px-4 pt-4">
+        <nav className="flex-1 overflow-hidden">
           <ul className="space-y-1">
             {navigationItems.map((item) => {
               const Icon = item.icon;
@@ -62,8 +96,15 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
                         : 'text-gray-600 hover:bg-gray-50'
                     }`}
                   >
-                    <Icon className="w-5 h-5" />
-                    {item.name}
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    <span 
+                      className={`
+                        whitespace-nowrap overflow-hidden transition-all duration-300
+                        ${isOpen ? 'opacity-100 max-w-[200px]' : 'opacity-0 max-w-0'}
+                      `}
+                    >
+                      {item.name}
+                    </span>
                   </button>
                 </li>
               );
@@ -81,17 +122,20 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
             <X className="w-5 h-5" />
           </button>
         )}
-      </div>
+      </aside>
 
-      {/* Main content */}
-      <main className={`flex-1 overflow-hidden ${isOpen && !isMobile ? 'ml-64' : ''}`}>
-        {children}
-      </main>
+      {/* Main content wrapper */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Main content */}
+        <main className="flex-1 relative">
+          {children}
+        </main>
+      </div>
 
       {/* Mobile overlay */}
       {isOpen && isMobile && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-30"
+          className="fixed inset-0 bg-black bg-opacity-50 z-40"
           onClick={toggle}
         />
       )}

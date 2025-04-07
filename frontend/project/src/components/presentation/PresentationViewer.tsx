@@ -293,15 +293,15 @@ export const PresentationViewer = forwardRef<
               </p>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center gap-4">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
               <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center">
                 <Upload className="w-6 h-6 text-blue-600" />
               </div>
               <div className="text-center">
-                <p className="text-base font-medium text-gray-900 mb-1">
+                <p className="text-xl font-medium text-gray-900 mb-2">
                   Upload Document
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-base text-gray-500">
                   Drag and drop your file here, or click to browse
                 </p>
               </div>
@@ -383,15 +383,16 @@ export const PresentationViewer = forwardRef<
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 2rem;
+      padding: 0;
       background: white;
       border: 2px dashed #e5e7eb;
       border-radius: 0.5rem;
       margin: 1rem;
       transition: all 0.3s ease;
       min-height: calc(100vh - 180px);
-      width: 100%;
+      width: calc(100% - 2rem);
       cursor: pointer;
+      position: relative;
     }
 
     .upload-area:hover {
@@ -408,7 +409,7 @@ export const PresentationViewer = forwardRef<
       .upload-area {
         min-height: 200px;
         margin: 0;
-        padding: 1rem;
+        width: 100%;
         border: 2px dashed #e5e7eb;
       }
     }
