@@ -1,8 +1,8 @@
 {
   "version": 2,
   "framework": "vite",
-  "buildCommand": "npm install && npm run build",
-  "outputDirectory": "dist",
+  "buildCommand": "cd frontend/project && npm install && npm run build",
+  "outputDirectory": "frontend/project/dist",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ],
