@@ -5,13 +5,6 @@
 .env.development
 .env.production
 
-# Ignore environment files
-.env
-.env.local
-.env.*.local
-.env.production
-.env.development
-
 # Ignore Python cache
 __pycache__/
 
@@ -29,6 +22,7 @@ venv/
 dist/
 build/
 .vercel
-"backend/.env.secrets" 
-backend/.env.secrets 
-backend/.env.secrets.template 
+
+# Backend secrets
+backend/.env.secrets
+backend/.env.secrets.template
