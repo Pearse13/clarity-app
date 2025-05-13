@@ -1,0 +1,141 @@
+# Clarity App Cost Analysis (15 Documents/Month)
+
+## Pricing Model
+- £4.99/month for Clarity Lectures (Understand mode)
+- Free version for Text Transformer using GPT-3.5
+
+## GPT Model Usage by Level
+**Text Transformer:**
+- All levels (1-5): GPT-3.5-Turbo (free tier)
+
+**Clarity Lectures (Understand):**
+- Level 1-2: GPT-3.5-Turbo
+- Level 3: 70% GPT-3.5-Turbo, 30% GPT-4
+- Level 4-5: GPT-4
+
+## Cost Breakdown in GBP (15 Documents/Month)
+
+### 1. Infrastructure Costs
+**Railway.app (Backend Server)**
+- Base + Usage: $15/month ≈ £11.70/month
+
+**Vercel (Frontend & Serverless)**
+- Hobby Plan: £0/month
+
+**Storage (S3 or Railway Volume)**
+- Estimated: $3/month ≈ £2.34/month
+
+**Total Infrastructure Cost: £14.04/month**
+
+### 2. OpenAI API Costs
+
+#### Free Tier (Text Transformer with GPT-3.5)
+Assuming 100 users making 20 transformations/month:
+- Input: 500 tokens × 20 uses × 100 users × $0.0005/1K tokens = $0.50 ≈ £0.39
+- Output: 750 tokens × 20 uses × 100 users × $0.0015/1K tokens = $2.25 ≈ £1.76
+- **Total Free Tier Cost: £2.15/month**
+
+#### Paid Tier (Clarity Lectures/Understand)
+Assuming 50 paid users processing 15 documents/month:
+
+**Level 1-2 (40% of usage - GPT-3.5)**
+- Documents: 50 users × 15 docs × 40% = 300 documents
+- Input: 5,000 tokens × 300 docs × $0.0005/1K tokens = $0.75 ≈ £0.59
+- Output: 2,500 tokens × 300 docs × $0.0015/1K tokens = $1.13 ≈ £0.88
+- Subtotal: £1.47/month
+
+**Level 3 (30% of usage - Mixed Models)**
+- Documents: 50 users × 15 docs × 30% = 225 documents
+- GPT-3.5 (70%):
+  - Input: 5,000 tokens × 225 docs × 70% × $0.0005/1K tokens = $0.39 ≈ £0.30
+  - Output: 2,500 tokens × 225 docs × 70% × $0.0015/1K tokens = $0.59 ≈ £0.46
+- GPT-4 (30%):
+  - Input: 5,000 tokens × 225 docs × 30% × $0.03/1K tokens = $10.13 ≈ £7.90
+  - Output: 2,500 tokens × 225 docs × 30% × $0.06/1K tokens = $10.13 ≈ £7.90
+- Subtotal: £16.56/month
+
+**Level 4-5 (30% of usage - GPT-4)**
+- Documents: 50 users × 15 docs × 30% = 225 documents
+- Input: 5,000 tokens × 225 docs × $0.03/1K tokens = $33.75 ≈ £26.33
+- Output: 2,500 tokens × 225 docs × $0.06/1K tokens = $33.75 ≈ £26.33
+- Subtotal: £52.66/month
+
+**Total Paid Tier OpenAI Cost: £70.69/month**
+
+### 3. Total Monthly Costs
+- Infrastructure: £14.04/month
+- Free Tier (Text Transformer): £2.15/month
+- Paid Tier (Clarity Lectures): £70.69/month
+- Auth0 + Sentry (Free tiers): £0/month
+
+**Total Monthly Costs: £86.88/month**
+
+### 4. Revenue Analysis
+**Monthly Revenue:**
+- 50 paid users × £4.99 = £249.50/month
+
+**Monthly Profit:**
+- Revenue: £249.50
+- Costs: £86.88
+- **Profit: £162.62/month**
+
+**Profit Margin: 65%**
+
+## Cost Per User Analysis
+
+### Free Tier Users (Text Transformer only)
+- Cost per user: £2.15 ÷ 100 users = £0.02/user/month
+
+### Paid Tier Users (Clarity Lectures)
+- OpenAI cost per paid user: £70.69 ÷ 50 users = £1.41/user/month
+- Infrastructure cost allocation per paid user: £14.04 ÷ 50 users = £0.28/user/month
+- **Total cost per paid user: £1.69/user/month**
+
+### Revenue Per Paid User
+- Revenue: £4.99/user/month
+- Cost: £1.69/user/month
+- **Profit per paid user: £3.30/user/month**
+
+## Scaling Analysis
+
+### At 100 Paid Users
+- Revenue: 100 × £4.99 = £499/month
+- OpenAI costs: £70.69 × 2 = £141.38/month
+- Infrastructure: £20/month (slight increase)
+- **Profit: ~£337.62/month**
+
+### At 500 Paid Users
+- Revenue: 500 × £4.99 = £2,495/month
+- OpenAI costs: £70.69 × 10 = £706.90/month
+- Infrastructure: ~£50/month (increased Railway tier)
+- **Profit: ~£1,738.10/month**
+
+## Recommendations Based on Higher Usage
+
+1. **Tiered Pricing Strategy**
+   - Consider a tiered pricing model:
+     - Basic: £4.99/month for 5 documents
+     - Standard: £7.99/month for 15 documents
+     - Premium: £12.99/month for unlimited documents
+
+2. **Document Credits System**
+   - Implement a credit system where:
+     - £4.99 plan includes 5 document credits
+     - Additional credits can be purchased (e.g., £0.75 per document)
+     - Credits roll over for 3 months
+
+3. **Cost Optimization Strategies**
+   - Implement aggressive caching for document processing
+   - Store processed documents to avoid reprocessing
+   - Use GPT-3.5 for initial processing, only use GPT-4 for refinement
+   - Implement token optimization techniques to reduce API costs
+
+4. **Usage Analytics**
+   - Monitor actual usage patterns closely
+   - Identify power users who might benefit from higher tiers
+   - Track which document types/sizes consume the most tokens
+
+## Conclusion
+Even with users processing 15 documents per month, the business model remains profitable with a 65% margin. The key is to implement proper usage limits or tiered pricing to ensure heavy users are paying appropriately for their consumption.
+
+The £4.99/month price point provides good value to users while maintaining healthy profit margins. As the user base grows, economies of scale will further improve profitability through better infrastructure utilization. 

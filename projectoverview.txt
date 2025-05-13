@@ -1,0 +1,209 @@
+# Clarity App Project Overview
+
+## Project Description
+Clarity is a web application designed to help users understand and transform text content, with a particular focus on lecture materials. The application provides features for uploading, processing, and transforming various types of documents, including PDFs, text files, and images.
+
+## Tech Stack
+
+### Frontend
+- React (with TypeScript)
+- Vite as the build tool
+- TailwindCSS for styling
+- Auth0 for authentication
+- PDF.js for PDF processing
+- Tesseract.js for OCR capabilities
+
+### Backend
+- FastAPI (Python)
+- OpenAI API integration
+- SQLite database
+- JWT authentication
+- Sentry for error tracking
+
+## Core Features
+
+1. Document Processing
+   - Support for multiple file formats (PDF, TXT, DOC, DOCX, HTML, Images)
+   - PDF text extraction using PDF.js
+   - OCR capabilities for image processing
+   - File size limit of 20MB
+
+2. Text Transformation
+   - Multiple transformation types:
+     * Simplify
+     * Sophisticate
+     * Casualise
+     * Formalise
+   - Adjustable transformation levels (1-5)
+   - Character limit monitoring
+   - Real-time processing
+
+3. Authentication & Security
+   - Auth0 integration
+   - JWT token management
+   - Secure API endpoints
+   - Content Security Policy (CSP) implementation
+   - Rate limiting
+
+4. User Interface
+   - Responsive sidebar navigation
+   - Drag-and-drop file upload
+   - Progress indicators
+   - Error handling and user feedback
+   - Smooth animations and transitions
+
+## Architecture
+
+### Frontend Structure
+- Component-based architecture using React
+- Context providers for state management:
+  * SidebarContext for navigation state
+  * FileContext for file management
+  * Auth0Context for authentication
+- Modular file organization:
+  * /components for reusable UI components
+  * /pages for main route components
+  * /contexts for state management
+  * /services for API interactions
+  * /config for configuration
+  * /types for TypeScript definitions
+
+### Backend Structure
+- FastAPI application with modular routing
+- OpenAI integration for text transformations
+- Rate limiting implementation
+- Error handling and logging
+- Environment-based configuration
+
+## Security Features
+1. Content Security Policy (CSP)
+   - Strict MIME type checking
+   - Controlled resource loading
+   - Worker script security
+   - Cross-origin restrictions
+
+2. Authentication Flow
+   - Auth0 integration
+   - JWT token validation
+   - Secure callback handling
+   - Session management
+
+3. API Security
+   - Rate limiting
+   - CORS configuration
+   - Request validation
+   - Error handling
+
+## Development Environment
+- Node.js for frontend development
+- Python for backend development
+- Vite development server (port 5174)
+- FastAPI backend server (port 8000)
+- Environment-specific configurations
+- Hot Module Replacement (HMR)
+
+## Recent Development Focus
+Recent development efforts have centered on:
+1. PDF processing improvements
+   - Worker configuration for PDF.js
+   - Error handling for PDF text extraction
+   - Support for Adobe Acrobat files
+   - Worker script loading optimization
+
+2. UI/UX Enhancements
+   - Sidebar animation smoothness
+   - File upload interface
+   - Error message display
+   - Loading states
+
+## Running the Project
+
+### Frontend Setup
+```bash
+cd frontend/project
+npm install
+npm run dev
+```
+Server runs on http://localhost:5174
+
+### Backend Setup
+```bash
+cd backend
+python -m uvicorn main:app --reload --port 8000
+```
+Server runs on http://localhost:8000
+
+## Environment Configuration
+The project uses multiple environment files:
+- .env.local for local development
+- .env.development for development settings
+- .env.production for production settings
+- Backend .env for API keys and secrets
+
+## Deployment
+- Vercel configuration for frontend deployment
+- Production-specific security headers
+- Environment variable management
+- Build optimization settings
+
+## Current Challenges
+1. PDF.js worker configuration
+   - Worker script loading issues
+   - MIME type restrictions
+   - CSP compatibility
+   - Cross-origin resource sharing
+
+2. File Processing
+   - Large file handling
+   - Text extraction reliability
+   - Error handling improvements
+   - Progress tracking
+
+## Future Improvements
+1. Enhanced PDF Processing
+   - Better error handling
+   - Improved text extraction
+   - Support for more PDF formats
+   - Progress indicators
+
+2. UI/UX Enhancements
+   - More intuitive file upload
+   - Better error messaging
+   - Improved loading states
+   - Enhanced mobile responsiveness
+
+3. Security Improvements
+   - Enhanced CSP configuration
+   - Better error handling
+   - Improved authentication flow
+   - Rate limiting refinements
+
+## Dependencies
+### Frontend
+- react
+- react-dom
+- react-router-dom
+- @auth0/auth0-react
+- pdfjs-dist
+- lucide-react
+- tailwindcss
+- typescript
+- vite
+
+### Backend
+- fastapi
+- uvicorn
+- python-jose
+- python-dotenv
+- openai
+- sentry-sdk
+- boto3
+
+## API Integration
+The application integrates with:
+1. Auth0 for authentication
+2. OpenAI for text transformations
+3. Sentry for error tracking
+4. Custom backend API endpoints
+
+This project represents a modern web application with a focus on document processing and text transformation, built with security and user experience in mind. 

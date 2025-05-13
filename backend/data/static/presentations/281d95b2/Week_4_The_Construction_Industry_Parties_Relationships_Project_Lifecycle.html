@@ -1,0 +1,954 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+     "http://www.w3.org/TR/html4/transitional.dtd">
+<html>
+<head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' http://localhost:* data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; frame-ancestors http://localhost:5174">
+                <base target="_blank">
+            
+
+  <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
+  <title></title>
+  <meta name="generator" content="LibreOffice 25.2.1.2 (Windows)"/>
+  <meta name="created" content="00:00:00"/>
+  <meta name="changed" content="00:00:00"/>
+
+                <script>
+                document.addEventListener('mouseup', function() {
+                    const selection = window.getSelection();
+                    if (selection && selection.toString().trim()) {
+                        window.parent.postMessage({
+                            type: 'textSelection',
+                            text: selection.toString()
+                        }, 'http://localhost:5174');
+                    }
+                });
+                </script>
+            
+            <style>
+                :root {
+                    --slide-ratio: 0.5625; /* 16:9 aspect ratio */
+                    --slide-padding: 20px;
+                }
+                
+                html, body {
+                    margin: 0;
+                    padding: 0;
+                    width: 100%;
+                    height: 100%;
+                    overflow-x: hidden;
+                    overflow-y: auto;
+                    background: #f5f5f5;
+                }
+                
+                body {
+                    padding: var(--slide-padding);
+                    box-sizing: border-box;
+                    font-family: Arial, sans-serif;
+                    font-size: 16px;
+                    line-height: 1.5;
+                }
+                
+                /* Slide container */
+                .page-break, div[style*="page-break-before"] {
+                    display: block;
+                    position: relative;
+                    width: calc(100% - 2 * var(--slide-padding));
+                    max-width: 960px; /* Maximum width for slides */
+                    margin: 20px auto;
+                    padding: 0;
+                    background: white;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    border-radius: 4px;
+                    overflow: hidden;
+                }
+                
+                /* Maintain aspect ratio */
+                .page-break::before, div[style*="page-break-before"]::before {
+                    content: "";
+                    display: block;
+                    padding-top: calc(var(--slide-ratio) * 100%);
+                }
+                
+                /* Slide content wrapper */
+                .page-break > *, div[style*="page-break-before"] > * {
+                    position: relative;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    padding: 40px;
+                    box-sizing: border-box;
+                    overflow: hidden;
+                }
+                
+                /* Text content */
+                p, span {
+                    position: relative !important;
+                    margin: 0 0 0.5em 0 !important;
+                    font-size: 1em !important;
+                    line-height: 1.5 !important;
+                }
+                
+                /* Images */
+                img {
+                    max-width: 100%;
+                    height: auto;
+                    object-fit: contain;
+                }
+                
+                /* Headings */
+                h1 { font-size: 2em !important; }
+                h2 { font-size: 1.5em !important; }
+                h3 { font-size: 1.17em !important; }
+                h4 { font-size: 1em !important; }
+                h5 { font-size: 0.83em !important; }
+                h6 { font-size: 0.67em !important; }
+                
+                h1, h2, h3, h4, h5, h6 {
+                    margin: 0.5em 0 !important;
+                    line-height: 1.2 !important;
+                    font-weight: bold !important;
+                }
+                
+                /* Lists */
+                ul, ol {
+                    margin: 0.5em 0 0.5em 1.5em !important;
+                    padding: 0 !important;
+                }
+                
+                li {
+                    margin: 0.25em 0 !important;
+                    line-height: 1.5 !important;
+                }
+                
+                /* Tables */
+                table {
+                    border-collapse: collapse;
+                    margin: 1em 0 !important;
+                    width: auto !important;
+                }
+                
+                td, th {
+                    padding: 8px !important;
+                    border: 1px solid #ddd !important;
+                    font-size: 0.9em !important;
+                }
+                
+                /* Fix positioning */
+                [style*="position:"] {
+                    position: relative !important;
+                }
+                
+                [style*="left:"], [style*="top:"] {
+                    left: auto !important;
+                    top: auto !important;
+                }
+                
+                /* Ensure text is readable */
+                * {
+                    font-family: Arial, sans-serif !important;
+                    color: #333 !important;
+                    background: transparent !important;
+                }
+                
+                /* Responsive adjustments */
+                @media (max-width: 768px) {
+                    body {
+                        padding: 10px;
+                    }
+                    
+                    .page-break > *, div[style*="page-break-before"] > * {
+                        padding: 20px;
+                    }
+                    
+                    :root {
+                        --slide-padding: 10px;
+                    }
+                }
+            </style>
+            </head>
+<body>
+<h1></h1>
+<p><b>ulster.ac.uk</b></p>
+<p><b>BEN130</b></p>
+<p><b>Built Environment Economics</b></p>
+<p><b>Week 4 – Supply &amp; The Construction Parties, </b></p>
+<p><b>Project Life Cycle &amp; Relationships, Cost, </b></p>
+<p><b>Revenue, Profit Maximisation &amp; Value!</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Module Content</b></p>
+<p>•</p>
+<p>Introduction to economic concepts, scarcity, choice and </p>
+<p>opportunity cost.</p>
+<p>•</p>
+<p>Macro and micro economic theory and how it influences </p>
+<p>development projects.</p>
+<p>•</p>
+<p>Real estate market forces, demand and supply, price </p>
+<p>elasticity, market equilibrium, free market system.</p>
+<p>•</p>
+<p>Government intervention, control and regulation and how </p>
+<p>it impacts on market prices and costs.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Module Content (Cont’d)</b></p>
+<p>•</p>
+<p>The business, real estate, financial and construction </p>
+<p>cycles, their stages, causes and inter-relationships.</p>
+<p>•</p>
+<p>Monetary policy, inflation, exchange rates and interest </p>
+<p>rates and construction cost impacts on market behaviour.</p>
+<p>•</p>
+<p>The role of macro-prudential policy on the economy and </p>
+<p>wider urban Brexit and its impact on the economy and </p>
+<p>the wider construction industry.</p>
+<p>•</p>
+<p>The role of behaviour, sustainability, utility and rationale </p>
+<p>choices for economic decision-making.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Learning Outcomes</b></p>
+<p>•</p>
+<p>Describe the fundamental concepts and principles of </p>
+<p>economics;</p>
+<p>•</p>
+<p>Understand the role of microeconomics and the theory of </p>
+<p>a firm tied to the urban economy; </p>
+<p>•</p>
+<p>Understand the role of macroeconomics and the </p>
+<p>relationships between the business, construction cycles </p>
+<p>and real estate, and</p>
+<p>•</p>
+<p>Apply economic approaches to decision-making and </p>
+<p>market mechanics.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Agenda – Week 4</b></p>
+<p>•</p>
+<p>Supply</p>
+<p>•</p>
+<p>The Construction Parties – Clients &amp; Contractors</p>
+<p>•</p>
+<p>Project Life Cycle</p>
+<p>•</p>
+<p>Construction Firms – structure, finance, decision making </p>
+<p>&amp;management</p>
+<p>•</p>
+<p>Revenue, cost, profit, &amp; value</p>
+<p>•</p>
+<p>Week 4 Quiz Nr 3 will be available on Contents &gt; Quizzes </p>
+<p>(Optional) completion by Thursday 27 February at 17.00</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Supply</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p>▪</p>
+<p>We saw last week how the demand curve shows what </p>
+<p>consumers are willing and able to purchase at each and every </p>
+<p>price, all other things being unchanged.</p>
+<p>▪</p>
+<p>This is only one part of the market, concerned with <i><b>buyers.</b></i></p>
+<p>▪</p>
+<p>We have yet to consider the role of <i><b>sellers </b></i>(i.e. businesses </p>
+<p>which could include estate agents, development companies, </p>
+<p>construction firms) <i><b>–</b></i> this involves an analysis of supply and </p>
+<p>the supply side of the industry.</p>
+<p><b>Introduction to Supply</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p>▪</p>
+<p>The supply of a product is the amount that producers are </p>
+<p><i><b>willing </b></i>and <i><b>able</b></i> to produce at each and every price, all other </p>
+<p>things being unchanged (Gillespie, p. 107)</p>
+<p>e.g. The supply curve might show how many houses a </p>
+<p>construction firm would be willing and able to produce at </p>
+<p>different prices. </p>
+<p>▪</p>
+<p>The supply curve is usually upward sloping (bottom left to top </p>
+<p>right); therefore, a higher price is usually needed for firms to </p>
+<p>be willing and able to produce more.</p>
+<p>▪</p>
+<p>As the price increases, it becomes more appealing / feasible </p>
+<p>to produce more units.</p>
+<p><b>Features of a Supply Curve</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p>▪</p>
+<p>Businesses usually need a higher price to cover the extra </p>
+<p>costs of producing extra units.</p>
+<p>▪</p>
+<p>An increase in price (from P1 - P2) will usually lead to an </p>
+<p>increase in the quantity supplied (from Q1 - Q2), known </p>
+<p>as an <b>extension of supply </b>(Gillespie, p. 106)<b>:</b></p>
+<p><b>Movement along a Supply Curve</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p>If, on the other hand, there were a fall in the price (from P1 -</p>
+<p>P2), this would result in a fall in (<b>contraction of</b>) the </p>
+<p>quantity supplied (from Q1 – Q2)</p>
+<p><b>Movement along a Supply Curve</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p>A shift in supply means that the curve moves to the right or </p>
+<p>left, meaning that more or fewer products are supplied at </p>
+<p>each and every price (Gillespie pp. 110-1)</p>
+<p><b>Shift in supply curve</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p>▪</p>
+<p>As we saw in the case of demand, the principles are:</p>
+<p>-</p>
+<p>A change in <i><b>quantity supplied </b></i>is caused by a change in price; whereas </p>
+<p>-</p>
+<p>A change or shift in <i><b>supply </b></i>is caused by a change in other factors</p>
+<p>.</p>
+<p>▪</p>
+<p>These other factors include:</p>
+<p>▪</p>
+<p><i><b>A change in the number of producers –</b></i> if there is an increase in this </p>
+<p>number, it would lead to an increase in supply, i.e. an outward shift in the </p>
+<p>curve – to the right.</p>
+<p>▪</p>
+<p><i><b>A change in technology</b></i> – new, better technology should enable firms to </p>
+<p>produce more output at any price, thus also shifting the curve to the right. </p>
+<p>(e.g. online trading, in construction modular and off-site building, BIM)</p>
+<p>▪</p>
+<p><i><b>A change in costs –</b></i> An increase in wages / price of materials would mean </p>
+<p>that firms could not supply as much at a given price because of higher </p>
+<p>costs – they will need a higher price for any given level of output. Thus the </p>
+<p>curve would shift to the left (e.g. price of oil, transportation costs, etc).</p>
+<p><b>Factors that cause shift in supply</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p>▪</p>
+<p>These other factors also include:</p>
+<p>▪</p>
+<p><i><b>A change in indirect taxes. </b></i>(Gillespie pp. 110-2). If a tax, such </p>
+<p>as VAT, is levied on a good this will increase the selling price </p>
+<p>of any given output (as producers seek to recover this </p>
+<p>additional cost through higher prices). </p>
+<p><i><b>e.g in relation to construction; a landfill tax would increase </b></i></p>
+<p><i><b>construction costs and reduce supply at each and every price </b></i></p>
+<p><i><b>(cause curve to shift to left). Other statutory health and safety </b></i></p>
+<p><i><b>legislations which are perhaps costly to the industry, might </b></i></p>
+<p><i><b>have a similar effect.</b></i></p>
+<p>▪</p>
+<p><i><b>A change in weather conditions. </b></i>This can be relevant in </p>
+<p>certain markets, such as agriculture / construction where </p>
+<p>there are market exposures to changes in the natural </p>
+<p>environment. Poor weather can lead to supply shocks which </p>
+<p>shift the supply curve to the left. </p>
+<p><b>Factors that cause shift in supply</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p>(Gillespie p. 113). The industry supply curve is the total </p>
+<p>supplied by all the firms in the industry at each and every </p>
+<p>price, derived from the horizontal summation of all the firms’ </p>
+<p>supply curves:</p>
+<p><b>Industry Supply</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p>▪</p>
+<p>The slope of a supply curve will depend on how sensitive </p>
+<p>it is to changes in price (Gillespie p.116)</p>
+<p>▪</p>
+<p>The price elasticity of supply measures the extent to </p>
+<p>which the quantity supplied in a market varies with a </p>
+<p>change in price:</p>
+<p>Price elasticity of supply </p>
+<p>=  % change in quantity supplied</p>
+<p>% change in price</p>
+<p>As in the case of demand, the two key elements to understanding </p>
+<p>elasticity of supply are</p>
+<p>:</p>
+<p>-</p>
+<p><i><b>The sign of the answer </b></i>(usually positive; price increase </p>
+<p>→</p>
+<p>increase in quantity </p>
+<p>supplied)</p>
+<p>-</p>
+<p><i><b>The size of the answer</b></i>, which measures the strength of the relationship (if &gt;1, </p>
+<p>then supply is elastic, if &lt;1 inelastic)</p>
+<p><b>Price Elasticity of Supply</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p>▪</p>
+<p>The formula tells us the relative amount by which quantity </p>
+<p>supplied will change in relation to price changes. </p>
+<p>▪</p>
+<p>For example, if there is a 10% increase in house prices and </p>
+<p>this leads to a 1 per cent increase in the quantity of housing </p>
+<p>supplied, the price elasticity = (1/10) = 0.1. This is a very small </p>
+<p>response so the supply would be considered to be relatively </p>
+<p>price inelastic.</p>
+<p>▪</p>
+<p>As in the case of demand, there are three broad categories:</p>
+<p>-</p>
+<p>Price-inelastic supply: Where the value &lt;1, as in example above supply is </p>
+<p>said to be ‘inelastic’. </p>
+<p>-</p>
+<p>Price-elastic supply: Where the value &gt;1, supply is said to be elastic; </p>
+<p>occurs where % change in supply is larger than % change in price.</p>
+<p>-</p>
+<p>Unitary-elastic supply: Where the value = 1, a % change in price would </p>
+<p>lead to an identical % change in quantity supplied – unlikely in reality.</p>
+<p><b>Price Elasticity of Supply</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Extreme cases of price elasticity of supply</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p>▪</p>
+<p>The example given to demonstrate price elasticity outlined </p>
+<p>a scenario where a 10% increase in house prices was </p>
+<p>associated with a 1% increase in the quantity of housing </p>
+<p>supplied.</p>
+<p>▪</p>
+<p>This is a hypothetical example. However, supply <i>is</i> likely </p>
+<p>to be relatively price inelastic within the construction </p>
+<p>industry because: </p>
+<p>- Barker Review (2003) suggested figure of 0.5 for UK </p>
+<p>construction industry</p>
+<p>- Supply is fixed in short term</p>
+<p>- Lags exist due to time involved in site identification, </p>
+<p>acquisition, negotiating planning permission, construction…</p>
+<p>- Time is main determinant of price elasticity……</p>
+<p><b>‘In the Real World’</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p>Example just considered helps demonstrate how elasticity can vary over </p>
+<p>time (Gillespie p. 118): Over a longer period of time, resources can be </p>
+<p>more easily shifted from one sector to another, in the short term at least </p>
+<p>one factor of production is fixed, restricting firms’ ability to respond to </p>
+<p>price changes</p>
+<p><b>Elasticity of Supply over time</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p>The value of the price elasticity of supply for a product will </p>
+<p>also depend on <i><b>the number of firms in the industry -</b></i></p>
+<p>more firms enable a higher degree of responsiveness to </p>
+<p>change in price levels.</p>
+<p><b>Elasticity of Supply</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>The Construction Industry</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Demand </b></p>
+<p><b>Client (Public Sector)</b></p>
+<p>•<b>Value for money </b></p>
+<p>•<b>Speed of procurement?</b></p>
+<p>•<b>Quality of design?</b></p>
+<p>•<b>Defect free construction?</b></p>
+<p>•<b>Enhanced Facilities?</b></p>
+<p>•<b>Continuous Improvement?</b></p>
+<p>•<b>Social Outcomes?</b></p>
+<p><b>Supply</b></p>
+<p><b>Contractor (Private Sector)</b></p>
+<p>•<b>Profitability?</b></p>
+<p>•<b>Efficiency?</b></p>
+<p>•<b>Quality Supply Chain?</b></p>
+<p>•<b>Less Risk?</b></p>
+<p>•<b>Deal flow?</b></p>
+<p>•<b>Repeat business?</b></p>
+<p>•<b>Maintain/build Reputation?</b></p>
+<p><b>Key Differences between Demand &amp; Supply Sides</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p>✓</p>
+<p>Suppliers of basic materials.</p>
+<p>✓</p>
+<p>Manufacturers of site equipment.</p>
+<p>✓</p>
+<p>Manufacturers of building components.</p>
+<p>✓</p>
+<p>Site operatives.</p>
+<p>✓</p>
+<p>Project Managers and Surveyors.</p>
+<p>✓</p>
+<p>Architects and Engineers.</p>
+<p>✓</p>
+<p>Facility Managers.</p>
+<p>✓</p>
+<p>Property Developers (Clients).</p>
+<p>✓</p>
+<p>Providers of specialist support service.</p>
+<p><b>Construction Industry – Broadly Defined</b></p>
+<p><b>Key Supply Side ‘Actors’:</b></p>
+<p>Myers, p.1</p>
+<h1 style="page-break-before:always; "></h1>
+<p>Economy</p>
+<p>Industry</p>
+<p>Firm or Company</p>
+<p>Projects</p>
+<p><b>Model for Construction Economics</b></p>
+<p><b>Sustainable Construction Issues</b></p>
+<p>Myers, p.17</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Construction Industry – Narrowly Defined</b></p>
+<p><b>Key Areas / Types of work:</b></p>
+<p>Myers, p.19</p>
+<p><b>Areas of Construction</b></p>
+<p><b>Examples of type of work</b></p>
+<p>Infrastructure</p>
+<p>Water &amp; sewerage, Energy, Gas &amp; </p>
+<p>Electricity, Roads, Airports, Ports, Rail</p>
+<p>Housing</p>
+<p>Public (housing associations)</p>
+<p>Private (new estates, developments)</p>
+<p>Public non-residential</p>
+<p>Schools, colleges, universities, health </p>
+<p>facilities, sports, leisure facilities, police</p>
+<p>Private industrial</p>
+<p>Factories, warehouses, oil refineries</p>
+<p>Private commercial</p>
+<p>PFI, schools, hospitals, restaurants, retail, </p>
+<p>offices</p>
+<p>Repair and maintenance</p>
+<p>Extensions, conversions, renovation, </p>
+<p>refurbishments, planned maintenance</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Construction Industry</b></p>
+<p><b>Value of Underlying Project Starts:</b></p>
+<p>G</p>
+<p>Glenigans, 2020</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Construction Industry</b></p>
+<p><b>Growth in Value of Underlying Project Starts by Sector</b></p>
+<p>G</p>
+<p>Glenigans, 2020</p>
+<h1 style="page-break-before:always; "></h1>
+<p>•</p>
+<p>Clients – create demand by making the demands of the </p>
+<p>supply side of the industry</p>
+<p>•</p>
+<p>28,000 firms engaged in development</p>
+<p>•</p>
+<p>280,000 firms involved in different types of construction </p>
+<p>projects:</p>
+<p>•</p>
+<p>Building</p>
+<p>•</p>
+<p>Civil Engineering</p>
+<p>•</p>
+<p>Refurbishment</p>
+<p>•</p>
+<p>Repairs and Maintenance</p>
+<p><b>Clients</b></p>
+<p>Myers, p.85</p>
+<h1 style="page-break-before:always; "></h1>
+<p>•</p>
+<p>Contractors – those meeting the supply requirements of </p>
+<p>the demand side of the industry</p>
+<p>•</p>
+<p>Manage legal and commercial relationships</p>
+<p>•</p>
+<p>Main contractors and sub-contractors</p>
+<p>•</p>
+<p>Labour-only sub-contractors</p>
+<p>•</p>
+<p>Key Weaknesses – fragmentation, lack of collaboration, </p>
+<p>trust, disputes, investment in training</p>
+<p>•</p>
+<p>Recent Improvements – partnering approaches, </p>
+<p>integrated project delivery</p>
+<p><b>Contractors &amp; Supply Chain Management</b></p>
+<p>Myers, p.85</p>
+<h1 style="page-break-before:always; "></h1>
+<p>How demand and supply sides interact:</p>
+<p>•</p>
+<p>Traditional </p>
+<p>•</p>
+<p>Design &amp; Build</p>
+<p>•</p>
+<p>Construction Management</p>
+<p>•</p>
+<p>Management Contracting</p>
+<p>•</p>
+<p>Prime Contracting</p>
+<p>•</p>
+<p>PFI</p>
+<p>•</p>
+<p>Public Private Partnerships (PPPs, P3s)</p>
+<p><b>Procurement</b></p>
+<p>Myers, p.85</p>
+<h1 style="page-break-before:always; "></h1>
+<p>•</p>
+<p>Inception</p>
+<p>•</p>
+<p>Strategic / Outline Business Case</p>
+<p>•</p>
+<p>Design Development</p>
+<p>•</p>
+<p>Tender / Procurement</p>
+<p>•</p>
+<p>Full Business Case</p>
+<p>•</p>
+<p>Contract Award</p>
+<p>•</p>
+<p>Construction</p>
+<p>•</p>
+<p>Operation &amp; Use</p>
+<p>•</p>
+<p>Post Occupancy</p>
+<p><b>Project Life Cycle</b></p>
+<p><b>Stages</b></p>
+<p>Myers, p.95</p>
+<h1 style="page-break-before:always; "></h1>
+<p>Design </p>
+<p>Development &amp; </p>
+<p>PQQ &amp; ITT Stages </p>
+<p>&amp;</p>
+<p>Design </p>
+<p>Completion</p>
+<h1 style="page-break-before:always; "></h1>
+<h1 style="page-break-before:always; "></h1>
+<p>OGC - Project Procurement Lifecycle</p>
+<p>OGC AEC Procurement Guide 02  2007</p>
+<h1 style="page-break-before:always; "></h1>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Cost, Revenue </b></p>
+<p><b>&amp; </b></p>
+<p><b>Profit Maximisation</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Cost of Production</b></p>
+<p>“the sum of all expenses necessarily incurred in the process </p>
+<p>of creating and delivering a product or service”</p>
+<p>Expenses can include raw materials, labour, equipment, </p>
+<p>rent, overhead and marketing costs.</p>
+<p><b>What is Cost?</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Total Costs</b></p>
+<p>Fixed costs, variable costs and other costs.</p>
+<p><b>Fixed Costs</b></p>
+<p>Costs that do not vary (increase or decrease) with output.</p>
+<p><b>Variable Costs</b></p>
+<p>Costs relating to how much (the quantity) of a product that </p>
+<p>is produced (e.g raw materials)</p>
+<p><b>Marginal Cost</b></p>
+<p>The cost of producing an extra unit of the product or service</p>
+<p><b>What Types of Costs?</b></p>
+<p>Myers, p.98</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Fixed, Variable and Total Costs</b></p>
+<p>Myers, p.98</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Short Run Costs</b></p>
+<p>Short run cost curves tend to be U </p>
+<p>shaped because of diminishing returns.</p>
+<p>In the short run, capital is fixed. After a </p>
+<p>certain point, increasing extra workers </p>
+<p>leads to declining productivity. </p>
+<p>Therefore, as you employ more workers </p>
+<p>the marginal cost increases.</p>
+<p>Because the short run marginal cost curve is sloped like this, mathematically the </p>
+<p>average cost curve will be U shaped. Initially, average costs fall.  But, when </p>
+<p>marginal cost is above the average cost, then average cost starts to rise.</p>
+<p>Marginal cost always passes through the lowest point of the average cost curve.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Summary of ATC, AVC &amp; MC</b></p>
+<p>Myers, p.98</p>
+<h1 style="page-break-before:always; "></h1>
+<p>•</p>
+<p> ATC (Average Total Cost) = Total Cost / Quantity</p>
+<p>•</p>
+<p> AVC (Average Variable Cost) = Variable Cost / Quantity</p>
+<p>•</p>
+<p> AFC (Average Fixed Cost) = Fixed Cost / Quantity</p>
+<p><b>Average Total, Variable &amp; Fixed Costs</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Fixed Costs &amp; Average Total Cost &amp; Marginal Cost</b></p>
+<p>Fixed costs (FC)  remain constant.</p>
+<p>Therefore, the more you produce, the </p>
+<p>lower the average fixed costs will be.</p>
+<p>To work out the Marginal Cost (MC), </p>
+<p>you determine how much Total Cost </p>
+<p>(TC) has increased by.</p>
+<p>For example, the third unit sees TC </p>
+<p>increase from 450 to 500, therefore, </p>
+<p>the increase in MC is 50.</p>
+<p>The 12th unit sees TC rise from 1,700 </p>
+<p>to 2,400, so the MC is 700.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Summary of ATC, AVC &amp; MC</b></p>
+<p>Myers, p.98</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Revenue</b></p>
+<p>“the amount of money brought into the company, typically for selling </p>
+<p>goods, products or services”.</p>
+<p><b>Business Revenue</b></p>
+<p>“the total amount of money brought in to the company by a company’s </p>
+<p>operations, measured over a set period of time”.</p>
+<p><b>Marginal Revenue – central concept in microeconomics</b></p>
+<p>“the additional total revenue generated by increasing product sales by 1 </p>
+<p>unit or the increase in revenue from the sale of one additional unit of </p>
+<p>product”.</p>
+<p><b>Marginal revenue (MR) =  Δ TR/Δ Q</b></p>
+<p>If a firm sells an extra 50 units and sees an increase in revenue of </p>
+<p>£200. Then the marginal revenue of each extra unit sold is £4.</p>
+<p><b>What is Revenue?</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Total, Average &amp; Marginal Revenue</b></p>
+<p>This shows the price (P), quantity (Q), </p>
+<p>total revenue (TR) average revenue (AR) </p>
+<p>and marginal revenue (MR).</p>
+<p>If the firm cuts the price from £7 to £6, </p>
+<p>quantity increases to 5. Total revenue </p>
+<p>increases by two. Therefore, the </p>
+<p>marginal revenue is two.</p>
+<p>If the firm cuts price from £3 to £2, total </p>
+<p>revenue falls by six. Therefore, the </p>
+<p>marginal revenue is  -6.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Revenue Maximisation</b></p>
+<p>If a firm wished to maximise revenue, it </p>
+<p>can use marginal revenue to guide its </p>
+<p>decision. If marginal revenue is positive, </p>
+<p>the total revenue is increasing.</p>
+<p>If marginal revenue is negative, total </p>
+<p>revenue is decreasing.</p>
+<p>In this example, revenue is maximised at </p>
+<p>a quantity of 5.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Normal Profit</b></p>
+<p>“a minimum level of reward required to ensure that existing </p>
+<p>entrepreneurs are prepared to remain in their present area </p>
+<p>of production”.</p>
+<p><b>Formula:</b></p>
+<p>Profits = total revenues – total costs.</p>
+<p><b>Economists formula:</b></p>
+<p>Economic Profit = total revenues – total opportunity cost of </p>
+<p>all inputs used.</p>
+<p><b>Profit</b></p>
+<p>Myers, p.98</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Profit</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Profit Maximisation</b></p>
+<p>To maximise profits, a firm needs to </p>
+<p>consider both marginal revenue and </p>
+<p>marginal cost.</p>
+<p>If marginal revenue is greater than </p>
+<p>marginal cost, then total profits will be </p>
+<p>increasing.</p>
+<p>Profit will be maximised at the point </p>
+<p>where MR=MC</p>
+<p>In the real world, an airline may sell </p>
+<p>some last-minute tickets for a very low </p>
+<p>price. The marginal revenue may be </p>
+<p>quite low. However, the marginal cost of </p>
+<p>selling empty seats on a plane is also </p>
+<p>quite low.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Relationship Between AR &amp; MR</b></p>
+<p>If the firm is a price taker, its demand curve will be perfectly elastic. In this case, the </p>
+<p>marginal revenue will be the same as the price and average revenue.</p>
+<p>If the price is £5, then the addition to revenue (MR) for selling an extra good, will </p>
+<p>always be equal to the price £5.</p>
+<p>In perfect competition, the marginal revenue is the same as the average revenue.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Marginal Revenue in Monopoly Market</b></p>
+<p>When a firm faces a downward-sloping </p>
+<p>demand curve, then marginal revenue </p>
+<p>will be less than average revenue and </p>
+<p>can even be negative.</p>
+<p>This is because, if a firm cuts price, it gets </p>
+<p>a lower average price but also loses </p>
+<p>revenue it could otherwise have made </p>
+<p>from selling units at a higher price.</p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Marginal Revenue &amp; Elasticity</b></p>
+<p>When marginal revenue is positive. It </p>
+<p>means a cut in price will increase total </p>
+<p>revenue. This means that demand is </p>
+<p>price elastic (% change in demand </p>
+<p>greater than % change in price).</p>
+<p>However, if a firm cuts price and </p>
+<p>marginal revenue is negative (total </p>
+<p>revenue falls). This implies that demand </p>
+<p>is price inelastic. (% change in demand </p>
+<p>less than % change in price)</p>
+<p>At quantity of 6, where MR = 0, at this </p>
+<p>point, PED = 1 (unitary elasticity)</p>
+<p>This shows the elasticity of demand for a </p>
+<p>straight-line demand curve varies.</p>
+<h1 style="page-break-before:always; "></h1>
+<p>➢</p>
+<p><b> Ideas / Theory popularised by Marshall (1920) </b></p>
+<p>➢</p>
+<p>Firm should be aware of its production costs and </p>
+<p>revenue streams </p>
+<p>➢</p>
+<p>Be able to identify a specific profit maximisation </p>
+<p>provision</p>
+<p>➢</p>
+<p> This might be determined by:</p>
+<p>➢</p>
+<p>Considering profits, productivity &amp; costs relating to all </p>
+<p>types of construction activity eg. design, construction, </p>
+<p>maintenance, etc. and their involvement in specific </p>
+<p>sectors and functions </p>
+<p><b>The Construction Firm</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p>•</p>
+<p>Depends on actual size – sole trader, partnerships, </p>
+<p>limited company to public limited company (PLC)</p>
+<p>•</p>
+<p>Entrepreneurs, shareholders, managers, workers</p>
+<p>•</p>
+<p>Small, medium-sized enterprises (SME’s) &lt;250 people</p>
+<p>•</p>
+<p>Produce 99% of EU construction output</p>
+<p>•</p>
+<p>20% of EU labour force is self-employed</p>
+<p>•</p>
+<p>40% of UK labour force is self-employed</p>
+<p> </p>
+<p><b>The Structure of the Firm</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p>Limited Company</p>
+<p>–</p>
+<p>Formation (an artificially created legal person: an entity)</p>
+<p>–</p>
+<p>Limited Liability (financial liability of shareholders limited to amount paid for </p>
+<p>shares)</p>
+<p>–</p>
+<p>Transferability (buying, selling, gifting of shares is possible)</p>
+<p>–</p>
+<p>Shareholders (owners of the company) &amp; Directors (accountable to </p>
+<p>shareholders)</p>
+<p>Long Term Financing of Companies</p>
+<p>–</p>
+<p>Ordinary Shares (issued to investors who are rewarded by dividends)</p>
+<p>–</p>
+<p>Preference Shares (right to receive first slice of dividend paid)</p>
+<p>–</p>
+<p>Loan Stocks – debentures (long term borrowing with security eg. land – </p>
+<p>traded on the capital market</p>
+<p>Liquidation</p>
+<p>–</p>
+<p>Appointment of a liquidator</p>
+<p>–</p>
+<p>At the request of shareholders to realise assets – formation purpose has </p>
+<p>been served</p>
+<p>–</p>
+<p>On behalf of the company’s creditors – company fails to pay debts, creditors </p>
+<p>want non-cash assets realised with proceeds used to meet creditors claims</p>
+<p><b>Business Finance</b></p>
+<p><b>How firms are organised</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p>The role of business finance</p>
+<p>–</p>
+<p>Firms invest in ‘real assets’ or ‘financial assets’.</p>
+<p>–</p>
+<p>Decisions on types and quantity of finance to obtain &amp; choice of </p>
+<p>investment to make.</p>
+<p>–</p>
+<p>Long term commitment; not easy to reverse decision.</p>
+<p>Risk and business finance</p>
+<p>–</p>
+<p>Involves the future; prediction of future events; uncertainty.</p>
+<p>–</p>
+<p>Predict with confidence? Statistical probabilities.</p>
+<p>–</p>
+<p>Risk and return are related; minimum rate; risk premium.</p>
+<p>Relationship between business finance and accounting</p>
+<p>–</p>
+<p>Not the same thing.</p>
+<p>–</p>
+<p>An accountant will provide financial information, a finance manager will </p>
+<p>make decisions by reviewing financial information.</p>
+<p><b>Business Finance in Firms</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p>Objectives of the Firm</p>
+<p>–</p>
+<p>Profit maximisation (role of shareholders, short term v long term, differing </p>
+<p>margins, each firm or sectors cost structures &amp; expectations are different).</p>
+<p>–</p>
+<p>Maximise the return on capital employed (take account of risk and long </p>
+<p>term stability).</p>
+<p>–</p>
+<p>Survival (only a short term objective, not attractive to investors).</p>
+<p>–</p>
+<p>Long term stability (again, lack of ambition can be unattractive).</p>
+<p>–</p>
+<p>Growth of profit and assets (but not through reckless new share issue or </p>
+<p>raising new finance for short term gains).</p>
+<p>–</p>
+<p>Satisfactory return for all participants and inputs (coalition of suppliers of </p>
+<p>capital, managerial skills, labour, goods, services and customers) – Cyert &amp; </p>
+<p>March (1963).</p>
+<p>–</p>
+<p><b>Maximisation of shareholders’ wealth (takes account of both risk and </b></p>
+<p><b>return on investment simultaneously).</b></p>
+<p>Key Issues for Firms</p>
+<p>–</p>
+<p>Evidence of objectives being established.</p>
+<p>–</p>
+<p>Conflicts of interests: shareholders v managers.</p>
+<p><b>Framework for Decision Making</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p>Financing and Investment</p>
+<p>–</p>
+<p>To invest or spend – timing of spending matters to people but not in </p>
+<p>the same way.</p>
+<p>–</p>
+<p>Borrowing/lending interest rate represents the opportunity cost to the </p>
+<p>shareholder of making investments in projects.</p>
+<p>–</p>
+<p>Opportunity cost of finance – the existence of a facility to borrow or to </p>
+<p>lend means that those who have cash but do not want to spend have </p>
+<p>opportunity to lend at the interest rate as an alternative to investing.</p>
+<p>–</p>
+<p>Investments in projects must therefore compete with that opportunity </p>
+<p>and, to be desirable, produce returns in excess of the interest rate.</p>
+<p><b>Framework for Decision Making</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Opportunity Cost of Capital</b></p>
+<p>“the amount of income, or yield, forgone by giving up an </p>
+<p>investment in another firm”.</p>
+<p>Capital will not stay in firms if the rate of return falls below </p>
+<p>its opportunity cost.</p>
+<p><b>Opportunity Cost of Labour</b></p>
+<p>“the amount of income, or yield, forgone by an individual </p>
+<p>giving up the salary that they could have earned if they had </p>
+<p>worked in another company in a similar type of job”.</p>
+<p><b>Opportunity Cost</b></p>
+<p>Myers, p.98</p>
+<h1 style="page-break-before:always; "></h1>
+<p>Myers, D. (2017), Construction Economics: A New </p>
+<p>Approach, 4th Edition, Routledge.</p>
+<p>Gillespie, A. (2016), Foundations of Economics, 4th Edition, </p>
+<p>Oxford University Press.</p>
+<p><b>Reference List</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>Understanding Our Industry</b></p>
+<p><b>Sources of Information</b></p>
+<p>•</p>
+<p>Office of National Statistics (ONS) https://www.ons.gov.uk/</p>
+<p>•</p>
+<p>NI Executive https://www.northernireland.gov.uk/</p>
+<p>•</p>
+<p>Northern Ireland Statistics &amp; Research Agency https://www.nisra.gov.uk/</p>
+<p>•</p>
+<p>Northern Ireland Audit Office (NIAO) https://www.niauditoffice.gov.uk/</p>
+<p>•</p>
+<p>Construction Employers Federation https://www.cefni.co.uk/</p>
+<p>•</p>
+<p>Chartered Institute of Building (CIOB) https://www.ciob.org/</p>
+<p>•</p>
+<p>Royal Institution of Chartered Surveyors (RICS) https://www.rics.org/uk/</p>
+<p>•</p>
+<p>Construction Industry Training Board (UK) https://www.citb.co.uk/</p>
+<p>•</p>
+<p>Construction Industry Training Board(NI) https://www.citbni.org.uk/home.aspx</p>
+<p>•</p>
+<p>Federation of Master Builders https://www.fmb.org.uk/</p>
+<p>•</p>
+<p>NI Federation of Housing Associations https://nifha.org/</p>
+<p>•</p>
+<p>Constructing Excellence https://www.constructingexcellence.org.uk/</p>
+<p>•</p>
+<p>Northern Ireland Audit Office (NIAO) https://www.niauditoffice.gov.uk/</p>
+<p>•</p>
+<p>Tier One Contractors websites: Graham, Farrans, OHMG, McAleer &amp; Rushe</p>
+<h1 style="page-break-before:always; "></h1>
+<p>The first self-assessment test (40%) will be held in Week 7 </p>
+<p>on Thursday 13 March at 11.15am.</p>
+<p>Please monitor your emails and Blackboard so that you are </p>
+<p>informed of test access details throughout the course of the </p>
+<p>module.</p>
+<p>You are expected to be monitoring and picking up emails!</p>
+<p><b>Self Assessment Test</b></p>
+<p><b>Reminder!!!</b></p>
+<h1 style="page-break-before:always; "></h1>
+<p><b>ulster.ac.uk</b></p>
+<p><b>BEN130</b></p>
+<p><b>Built Environment Economics</b></p>
+<p><b>Week 4 – Supply &amp; The Construction Parties, </b></p>
+<p><b>Project Life Cycle &amp; Relationships, Cost, </b></p>
+<p><b>Revenue, Profit Maximisation &amp; Value!</b></p>
+</body>
+</html>
